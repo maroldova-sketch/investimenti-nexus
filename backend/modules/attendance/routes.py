@@ -52,7 +52,7 @@ def period_detail(period_id: str, request: Request, db: Session = Depends(get_db
     entity = db.query(Entity).filter(Entity.id == period.entity_id).first()
     members = db.query(EntityMembership).filter(EntityMembership.entity_id == period.entity_id).all()
     people = db.query(Person).filter(Person.id.in_({m.person_id for m in members}), Person.is_active==True).all()
-    emp_map = {e.person_id: e for e in db.query(Employment).filter(Employment.entity_id==period.entity_id, Employment.is_active==True).all()}
+    emp_map = {e.person_id: e for e in db.query(Employment).filter(Employment.entity_id==period.entity_id, Employment.status=="ACTIVE").all()}
     sub_map = {s.person_id: s for s in period.submissions}
     exports = db.query(PayrollExportBatch).filter(PayrollExportBatch.period_id==period_id).all()
     return templates.TemplateResponse("pages/attendance/period_detail.html", _ctx({

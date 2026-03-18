@@ -1,25 +1,25 @@
 {% extends "layouts/base.html" %}
-{% block title %}{{ p.label }}{% endblock %}
-{% block breadcrumb %}<a href="/attendance" class="text-muted text-decoration-none">Docházka</a> <span class="mx-2 text-muted">/</span> {{ p.label }}{% endblock %}
+{% block title %}{{ period.label }}{% endblock %}
+{% block breadcrumb %}<a href="/attendance" class="text-muted text-decoration-none">Docházka</a> <span class="mx-2 text-muted">/</span> {{ period.label }}{% endblock %}
 {% block page_header %}
 <div class="page-header">
   <div class="container-xl">
     <div class="d-flex align-items-center justify-content-between">
       <div>
         <div class="page-pretitle">Docházka</div>
-        <h2 class="page-title">{{ p.label }}
-          {% if p.status=='open' %}<span class="nx-badge nx-badge-warn ms-2">otevřeno</span>
-          {% elif p.status=='submitted' %}<span class="nx-badge nx-badge-info ms-2">odesláno</span>
-          {% elif p.status=='approved' %}<span class="nx-badge nx-badge-ok ms-2">schváleno</span>
-          {% elif p.status=='locked' %}<span class="nx-badge nx-badge-neutral ms-2">uzavřeno</span>
+        <h2 class="page-title">{{ period.label }}
+          {% if period.status=='open' %}<span class="nx-badge nx-badge-warn ms-2">otevřeno</span>
+          {% elif period.status=='submitted' %}<span class="nx-badge nx-badge-info ms-2">odesláno</span>
+          {% elif period.status=='approved' %}<span class="nx-badge nx-badge-ok ms-2">schváleno</span>
+          {% elif period.status=='locked' %}<span class="nx-badge nx-badge-neutral ms-2">uzavřeno</span>
           {% endif %}
         </h2>
       </div>
       <div class="d-flex gap-2">
-        {% if p.status in ('open','submitted') %}<form method="post" action="/attendance/{{ p.id }}/approve"><button class="btn btn-outline-secondary btn-sm">✓ Schválit</button></form>{% endif %}
-        {% if p.status == 'approved' %}<form method="post" action="/attendance/{{ p.id }}/lock"><button class="btn btn-outline-secondary btn-sm">🔒 Uzavřít</button></form>{% endif %}
-        {% if p.status == 'locked' %}<form method="post" action="/attendance/{{ p.id }}/export"><button class="btn btn-primary btn-sm">⬇ Export CSV</button></form>{% endif %}
-        {% if p.status != 'locked' %}<button class="btn btn-primary btn-sm" onclick="openModal('modal-add')">+ Přidat záznam</button>{% endif %}
+        {% if period.status in ('open','submitted') %}<form method="post" action="/attendance/{{ period.id }}/approve"><button class="btn btn-outline-secondary btn-sm">✓ Schválit</button></form>{% endif %}
+        {% if period.status == 'approved' %}<form method="post" action="/attendance/{{ period.id }}/lock"><button class="btn btn-outline-secondary btn-sm">🔒 Uzavřít</button></form>{% endif %}
+        {% if period.status == 'locked' %}<form method="post" action="/attendance/{{ period.id }}/export"><button class="btn btn-primary btn-sm">⬇ Export CSV</button></form>{% endif %}
+        {% if period.status != 'locked' %}<button class="btn btn-primary btn-sm" onclick="openModal('modal-add')">+ Přidat záznam</button>{% endif %}
       </div>
     </div>
   </div>
@@ -27,19 +27,19 @@
 {% endblock %}
 {% block content %}
 <div class="container-xl">
-  {% set total_gross = namespace(val=0) %}{% for s in p.submissions %}{% set total_gross.val = total_gross.val + (s.monthly_gross_kc or 0) %}{% endfor %}
+  {% set total_gross = namespace(val=0) %}{% for s in period.submissions %}{% set total_gross.val = total_gross.val + (s.gross_salary or 0) %}{% endfor %}
   <div class="row g-3 mb-4">
-    <div class="col-6 col-lg-3"><div class="card"><div class="nx-stat"><div class="nx-stat-label">Záznamy</div><div class="nx-stat-value">{{ p.submissions|length }}</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card"><div class="nx-stat"><div class="nx-stat-label">Záznamy</div><div class="nx-stat-value">{{ period.submissions|length }}</div></div></div></div>
     <div class="col-6 col-lg-3"><div class="card"><div class="nx-stat"><div class="nx-stat-label">Celkový hrubý základ</div><div class="nx-stat-value">{{ "{:,.0f}".format(total_gross.val).replace(",", " ") }} Kč</div></div></div></div>
-    <div class="col-6 col-lg-3"><div class="card"><div class="nx-stat"><div class="nx-stat-label">Entita</div><div class="nx-stat-value" style="font-size:20px">{{ p.entity.code if p.entity else '?' }}</div></div></div></div>
-    <div class="col-6 col-lg-3"><div class="card"><div class="nx-stat"><div class="nx-stat-label">Stav</div><div class="nx-stat-value" style="font-size:16px">{{ p.status }}</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card"><div class="nx-stat"><div class="nx-stat-label">Entita</div><div class="nx-stat-value" style="font-size:20px">{{ period.entity.code if period.entity else '?' }}</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card"><div class="nx-stat"><div class="nx-stat-label">Stav</div><div class="nx-stat-value" style="font-size:16px">{{ period.status }}</div></div></div></div>
   </div>
   <div class="card">
     <div class="card-header">Docházkové záznamy</div>
-    {% if p.submissions %}
+    {% if period.submissions %}
     <div class="table-responsive"><table class="table"><thead><tr><th>Zaměstnanec</th><th>Dny odprac.</th><th>Hod. základ</th><th>Hod. přesčas</th><th>Dovolená</th><th>Nemoc</th><th>Hrubá mzda</th><th>Poznámka</th></tr></thead>
     <tbody>
-      {% for s in p.submissions %}
+      {% for s in period.submissions %}
       <tr>
         <td class="fw-medium">{{ s.person.full_name if s.person else '?' }}</td>
         <td>{{ s.days_worked or '—' }}</td>
@@ -47,7 +47,7 @@
         <td>{{ s.hours_overtime or '—' }}</td>
         <td>{{ s.days_vacation or '—' }}</td>
         <td>{{ s.days_sick or '—' }}</td>
-        <td class="fw-medium">{% if s.monthly_gross_kc %}{{ "{:,.0f}".format(s.monthly_gross_kc).replace(",", " ") }} Kč{% else %}—{% endif %}</td>
+        <td class="fw-medium">{% if s.gross_salary %}{{ "{:,.0f}".format(s.gross_salary).replace(",", " ") }} Kč{% else %}—{% endif %}</td>
         <td class="text-muted" style="font-size:11.5px">{{ s.notes or '—' }}</td>
       </tr>
       {% endfor %}
@@ -58,16 +58,17 @@
 <div id="modal-add" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:10px;padding:24px;width:440px">
     <div class="d-flex justify-content-between align-items-center mb-3"><h3 style="font-size:16px;font-weight:600;margin:0">Přidat záznam</h3><button class="btn btn-ghost btn-sm" onclick="closeModal('modal-add')">✕</button></div>
-    <form method="post" action="/attendance/{{ p.id }}/submission">
+    <form method="post" action="/attendance/{{ period.id }}/save-row">
       <div class="mb-3"><label class="form-label">Zaměstnanec *</label><select name="person_id" class="form-select" required>{% for per in people %}<option value="{{ per.id }}">{{ per.full_name }}</option>{% endfor %}</select></div>
       <div class="row g-2 mb-3">
         <div class="col-4"><label class="form-label">Dny odprac.</label><input type="number" name="days_worked" class="form-control" placeholder="21"></div>
-        <div class="col-4"><label class="form-label">Hod. základ</label><input type="number" name="hours_regular" class="form-control" step="0.5" placeholder="168"></div>
-        <div class="col-4"><label class="form-label">Hod. přesčas</label><input type="number" name="hours_overtime" class="form-control" step="0.5" placeholder="0"></div>
+        <div class="col-4"><label class="form-label">Hod. základ</label><input type="number" name="hours_worked" class="form-control" step="0.5" placeholder="168"></div>
+        <div class="col-4"><label class="form-label">Hod. přesčas</label><input type="number" name="hours_overtime_ignored" disabled class="form-control" step="0.5" placeholder="0"></div>
         <div class="col-6"><label class="form-label">Dovolená (dny)</label><input type="number" name="days_vacation" class="form-control" placeholder="0"></div>
         <div class="col-6"><label class="form-label">Nemoc (dny)</label><input type="number" name="days_sick" class="form-control" placeholder="0"></div>
       </div>
-      <div class="mb-3"><label class="form-label">Poznámka</label><input type="text" name="notes" class="form-control"></div>
+      <div class="mb-3"><label class="form-label">Hrubá mzda (Kč)</label><input type="number" name="gross_salary" class="form-control" placeholder="35000" step="1"></div>
+      <div class="mb-3"><label class="form-label">Poznámka</label><input type="text" name="note" class="form-control"></div>
       <div class="d-flex gap-2 justify-content-end"><button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeModal('modal-add')">Zrušit</button><button type="submit" class="btn btn-primary btn-sm">Uložit</button></div>
     </form>
   </div>

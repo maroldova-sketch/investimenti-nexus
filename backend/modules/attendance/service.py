@@ -141,7 +141,7 @@ def generate_payroll_export(db: Session, period_id: str, actor_id: str, actor_em
     rows = []
     total_gross = 0.0
     for s in period.submissions:
-        gross = float(s.monthly_gross_kc or 0)
+        gross = float(s.gross_salary or 0)
         total_gross += gross
         rows.append({
             "person_id": s.person_id,
@@ -149,12 +149,12 @@ def generate_payroll_export(db: Session, period_id: str, actor_id: str, actor_em
             "entity": period.entity.code if period.entity else "",
             "period": f"{period.year}-{period.month:02d}",
             "days_worked": s.days_worked or "",
-            "hours_regular": float(s.hours_regular or 0),
-            "hours_overtime": float(s.hours_overtime or 0),
+            "hours_worked": float(s.hours_worked or 0),
+            "hours_overtime": 0,
             "days_vacation": s.days_vacation or 0,
             "days_sick": s.days_sick or 0,
-            "monthly_gross_kc": gross,
-            "notes": s.notes or "",
+            "gross_salary": gross,
+            "note": s.note or "",
         })
 
     # Write CSV
