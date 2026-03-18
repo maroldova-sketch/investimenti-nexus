@@ -1,0 +1,57 @@
+{% extends "layouts/base.html" %}
+{% block title %}Duplikáty — sloučení{% endblock %}
+{% block breadcrumb %}Lidé / Sloučení{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">HR</div>
+      <h2 class="page-title">Duplikáty — sloučení</h2>
+    </div>
+    <div class="col-auto">
+      <span class="badge bg-warning text-dark">{{ total }} párů ke kontrole</span>
+    </div>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+{% if candidates %}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead><tr><th>Záznam A</th><th>Záznam B</th><th>Důvod</th><th>Skóre</th><th></th></tr></thead>
+      <tbody>
+      {% for c in candidates %}
+      <tr>
+        <td>
+          <div class="fw-medium">{{ c.a.last_name }} {{ c.a.first_name }}</div>
+          <div style="font-size:11px;color:#9ba3af">{{ c.a.rod_cislo or '—' }} | {{ c.a.source_holding or 'starý záznam' }}</div>
+        </td>
+        <td>
+          <div class="fw-medium">{{ c.b.last_name }} {{ c.b.first_name }}</div>
+          <div style="font-size:11px;color:#9ba3af">{{ c.b.rod_cislo or '—' }} | {{ c.b.source_holding or 'starý záznam' }}</div>
+        </td>
+        <td style="font-size:12px;color:#6b7280">{{ c.reasons | join(', ') }}</td>
+        <td>
+          <span class="nx-badge {% if c.score >= 50 %}nx-badge-err{% elif c.score >= 30 %}nx-badge-warn{% else %}nx-badge-neutral{% endif %}">
+            {{ c.score }}
+          </span>
+        </td>
+        <td>
+          <a href="/people/merge/{{ c.a.id }}/{{ c.b.id }}" class="btn btn-sm btn-outline-primary">Porovnat →</a>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="nx-empty">
+  <div class="nx-empty-title">Žádné duplikáty</div>
+  <div class="nx-empty-sub">Databáze je čistá.</div>
+</div>
+{% endif %}
+</div>
+{% endblock %}

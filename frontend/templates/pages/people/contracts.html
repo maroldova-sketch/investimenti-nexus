@@ -1,0 +1,189 @@
+{% extends "layouts/base.html" %}
+{% block title %}Smlouvy — {{ person.last_name }} {{ person.first_name }}{% endblock %}
+{% block breadcrumb %}Lidé / {{ person.last_name }} / Smlouvy{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">HR — Smluvní vztahy</div>
+      <h2 class="page-title">{{ person.last_name }} {{ person.first_name }}</h2>
+    </div>
+    <div class="col-auto">
+      <a href="/people/{{ person.id }}" class="btn btn-outline-secondary btn-sm">← Profil</a>
+      <button class="btn btn-primary btn-sm ms-2" onclick="document.getElementById('modal-contract').style.display='flex'">+ Smlouva</button>
+    </div>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+
+{% if contracts %}
+<div class="row g-3 mb-4">
+{% for c in contracts %}
+<div class="col-md-6">
+  <div class="card h-100" style="border-left:3px solid {% if c.is_current %}#2fb344{% else %}#9ba3af{% endif %}">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+          <span class="nx-badge {% if c.is_current %}nx-badge-ok{% else %}nx-badge-neutral{% endif %} me-2">{{ c.contract_type }}</span>
+          {% if c.position_title %}<span class="fw-medium">{{ c.position_title }}</span>{% endif %}
+        </div>
+        {% if c.is_current %}
+        <form method="post" action="/people/{{ person.id }}/contracts/{{ c.id }}/deactivate">
+          <button type="submit" class="btn btn-ghost btn-sm" style="font-size:11px;color:#9ba3af">Ukončit</button>
+        </form>
+        {% endif %}
+      </div>
+
+      <div class="row g-2" style="font-size:13px">
+        <div class="col-6">
+          <div class="text-muted" style="font-size:11px">Entita</div>
+          <div>{{ c.entity.code if c.entity else '—' }}</div>
+        </div>
+        <div class="col-6">
+          <div class="text-muted" style="font-size:11px">Platnost</div>
+          <div>{{ c.valid_from or '?' }} — {{ c.valid_to or 'otevřeno' }}</div>
+        </div>
+        <div class="col-6">
+          <div class="text-muted" style="font-size:11px">Odměna</div>
+          <div class="fw-semibold">
+            {% if c.salary_amount %}
+              {{ "{:,.0f}".format(c.salary_amount) }} Kč
+              {% if c.salary_type == 'monthly' %}/měs{% elif c.salary_type == 'hourly' %}/hod{% endif %}
+            {% elif c.hourly_rate %}
+              {{ "{:,.0f}".format(c.hourly_rate) }} Kč/hod
+            {% else %}—{% endif %}
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="text-muted" style="font-size:11px">Úvazek</div>
+          <div>{{ c.weekly_hours or '?' }} h/týden {% if c.is_full_time %}(plný){% else %}(částečný){% endif %}</div>
+        </div>
+        {% if c.meal_voucher %}
+        <div class="col-6">
+          <div class="text-muted" style="font-size:11px">Stravenky</div>
+          <div>{{ "{:,.0f}".format(c.meal_voucher_amount) if c.meal_voucher_amount else 'Ano' }} Kč/den</div>
+        </div>
+        {% endif %}
+        {% if c.contract_number %}
+        <div class="col-6">
+          <div class="text-muted" style="font-size:11px">Č. smlouvy</div>
+          <div>{{ c.contract_number }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+</div>
+{% else %}
+<div class="nx-empty mb-4">
+  <div class="nx-empty-title">Žádné smlouvy</div>
+  <div class="nx-empty-sub">Přidejte první smluvní vztah.</div>
+</div>
+{% endif %}
+
+</div>
+
+{# MODAL #}
+<div id="modal-contract" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--color-background-primary);border-radius:12px;padding:24px;width:520px;max-height:85vh;overflow-y:auto">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 style="font-size:16px;font-weight:600;margin:0">Nová smlouva</h3>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-contract').style.display='none'">✕</button>
+    </div>
+    <form method="post" action="/people/{{ person.id }}/contracts/new">
+      <div class="row g-3">
+        <div class="col-sm-6">
+          <label class="form-label">Typ smlouvy *</label>
+          <select name="contract_type" class="form-select" required>
+            {% for val, label in contract_types %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label">Entita *</label>
+          <select name="entity_id" class="form-select" required>
+            {% for e in entities %}<option value="{{ e.id }}">{{ e.code }} — {{ e.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Pracovní pozice</label>
+          <input name="position_title" class="form-control" value="{{ person.position or '' }}">
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label">Oddělení</label>
+          <input name="department" class="form-control" value="{{ person.department or '' }}">
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label">Místo výkonu</label>
+          <input name="work_location" class="form-control" value="{{ person.work_location or '' }}">
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label">Typ odměny</label>
+          <select name="salary_type" class="form-select">
+            {% for val, label in salary_types %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label">Výše odměny (Kč)</label>
+          <input name="salary_amount" type="number" step="0.01" class="form-control" placeholder="napr. 35000">
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label">Hodinová sazba (Kč/hod)</label>
+          <input name="hourly_rate" type="number" step="0.01" class="form-control" placeholder="jen pokud hodinová">
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label">Týdenní úvazek (hodin)</label>
+          <input name="weekly_hours" type="number" step="0.5" class="form-control" placeholder="40">
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label">Platnost od</label>
+          <input name="valid_from" type="date" class="form-control">
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label">Platnost do (prázdné = neurčito)</label>
+          <input name="valid_to" type="date" class="form-control">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Číslo smlouvy</label>
+          <input name="contract_number" class="form-control">
+        </div>
+        <div class="col-sm-4">
+          <div class="form-check mt-2">
+            <input class="form-check-input" type="checkbox" name="meal_voucher" id="meal_voucher">
+            <label class="form-check-label" for="meal_voucher">Stravenky</label>
+          </div>
+        </div>
+        <div class="col-sm-4">
+          <label class="form-label">Hodnota stravenek (Kč)</label>
+          <input name="meal_voucher_amount" type="number" class="form-control" placeholder="180">
+        </div>
+        <div class="col-sm-4">
+          <label class="form-label">Příspěvek doprava (Kč)</label>
+          <input name="transport_allowance" type="number" class="form-control">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Poznámka</label>
+          <textarea name="notes" class="form-control" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="d-flex gap-2 justify-content-end mt-3">
+        <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('modal-contract').style.display='none'">Zrušit</button>
+        <button type="submit" class="btn btn-primary">Uložit smlouvu</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('modal-contract').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-contract'))
+    document.getElementById('modal-contract').style.display = 'none';
+});
+</script>
+{% endblock %}
