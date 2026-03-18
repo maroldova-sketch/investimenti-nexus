@@ -8,14 +8,12 @@ def get_all_vehicles(db: Session) -> list[Vehicle]:
     return db.query(Vehicle).options(
         joinedload(Vehicle.assignments).joinedload(VehicleAssignment.person),
         joinedload(Vehicle.fuel_cards),
-        joinedload(Vehicle.events),
     ).order_by(Vehicle.make, Vehicle.model).all()
 
 def get_vehicle(db: Session, vehicle_id: str) -> Vehicle | None:
     return db.query(Vehicle).options(
         joinedload(Vehicle.assignments).joinedload(VehicleAssignment.person),
         joinedload(Vehicle.fuel_cards),
-        joinedload(Vehicle.events),
         joinedload(Vehicle.odometer_readings),
         joinedload(Vehicle.fuel_transactions).joinedload(FuelTransactionStaging.person),
     ).filter(Vehicle.id == vehicle_id).first()
@@ -96,12 +94,26 @@ def add_phm_transaction(db: Session, data: dict) -> FuelTransactionStaging:
     db.add(t); db.commit(); db.refresh(t)
     return t
 
-def log_event(db: Session, vehicle_id: str, event_type: str, date_str: str,
-              description: str = None, cost_kc: int = None, user_id: str = None):
-    ev = FleetEvent(vehicle_id=vehicle_id, event_type=event_type, event_date=date_str,
-                    description=description, cost_kc=cost_kc, created_by_id=user_id)
-    db.add(ev); db.commit(); db.refresh(ev)
-    return ev
+def log_event(db, vehicle_id, event_type, event_date, description=None, cost_kc=None, created_by_id=None):
+    import uuid as _uuid
+    from datetime import datetime as _dt
+    from sqlalchemy import text as _text
+    date_str = event_date if isinstance(event_date, str) else str(event_date)
+    # Normalize event_type — accept both enum value and raw string
+    from .models import FleetEventType
+    et_val = event_type
+    if hasattr(event_type, 'value'):
+        et_val = event_type.value
+    # Check it's a valid enum value
+    valid = {e.value for e in FleetEventType}
+    if et_val not in valid:
+        et_val = 'Jiné'
+    db.execute(_text("""
+        INSERT INTO fleet_event (id, vehicle_id, event_type, event_date, description, cost_kc, created_by_id, created_at)
+        VALUES (:id, :vid, :et, :ed, :desc, :cost, :cby, :now)
+    """), {'id': str(_uuid.uuid4()), 'vid': vehicle_id, 'et': et_val, 'ed': date_str,
+           'desc': description, 'cost': cost_kc, 'cby': created_by_id, 'now': _dt.now()})
+    db.commit()
 
 def change_driver(db: Session, vehicle_id: str, new_person_id: str,
                   date_from: str, reason: str = None, changed_by_id: str = None):
