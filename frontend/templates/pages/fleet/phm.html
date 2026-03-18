@@ -1,0 +1,76 @@
+{% extends "layouts/base.html" %}
+{% block title %}PHM – Přehled vozidel{% endblock %}
+{% block breadcrumb %}<a href="/fleet" class="text-muted text-decoration-none">Fleet</a> / PHM{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div><div class="page-pretitle">Fleet</div><h2 class="page-title">PHM – vozidla &amp; řidiči</h2></div>
+    <span class="text-muted" style="font-size:12px">05/2025 – 03/2026</span>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-sm-3"><div class="card card-sm"><div class="card-body"><div class="subheader">Vozidel</div><div class="h2 mt-1 mb-0">{{ vlist|length }}</div></div></div></div>
+    <div class="col-6 col-sm-3"><div class="card card-sm"><div class="card-body"><div class="subheader">Celkem Kč</div><div class="h2 mt-1 mb-0">{{ "{:,.0f}".format(total_kc).replace(",", "\u00a0") }}</div></div></div></div>
+    <div class="col-6 col-sm-3"><div class="card card-sm"><div class="card-body"><div class="subheader">Celkem litrů</div><div class="h2 mt-1 mb-0">{{ "{:,.0f}".format(total_litry).replace(",", "\u00a0") }}</div></div></div></div>
+    <div class="col-6 col-sm-3"><div class="card card-sm"><div class="card-body"><div class="subheader">Tankování</div><div class="h2 mt-1 mb-0">{{ total_txn }}</div></div></div></div>
+  </div>
+  <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+    <a href="/fleet/phm?sort={{ sort }}" class="btn btn-sm {% if not entity %}btn-primary{% else %}btn-outline-secondary{% endif %}">Vše</a>
+    {% for e in entities %}<a href="/fleet/phm?entity={{ e }}&sort={{ sort }}" class="btn btn-sm {% if entity == e %}btn-primary{% else %}btn-outline-secondary{% endif %}">{{ e }}</a>{% endfor %}
+    <div class="ms-auto d-flex gap-1 align-items-center">
+      <span class="text-muted me-1" style="font-size:12px">Řadit:</span>
+      <a href="/fleet/phm?{% if entity %}entity={{ entity }}&{% endif %}sort=kc" class="btn btn-sm {% if sort=='kc' %}btn-dark{% else %}btn-outline-secondary{% endif %}">Kč ↓</a>
+      <a href="/fleet/phm?{% if entity %}entity={{ entity }}&{% endif %}sort=litry" class="btn btn-sm {% if sort=='litry' %}btn-dark{% else %}btn-outline-secondary{% endif %}">Litry</a>
+      <a href="/fleet/phm?{% if entity %}entity={{ entity }}&{% endif %}sort=spz" class="btn btn-sm {% if sort=='spz' %}btn-dark{% else %}btn-outline-secondary{% endif %}">SPZ</a>
+    </div>
+  </div>
+  <div class="row g-3">
+  {% for v in vlist %}{% set pct = (v.total_kc / max_kc * 100) | round(1) %}
+    <div class="col-12 col-md-6 col-xl-4">
+      <div class="card h-100" style="cursor:pointer" onclick="this.querySelector('.phm-months').classList.toggle('d-none')">
+        <div class="card-body pb-2">
+          <div class="d-flex align-items-start justify-content-between gap-2">
+            <div class="flex-grow-1 min-w-0">
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <code style="font-size:13px;font-weight:600">{% if v.spz == '—' %}<span class="text-muted fst-italic">SPZ neznámá</span>{% else %}{{ v.spz }}{% endif %}</code>
+                <span class="nx-badge nx-badge-neutral" style="font-size:10px">{{ v.entita }}</span>
+              </div>
+              <div class="text-muted" style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.vozidlo }}</div>
+              <div class="fw-medium mt-1" style="font-size:13px">{{ v.ridic }}</div>
+            </div>
+            <div class="text-end flex-shrink-0">
+              <div class="fw-bold" style="font-size:15px">{{ "{:,.0f}".format(v.total_kc).replace(",", "\u00a0") }} Kč</div>
+              <div class="text-muted" style="font-size:11px">{{ "{:,.1f}".format(v.total_litry).replace(",", ".") }} L &middot; {{ v.total_txn }}&times;</div>
+            </div>
+          </div>
+          <div class="progress mt-2" style="height:3px;border-radius:2px">
+            <div class="progress-bar {% if v.entita == 'LOGPACK' %}bg-success{% elif v.entita == 'VZC' %}bg-primary{% else %}bg-warning{% endif %}" style="width:{{ pct }}%"></div>
+          </div>
+        </div>
+        <div class="phm-months d-none" style="border-top:1px solid var(--tblr-border-color)">
+          <div class="card-body pt-2 pb-2">
+            <div class="subheader mb-2">Měsíční přehled</div>
+            <div class="row g-2">
+            {% set mesice = ['Led','Úno','Bře','Dub','Kvě','Čvn','Čvc','Srp','Zář','Říj','Lis','Pro'] %}
+            {% for m in v.months %}
+              <div class="col-6 col-sm-4">
+                <div style="background:var(--tblr-bg-surface-secondary);border:1px solid var(--tblr-border-color);border-radius:6px;padding:6px 9px">
+                  <div style="font-size:10px;color:var(--tblr-muted);text-transform:uppercase;letter-spacing:.05em;font-family:monospace">{{ mesice[m.mo - 1] }} {{ m.yr }}</div>
+                  <div style="font-size:13px;font-weight:600;margin-top:2px;font-family:monospace">{{ "{:,.0f}".format(m.kc).replace(",", "\u00a0") }} Kč</div>
+                  <div style="font-size:11px;color:var(--tblr-muted)">{{ "{:,.1f}".format(m.litry).replace(",", ".") }} L &middot; {{ m.txn }}&times;</div>
+                </div>
+              </div>
+            {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% else %}<div class="col-12"><div class="nx-empty"><div class="nx-empty-title">Žádná data</div></div></div>
+  {% endfor %}
+  </div>
+</div>
+{% endblock %}

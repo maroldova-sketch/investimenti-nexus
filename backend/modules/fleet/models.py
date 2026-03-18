@@ -175,7 +175,7 @@ class FleetEvent(Base):
     __tablename__ = "fleet_event"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     vehicle_id: Mapped[str] = mapped_column(String(36), ForeignKey("vehicle.id"), index=True)
-    event_type: Mapped[str] = mapped_column(SAEnum(FleetEventType))
+    event_type: Mapped[str] = mapped_column(SAEnum(FleetEventType, native_enum=False, values_callable=lambda x: [e.value for e in x]))
     event_date: Mapped[str] = mapped_column(String(10))
     description: Mapped[str | None] = mapped_column(Text)
     cost_kc: Mapped[int | None] = mapped_column(Integer)

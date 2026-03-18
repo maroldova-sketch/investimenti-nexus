@@ -72,6 +72,54 @@ def fleet_board(request: Request, db: Session = Depends(get_db),
     })
 
 
+@router.get('/phm', response_class=HTMLResponse)
+def phm_overview(request: Request, entity: str = None, sort: str = 'kc',
+                 db: Session = Depends(get_db),
+                 current_user: CurrentUser = Depends(get_current_user)):
+    from sqlalchemy import text as _t
+    rows = db.execute(_t('''
+        SELECT v.id, v.spz, v.make || ' ' || v.model,
+               e.code, COALESCE(p.first_name || ' ' || p.last_name, NULL),
+               ft.year, ft.month, COUNT(*), ROUND(SUM(ft.liters_total),1), ROUND(SUM(ft.amount_total),0)
+        FROM fuel_transaction ft
+        JOIN vehicle v ON v.id=ft.vehicle_id
+        JOIN entity e ON e.id=v.entity_id
+        LEFT JOIN vehicle_assignment va ON va.vehicle_id=v.id AND va.date_to IS NULL
+        LEFT JOIN person p ON p.id=va.person_id
+        GROUP BY v.id, ft.year, ft.month
+        ORDER BY v.spz NULLS LAST, ft.year, ft.month
+    ''')).fetchall()
+    vehicles = {}
+    for r in rows:
+        key = r[0]
+        if key not in vehicles:
+            vehicles[key] = dict(veh_id=r[0], spz=r[1] or '—', vozidlo=r[2],
+                                 entita=r[3], ridic=r[4] or '—',
+                                 total_kc=0.0, total_litry=0.0, total_txn=0, months=[])
+        v = vehicles[key]
+        v['total_kc'] += float(r[9] or 0)
+        v['total_litry'] += float(r[8] or 0)
+        v['total_txn'] += int(r[7])
+        v['months'].append(dict(yr=r[5], mo=r[6], txn=r[7], litry=float(r[8] or 0), kc=float(r[9] or 0)))
+    vlist = list(vehicles.values())
+    if entity:
+        vlist = [v for v in vlist if v['entita'] == entity]
+    if sort == 'litry':
+        vlist.sort(key=lambda v: -v['total_litry'])
+    elif sort == 'spz':
+        vlist.sort(key=lambda v: v['spz'])
+    else:
+        vlist.sort(key=lambda v: -v['total_kc'])
+    max_kc = max((v['total_kc'] for v in vlist), default=1)
+    entities_list = db.execute(_t('SELECT code FROM entity ORDER BY code')).scalars().all()
+    return templates.TemplateResponse('pages/fleet/phm.html', dict(
+        request=request, current_user=current_user,
+        vlist=vlist, entity=entity, sort=sort, max_kc=max_kc,
+        total_kc=sum(v['total_kc'] for v in vlist),
+        total_litry=sum(v['total_litry'] for v in vlist),
+        total_txn=sum(v['total_txn'] for v in vlist),
+        entities=entities_list,
+    ))
 @router.get("/{vehicle_id}", response_class=HTMLResponse)
 def vehicle_detail(vehicle_id: str, request: Request, db: Session = Depends(get_db),
                    current_user: CurrentUser = Depends(get_current_user)):
@@ -135,3 +183,5 @@ def edit_vehicle(vehicle_id: str, spz: str = Form(None), stk_valid_to: str = For
     db.commit()
     audit(db, "UPDATE", "vehicle", vehicle_id, current_user.id, current_user.email)
     return RedirectResponse(f"/fleet/{vehicle_id}", status_code=303)
+
+
