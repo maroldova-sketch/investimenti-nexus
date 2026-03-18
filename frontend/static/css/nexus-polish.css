@@ -1,0 +1,370 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   NEXUS-POLISH.CSS  — Wave UI Polish
+   Donor: Tabler Admin 1.4.0 patterns
+   Layer: sits on top of nexus.css, does not replace it
+   Principle: structure, spacing, consistency — not decoration
+═══════════════════════════════════════════════════════════════════════ */
+
+/* ── SPACING TOKENS ─────────────────────────────────────────────────── */
+:root {
+  --nx-space-xs:   4px;
+  --nx-space-sm:   8px;
+  --nx-space-md:   16px;
+  --nx-space-lg:   24px;
+  --nx-space-xl:   32px;
+
+  --nx-radius-sm:  4px;
+  --nx-radius-md:  8px;
+  --nx-radius-lg:  12px;
+
+  --nx-stat-number-size: 2rem;    /* stat card big number — never wraps */
+  --nx-table-cell-pad:   9px 12px;
+}
+
+/* ── LAYOUT — page wrapper ──────────────────────────────────────────── */
+.page-wrapper {
+  padding-top: 0 !important;
+}
+
+.page-body {
+  padding-top: var(--nx-space-md) !important;
+  padding-bottom: var(--nx-space-xl) !important;
+  min-height: calc(100vh - 52px);
+}
+
+/* ── PAGE HEADER — normalized ──────────────────────────────────────── */
+/* Donor: Tabler Admin index.html page-header pattern */
+.page-header {
+  padding: 14px 0 !important;
+  margin-bottom: 20px !important;
+}
+
+.page-header .container-xl {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+}
+
+.page-title {
+  font-size: 19px !important;
+  font-weight: 600 !important;
+  margin: 0 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60vw;
+}
+
+.page-pretitle {
+  font-size: 10.5px !important;
+  margin-bottom: 1px !important;
+}
+
+/* ── STAT CARDS — normalized + Tabler Admin KPI pattern ─────────────── */
+/* Donor: Tabler Admin widgets.html subheader+h1 pattern */
+
+/* Card grid row normalization */
+.nx-stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--nx-space-md);
+  margin-bottom: var(--nx-space-md);
+}
+
+.nx-stat-row .card {
+  flex: 1 1 160px;
+  min-width: 130px;
+  max-width: 240px;
+}
+
+/* Equal height stat cards in standard Bootstrap row */
+.row.g-3 .card.nx-stat-wrap,
+[class*="col"] .card.nx-stat-wrap {
+  height: 100%;
+}
+
+/* Normalized stat card internals */
+.nx-stat {
+  padding: 14px 18px !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 82px;
+}
+
+.nx-stat-label {
+  font-size: 10.5px !important;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--nx-muted);
+  font-weight: 600 !important;
+  margin-bottom: 5px !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nx-stat-value {
+  font-size: var(--nx-stat-number-size) !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  white-space: nowrap;          /* BIG FIX: numbers never wrap */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nx-stat-sub {
+  font-size: 11.5px !important;
+  margin-top: 5px !important;
+  line-height: 1.3;
+}
+
+/* Stat accent top-border from Tabler Admin */
+.nx-stat-wrap.danger  { border-top: 2px solid var(--nx-err); }
+.nx-stat-wrap.warning { border-top: 2px solid var(--nx-warn); }
+.nx-stat-wrap.success { border-top: 2px solid var(--nx-ok); }
+.nx-stat-wrap.info    { border-top: 2px solid var(--nx-info); }
+
+/* ── FILTER BAR — normalized ─────────────────────────────────────────── */
+/* Donor: Tabler Admin datatables.html toolbar pattern */
+.nx-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-sm);
+  flex-wrap: wrap;
+  margin-bottom: var(--nx-space-md);
+  padding: 10px 0;
+}
+
+.nx-filter-bar .form-control,
+.nx-filter-bar .form-select {
+  height: 32px;
+  padding: 4px 10px;
+  font-size: 12.5px;
+}
+
+.nx-filter-bar .btn {
+  height: 32px;
+  padding: 4px 12px;
+  font-size: 12.5px;
+  line-height: 1;
+}
+
+.nx-filter-count {
+  font-size: 12px;
+  color: var(--nx-muted);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* ── TABLE — normalized ─────────────────────────────────────────────── */
+/* Donor: Tabler Admin tables.html / datatables.html */
+.table thead th {
+  padding: var(--nx-table-cell-pad) !important;
+  background: #fafbfc !important;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.table tbody td {
+  padding: var(--nx-table-cell-pad) !important;
+  vertical-align: middle !important;
+}
+
+/* Clickable row cursor is set inline — we add hover here */
+.table tbody tr:hover td {
+  background: #f8f9fb;
+}
+
+/* Numeric columns */
+.col-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ── CARD — normalized ─────────────────────────────────────────────── */
+.card {
+  margin-bottom: 0 !important; /* let gap/grid handle spacing */
+}
+
+.card + .card {
+  margin-top: var(--nx-space-md);
+}
+
+.card-header {
+  padding: 11px 16px !important;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.card-header.d-flex {
+  justify-content: space-between;
+}
+
+/* ── SECTION SPACING ────────────────────────────────────────────────── */
+/* Consistent vertical gap between sections */
+.nx-section {
+  margin-bottom: var(--nx-space-lg);
+}
+
+.nx-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--nx-muted);
+  margin-bottom: var(--nx-space-sm);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--nx-border);
+}
+
+/* ── SIDEBAR — polish ────────────────────────────────────────────────── */
+/* Collapse redundant section separators into one clean system */
+.navbar-vertical .navbar-nav {
+  padding-top: 4px;
+  padding-bottom: 16px;
+}
+
+.navbar-vertical .navbar-nav .nav-link {
+  padding: 6px 20px !important;
+  border-radius: 4px;
+  margin: 0 6px;
+  gap: 9px;
+}
+
+.navbar-vertical .navbar-nav .nav-link.active,
+.navbar-vertical .navbar-nav .nav-item.active > .nav-link {
+  padding-left: 18px !important;
+  margin: 0 6px;
+  border-radius: 4px;
+}
+
+/* ── MODAL — normalized ─────────────────────────────────────────────── */
+[id^="modal-"] {
+  padding-top: 48px !important;
+}
+
+[id^="modal-"] > div {
+  border-radius: var(--nx-radius-lg) !important;
+  padding: 22px !important;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+[id^="modal-"] h3 {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  margin: 0 !important;
+}
+
+/* ── DETAIL PAGE — side column cards ───────────────────────────────── */
+.nx-detail-meta {
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.nx-detail-meta .nx-meta-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--nx-muted);
+  display: block;
+  margin-top: 10px;
+  margin-bottom: 1px;
+}
+
+.nx-detail-meta .nx-meta-label:first-child { margin-top: 0; }
+
+/* ── ALERT BANNER — tighter ─────────────────────────────────────────── */
+.nx-alert {
+  padding: 10px 14px !important;
+  font-size: 12.5px !important;
+  border-radius: 6px !important;
+}
+
+/* ── EMPTY STATE — centered ─────────────────────────────────────────── */
+.nx-empty {
+  padding: 40px 24px !important;
+}
+
+/* ── BREADCRUMB ─────────────────────────────────────────────────────── */
+.page-header .breadcrumb {
+  font-size: 12px;
+  color: var(--nx-muted);
+  margin-top: 3px;
+}
+
+/* ── ROW ACTION BUTTONS ─────────────────────────────────────────────── */
+/* Donor: Tabler Admin compact row actions */
+.nx-row-actions {
+  display: flex;
+  gap: 2px;
+  justify-content: flex-end;
+}
+
+.nx-row-actions .btn-ghost {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--nx-radius-sm);
+  font-size: 13px;
+}
+
+/* ── TOP SUMMARY STRIP ──────────────────────────────────────────────── */
+/* Donor: Tabler Admin uptime.html / stats strip */
+.nx-top-strip {
+  display: flex;
+  gap: var(--nx-space-md);
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--nx-card);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius-md);
+  margin-bottom: var(--nx-space-md);
+}
+
+.nx-top-strip .nx-strip-item {
+  display: flex;
+  flex-direction: column;
+  min-width: 80px;
+}
+
+.nx-top-strip .nx-strip-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--nx-muted);
+  font-weight: 600;
+}
+
+.nx-top-strip .nx-strip-value {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+/* ── UTILITY ────────────────────────────────────────────────────────── */
+.g-2 { gap: var(--nx-space-sm) !important; }
+.g-3 { gap: var(--nx-space-md) !important; }
+.mt-nx { margin-top: var(--nx-space-md); }
+
+/* Monospace for codes/IDs */
+.mono { font-family: "SF Mono","Consolas","Fira Mono",monospace; font-size: 11px; }
+
+/* Tighten Bootstrap row gaps on stat card rows */
+.row.g-2 > [class*="col"] { padding-bottom: 0; }
+
+/* Focus visible for accessibility */
+.btn:focus-visible {
+  outline: 2px solid var(--nx-accent);
+  outline-offset: 2px;
+}
+
