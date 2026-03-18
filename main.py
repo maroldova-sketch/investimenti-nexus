@@ -14,6 +14,7 @@ from backend.modules.attendance.routes import router as attendance_router
 from backend.modules.staging.routes import router as staging_router
 from backend.modules.fleet.driver_routes import router as driver_router
 from backend.modules.fleet.deduction_routes import router as deduction_router
+from backend.modules.fleet.completion_routes import router as completion_router
 from backend.modules.notifications.routes import router as notifications_router
 from backend.modules.fleet.trip_routes import router as trip_router
 from backend.modules.axigon.routes import router as axigon_router
@@ -30,6 +31,7 @@ app.include_router(auth_router)
 app.include_router(calendar_router)
 app.include_router(notifications_router)
 app.include_router(axigon_router)
+app.include_router(completion_router)
 app.include_router(deduction_router)
 app.include_router(driver_router)
 app.include_router(fleet_router)

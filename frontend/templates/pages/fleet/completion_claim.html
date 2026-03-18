@@ -1,0 +1,90 @@
+{% extends "layouts/base.html" %}
+{% block title %}Doplnit PJ — {{ claim.spz }}{% endblock %}
+{% block breadcrumb %}Fleet / Doplnění dat / {{ claim.spz }}{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Pojistná událost</div>
+      <h2 class="page-title">{{ claim.spz }} — {{ claim.make }} {{ claim.model }}</h2>
+    </div>
+    <div class="col-auto"><a href="/fleet/completion" class="btn btn-outline-secondary btn-sm">← Zpět</a></div>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+<div class="row justify-content-center">
+<div class="col-md-8">
+
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="row g-3" style="font-size:13px">
+      <div class="col-sm-4"><div class="text-muted">CPU ref.</div><div class="fw-medium">{{ claim.insurer_ref or '—' }}</div></div>
+      <div class="col-sm-4"><div class="text-muted">Datum události</div><div>{{ claim.claim_date or '?' }}</div></div>
+      <div class="col-sm-4"><div class="text-muted">Entita</div><div>{{ claim.entity_code or '—' }}</div></div>
+      <div class="col-sm-6"><div class="text-muted">Faktura celkem</div>
+        <div class="fw-semibold" style="font-size:16px">
+          {% if claim.amount_claimed %}{{ "{:,.0f}".format(claim.amount_claimed) }} Kč{% else %}—{% endif %}
+        </div>
+      </div>
+      <div class="col-sm-6"><div class="text-muted">Současné plnění</div>
+        <div class="fw-semibold" style="font-size:16px">
+          {% if claim.amount_settled %}<span class="text-green">{{ "{:,.0f}".format(claim.amount_settled) }} Kč</span>{% else %}<span class="text-orange">❓ neznámé</span>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% if claim.description %}
+    <div class="mt-3 p-2" style="background:var(--color-background-secondary);border-radius:6px;font-size:12px;color:#6b7280">
+      {{ claim.description }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<form method="post" action="/fleet/completion/claim/{{ claim.id }}">
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">Doplnit data</h3></div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-sm-6">
+          <label class="form-label fw-medium">Plnění pojišťovny (Kč)</label>
+          <input name="amount_settled" type="text" class="form-control"
+                 value="{{ '{:,.0f}'.format(claim.amount_settled) if claim.amount_settled else '' }}"
+                 placeholder="napr. 150000">
+          <small class="text-muted">Kolik Kooperativa skutečně vyplatila</small>
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label fw-medium">Spoluúčast (Kč)</label>
+          <input name="spoluucast" type="text" class="form-control" placeholder="napr. 5000">
+          <small class="text-muted">Potvrzená spoluúčast z krycího listu</small>
+        </div>
+        <div class="col-sm-4">
+          <label class="form-label">Status</label>
+          <select name="status" class="form-select">
+            <option value="pending" {% if claim.status == 'pending' %}selected{% endif %}>Pending</option>
+            <option value="settled" {% if claim.status == 'settled' %}selected{% endif %}>Settled</option>
+            <option value="disputed" {% if claim.status == 'disputed' %}selected{% endif %}>Sporné</option>
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Poznámka / zdroj informace</label>
+          <input name="notes" type="text" class="form-control"
+                 placeholder="napr. Email Kooperativa 15.3.2026, krycí list W673331">
+        </div>
+      </div>
+      <div class="alert alert-info mt-3" style="font-size:12px">
+        Po uložení se data automaticky synchronizují do FORTIS.
+      </div>
+    </div>
+    <div class="card-footer d-flex justify-content-end gap-2">
+      <a href="/fleet/completion" class="btn btn-outline-secondary">Zrušit</a>
+      <button type="submit" class="btn btn-primary">Uložit a synchronizovat</button>
+    </div>
+  </div>
+</form>
+
+</div>
+</div>
+</div>
+{% endblock %}

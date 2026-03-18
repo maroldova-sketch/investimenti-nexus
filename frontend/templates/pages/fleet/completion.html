@@ -1,0 +1,105 @@
+{% extends "layouts/base.html" %}
+{% block title %}Fleet — Doplnění dat{% endblock %}
+{% block breadcrumb %}Fleet / Doplnění dat{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="row align-items-center">
+    <div class="col">
+      <div class="page-pretitle">Fleet operativa</div>
+      <h2 class="page-title">Doplnění chybějících dat</h2>
+    </div>
+    <div class="col-auto">
+      {% if total_pending > 0 %}
+      <span class="badge bg-red text-white" style="font-size:14px">{{ total_pending }} čeká na doplnění</span>
+      {% else %}
+      <span class="badge bg-green text-white">Vše kompletní</span>
+      {% endif %}
+    </div>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+
+{# ── POJISTNÉ UDÁLOSTI ── #}
+{% if pending_claims %}
+<div class="card mb-4">
+  <div class="card-header d-flex align-items-center">
+    <h3 class="card-title me-auto">Pojistné události — chybí plnění nebo spoluúčast</h3>
+    <span class="badge bg-red">{{ pending_claims|length }}</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>SPZ</th><th>Datum</th><th>CPU ref.</th><th>Faktura celkem</th>
+          <th>Plnění pojiš.</th><th>Status</th><th>Popis</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for c in pending_claims %}
+      <tr>
+        <td><span class="fw-medium">{{ c.spz }}</span><br><small class="text-muted">{{ c.entity_code or '' }}</small></td>
+        <td style="font-size:13px">{{ c.claim_date or '?' }}</td>
+        <td style="font-size:12px;color:#6b7280">{{ c.insurer_ref or '—' }}</td>
+        <td class="text-end fw-medium">
+          {% if c.amount_claimed %}{{ "{:,.0f}".format(c.amount_claimed) }} Kč{% else %}—{% endif %}
+        </td>
+        <td class="text-end">
+          {% if c.amount_settled %}
+            <span class="text-green fw-semibold">{{ "{:,.0f}".format(c.amount_settled) }} Kč</span>
+          {% else %}
+            <span class="badge bg-orange-lt text-orange">❓ neznámé</span>
+          {% endif %}
+        </td>
+        <td>
+          <span class="nx-badge {% if c.status == 'settled' %}nx-badge-ok{% elif c.status == 'pending' %}nx-badge-warn{% else %}nx-badge-neutral{% endif %}">
+            {{ c.status or 'pending' }}
+          </span>
+        </td>
+        <td style="font-size:11px;color:#9ba3af;max-width:200px">{{ c.desc or '' }}</td>
+        <td>
+          <a href="/fleet/completion/claim/{{ c.id }}" class="btn btn-sm btn-outline-primary">Doplnit</a>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# ── SERVISNÍ FAKTURY ── #}
+{% if okim_invoices %}
+<div class="card mb-4">
+  <div class="card-header">
+    <h3 class="card-title">Servis OKIM — faktury</h3>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0" style="font-size:13px">
+      <thead><tr><th>SPZ</th><th>Datum</th><th>Částka</th><th>Popis</th></tr></thead>
+      <tbody>
+      {% for inv in okim_invoices %}
+      <tr>
+        <td class="fw-medium">{{ inv.spz }}</td>
+        <td>{{ inv.event_date or '?' }}</td>
+        <td class="text-end">{% if inv.cost_kc %}{{ "{:,.0f}".format(inv.cost_kc) }} Kč{% else %}<span class="text-orange">❓</span>{% endif %}</td>
+        <td style="color:#6b7280">{{ inv.desc or '' }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# ── EMPTY STATE ── #}
+{% if not pending_claims and not okim_invoices %}
+<div class="nx-empty">
+  <div class="nx-empty-title">Vše kompletní</div>
+  <div class="nx-empty-sub">Žádná data nečekají na doplnění.</div>
+</div>
+{% endif %}
+
+</div>
+{% endblock %}
