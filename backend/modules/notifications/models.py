@@ -63,6 +63,18 @@ class IntakeRecord(Base):
     reviewed_by: Mapped[str|None] = mapped_column(String(200))
     converted_type: Mapped[str|None] = mapped_column(String(30))
     converted_id: Mapped[str|None] = mapped_column(String(36))
+    # Wave 3.3 — structured webhook intake fields
+    source_provider: Mapped[str|None] = mapped_column(String(100))
+    source_message_id: Mapped[str|None] = mapped_column(String(200))
+    source_phone_e164: Mapped[str|None] = mapped_column(String(30))
+    source_received_at: Mapped[str|None] = mapped_column(String(40))
+    parsed_data: Mapped[str|None] = mapped_column(Text)
+    attachments: Mapped[str|None] = mapped_column(Text)
+    image_analysis: Mapped[str|None] = mapped_column(Text)
+    confidence_score: Mapped[float|None] = mapped_column()
+    unresolved_reason: Mapped[str|None] = mapped_column(Text)
+    vehicle_resolution: Mapped[str|None] = mapped_column(String(20))
+    audit_trail: Mapped[str|None] = mapped_column(Text)
 
     person: Mapped["Person|None"] = relationship(foreign_keys=[person_id])
 
