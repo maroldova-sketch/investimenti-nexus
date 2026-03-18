@@ -1,0 +1,48 @@
+{
+  "nexus_module": "FLEET",
+  "version": "1.0",
+  "created": "2026-03-18",
+  "description": "Vozový park INVESTIMENTI holding — kompletní dokumentační základ",
+  "data_path": "/config/nexus/fleet",
+  "index_file": "fleet.json",
+  "vehicles_count": 7,
+  "documents_count": 413,
+  "total_size_mb": 125,
+  
+  "entities_map": {
+    "LOGPACK": ["9U35678","6Z78554","6AJ3128","1UN7393"],
+    "KERA-DENS": ["6SF6085","1UN7000"],
+    "VZC": ["9U42597","6Z78554","1UN7393"],
+    "KERA-DENS+LOGPACK": ["9U35678"]
+  },
+  
+  "active_leasings": [
+    {"spz": "6SF6085", "lender": "Raiffeisen Leasing", "contract": "3004012919", "signed": "2026-11-27", "entity": "KERA-DENS"},
+    {"spz": "6AJ3128", "lender": "VW Financial Services", "contract": "1057750", "entity": "LOGPACK"},
+    {"spz": "1UN7000", "lender": "ČSOB Leasing", "contract": null, "entity": "VZC/KERA-DENS"}
+  ],
+  
+  "terminated_leasings": [
+    {"spz": "9U35678", "lender": "ČSOB Leasing", "contract": "7140634", "active": "2022-02/2025-12", "entity": "KERA-DENS/LOGPACK"}
+  ],
+  
+  "open_issues": [
+    {"spz": "9U42597", "type": "exekuce", "creditor": "Exekutorský úřad Plzeň — Mgr. Ing. Jiří Prošek", "amount_est": 275089, "urgency": "HIGH"},
+    {"spz": "6AJ3128", "type": "dluh_pojisteni", "creditor": "VZP + VOJZP", "amount_est": 275089, "urgency": "HIGH"},
+    {"spz": "6Z78554", "type": "pokuty", "creditor": "Praha 9 + Ústí nad Labem", "amount_est": null, "urgency": "MEDIUM"},
+    {"spz": "6Z78554", "type": "pojistna_udalost", "creditor": "Kooperativa č.4242102369", "amount_est": null, "urgency": "MEDIUM"}
+  ],
+  
+  "key_contacts": {
+    "servis_louny": {"name": "OKIM spol. s r.o. Louny", "email": "antonin.krejza@okim.cz", "phone": "737216019"},
+    "servis_usti": {"name": "OKIM spol. s r.o. Ústí", "email": "zdenek.nims@okim.cz"},
+    "leasing_raiffeisen": {"name": "Raiffeisen Leasing", "email": "petr.mraz@rl.cz"},
+    "leasing_csob": {"name": "ČSOB Leasing", "email": "hstachova@leasingcs.cz"},
+    "leasing_vwfs": {"name": "VW Financial Services", "email": "klient@vwfs.cz"},
+    "pojistovna_allianz": {"name": "Allianz", "email": "veronika.stegeman@iallianz.cz"},
+    "pojistovna_kooperativa": {"name": "Kooperativa", "email": "info@koop.cz"},
+    "pojistovna_cpp": {"name": "ČPP", "email": "likvidace@cpp.cz"},
+    "pahm_axigon": {"name": "AXIGON (Shell karty)", "email": "faktury@axigon.cz"},
+    "karireal": {"name": "KARIREAL Třinec (Superb šedý)", "email": "jan.konecny@karireal.cz"}
+  }
+}

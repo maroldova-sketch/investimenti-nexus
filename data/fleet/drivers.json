@@ -1,0 +1,22 @@
+{
+  "drivers": [
+    {"id":"d1","first":"Jan","last":"Čáka","full":"Jan Čáka","email_personal":"honza.caka@gmail.com","email_work":"j.caka@vzc.cz","phone":"774320438","role":"Jednatel / CEO","entity":["VZC","LOGPACK"]},
+    {"id":"d2","first":"Martin","last":"Čáka","full":"Martin Čáka","email_personal":"caka.martin@seznam.cz","email_work":null,"phone":"608031296","role":"Brácha / LOGPACK řidič","entity":["LOGPACK","VZC"],"note":"Bratranec Jana Čáky"},
+    {"id":"d3","first":"Pavel","last":"Ouhrabka","full":"Pavel Ouhrabka","email_personal":null,"email_work":"pavel.ouhrabka@logpack.cz","phone":"777904831","role":"VZC","entity":["VZC","LOGPACK"]},
+    {"id":"d4","first":"Sergii","last":"Sergeyev","full":"Sergii Sergeyev","email_personal":null,"email_work":null,"phone":null,"role":"VZC","entity":["VZC"]},
+    {"id":"d5","first":"Artem","last":"Parkhomenko","full":"Artem Parkhomenko","email_personal":"parkhomenko@seznam.cz","email_work":null,"phone":null,"role":"MUDr. / Zubní lékař VZC","entity":["VZC"],"title":"Dr."},
+    {"id":"d6","first":"Nicolae","last":"Codreanu","full":"Nicolae Codreanu","email_personal":"dr.codreanu85@gmail.com","email_work":null,"phone":null,"role":"MUDr. / Zubní lékař VZC","entity":["VZC"],"title":"Zubní lékař"},
+    {"id":"d7","first":"Sergej","last":"Ivanov","full":"Sergej Ivanov","email_personal":"sergejivanov@post.cz","email_work":null,"phone":null,"role":"MUDr. / Zubní lékař VZC","entity":["VZC"],"title":"Dr."},
+    {"id":"d8","first":"Roman","last":"Vozniak","full":"Roman Vozniak","email_personal":"Voznjakroman@gmail.com","email_work":null,"phone":null,"role":"MUDr. / Zubní lékař VZC","entity":["VZC"]},
+    {"id":"d9","first":"Hana","last":"Prošková","full":"Hana Prošková","maiden":"Herzánová","email_personal":"Hana.proskova@seznam.cz","email_work":"h.proskova@vzc.cz","phone":"606472366","role":"Asistentka obchodu / LOGPACK","entity":["VZC","LOGPACK"]},
+    {"id":"d10","first":"Filip","last":"Vyšata","full":"Filip Vyšata","email_personal":"filip.vysata@gmail.com","email_work":"f.vysata@vzc.cz","phone":null,"role":"KERA-DENS management","entity":["KERA-DENS","VZC"]},
+    {"id":"d11","first":"Robert","last":"Čech","full":"Robert Čech","email_personal":"Robert.cech.louny@seznam.cz","email_work":null,"phone":"775879741","role":"LOGPACK","entity":["LOGPACK"]},
+    {"id":"d12","first":"Alex","last":"Bozhko","full":"Alex Bozhko","email_personal":null,"email_work":null,"phone":null,"role":"LOGPACK","entity":["LOGPACK"]},
+    {"id":"d13","first":"Petra","last":"Vyšatová","full":"Petra Vyšatová","email_personal":null,"email_work":null,"phone":null,"role":"VZC","entity":["VZC"]},
+    {"id":"d14","first":"Josef","last":"Čáka","full":"Josef Čáka","email_personal":"caka.josef@gmail.com","email_work":null,"phone":null,"role":"Vlastní (otec?)","entity":[]},
+    {"id":"d15","first":"Zlatá","last":"Čáková","full":"Zlatá Čáková","email_personal":"zlata.cakova@gmail.com","email_work":null,"phone":null,"role":"Rodina","entity":["LOGPACK"],"address":"SNP 2082, 440 01 Louny"},
+    {"id":"d16","first":"Sarah","last":"Uchal","full":"Sarah Uchal","email_personal":null,"email_work":null,"phone":null,"role":"LOGPACK","entity":["LOGPACK"]},
+    {"id":"d17","first":"Simona","last":"Vyšatová","full":"Simona Vyšatová","email_personal":null,"email_work":null,"phone":null,"role":"LOGPACK","entity":["LOGPACK"]},
+    {"id":"d18","first":"Zbyněk","last":"Chval","full":"Zbyněk Chval","email_personal":null,"email_work":null,"phone":null,"role":"KERA-DENS správce rezervního vozu","entity":["KERA-DENS"]}
+  ]
+}
