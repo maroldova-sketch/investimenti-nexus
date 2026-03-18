@@ -171,6 +171,19 @@ def driver_detail(person_id: str, request: Request, db: Session = Depends(get_db
         1 if odo_warn else 0,
     ])
 
+    # Trip context
+    from calendar import monthrange as _mr
+    today_d = date.today()
+    _tf, _tt = f'{today_d.year}-{today_d.month:02d}-01', f'{today_d.year}-{today_d.month:02d}-{_mr(today_d.year, today_d.month)[1]:02d}'
+    driver_trips = []
+    _all_trips = []
+    driver_trip_summary = {
+        "count": len(_all_trips),
+        "total_km": sum(t.distance_km or 0 for t in _all_trips),
+        "business_km": sum(t.distance_km or 0 for t in _all_trips if t.trip_type == 'business'),
+        "private_km": sum(t.distance_km or 0 for t in _all_trips if t.trip_type == 'private'),
+    }
+
     return templates.TemplateResponse("pages/fleet/driver_detail.html", _ctx({
         "request": request, "current_user": cu,
         "p": p, "entity": entity,
@@ -180,6 +193,8 @@ def driver_detail(person_id: str, request: Request, db: Session = Depends(get_db
         "fines": fines, "claims": claims, "deductions": deductions,
         "last_odo": last_odo, "odo_days": odo_days, "odo_warn": odo_warn,
         "open_alerts": open_alerts,
+        "driver_trips": driver_trips,
+        "driver_trip_summary": driver_trip_summary,
         "all_vehicles": all_vehicles, "all_entities": all_entities, "all_people": all_people,
     }))
 

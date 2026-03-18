@@ -13,16 +13,21 @@ from backend.modules.people.routes import router as people_router
 from backend.modules.attendance.routes import router as attendance_router
 from backend.modules.staging.routes import router as staging_router
 from backend.modules.fleet.driver_routes import router as driver_router
+from backend.modules.fleet.deduction_routes import router as deduction_router
+from backend.modules.notifications.routes import router as notifications_router
+from backend.modules.fleet.trip_routes import router as trip_router
 
 app = FastAPI(title="NEXUS", redirect_slashes=False, docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
 
 app.include_router(auth_router)
-app.include_router(driver_router)
 app.include_router(fleet_router)
 app.include_router(people_router)
 app.include_router(attendance_router)
 app.include_router(staging_router)
+app.include_router(trip_router)
+app.include_router(notifications_router)
+app.include_router(deduction_router)
 app.include_router(driver_router)
 
 @app.get("/")

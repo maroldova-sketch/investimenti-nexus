@@ -33,6 +33,12 @@ def fleet_board(request: Request, db: Session = Depends(get_db),
     phm_top_vehicles = get_top_phm_vehicles(db, month=_now.month, year=_now.year)
     from backend.modules.staging.models import StgFuelMonthly
     phm_unresolved_count = db.query(StgFuelMonthly).filter(StgFuelMonthly.status=="unresolved", StgFuelMonthly.amount_total != None).count()
+    # Trips board context
+    _tm_from, _tm_to = f'{_now.year}-{_now.month:02d}-01', f'{_now.year}-{_now.month:02d}-28'
+    trips_this_month = 0
+    trips_pending_approval = 0
+    deduction_pending_count = db.query(DeductionCase).filter(
+        DeductionCase.status.in_(["draft","pending_approval"])).count()
     open_fines_count = db.query(TrafficFine).filter(TrafficFine.status=="open").count()
     open_claims_count = db.query(InsuranceClaim).filter(InsuranceClaim.status=="open").count()
     # Missing odometer: drivers with vehicle assignment but no odometer in 45 days
@@ -54,6 +60,9 @@ def fleet_board(request: Request, db: Session = Depends(get_db),
         "phm_canonical_prev": phm_canonical_prev,
         "phm_top_vehicles": phm_top_vehicles,
         "phm_unresolved_count": phm_unresolved_count,
+        "trips_this_month": trips_this_month,
+        "trips_pending_approval": trips_pending_approval,
+        "deduction_pending_count": deduction_pending_count,
         "open_fines_count": open_fines_count,
         "open_claims_count": open_claims_count,
         "missing_odo_count": missing_odo_count,
@@ -77,6 +86,7 @@ def vehicle_detail(vehicle_id: str, request: Request, db: Session = Depends(get_
         "v": v,
         "phm_transactions": phm,
         "phm_canonical_txns": phm_canonical_txns,
+        **trip_ctx,
         "event_types": [e.value for e in FleetEventType],
         "people": db.query(Person).filter(Person.is_active == True).order_by(Person.last_name).all(),
         "page_title": f"{v.make} {v.model}",

@@ -1,0 +1,228 @@
+{% extends "layouts/base.html" %}
+{% block title %}Kniha jízd{% endblock %}
+{% block breadcrumb %}<a href="/fleet" class="text-muted text-decoration-none">Fleet</a> / Kniha jízd{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="d-flex align-items-center justify-content-between">
+    <div>
+      <div class="page-pretitle">Fleet</div>
+      <h2 class="page-title">Kniha jízd
+        {% if pending > 0 %}<span class="nx-badge nx-badge-warn ms-2">{{ pending }} čeká</span>{% endif %}
+      </h2>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="openModal('modal-new')">+ Nová jízda</button>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+
+  {# SUMMARY CARDS #}
+  <div class="row g-2 mb-3">
+    <div class="col-auto"><div class="nx-stat"><div class="nx-stat-label">Jízdy tento měsíc</div><div class="nx-stat-value">{{ summary.count }}</div></div></div>
+    <div class="col-auto"><div class="nx-stat"><div class="nx-stat-label">km celkem</div><div class="nx-stat-value">{{ "{:,}".format(summary.total_km).replace(",", " ") }}</div></div></div>
+    <div class="col-auto"><div class="nx-stat nx-stat-success"><div class="nx-stat-label">Služební km</div><div class="nx-stat-value">{{ "{:,}".format(summary.business_km).replace(",", " ") }}</div></div></div>
+    <div class="col-auto"><div class="nx-stat"><div class="nx-stat-label">Soukromé km</div><div class="nx-stat-value">{{ "{:,}".format(summary.private_km).replace(",", " ") }}</div></div></div>
+    <div class="col-auto"><div class="nx-stat {% if pending > 0 %}nx-stat-warning{% endif %}"><div class="nx-stat-label">Ke schválení</div><div class="nx-stat-value">{{ pending }}</div></div></div>
+  </div>
+
+  {# FILTERS #}
+  <form method="get" action="/fleet/trips" class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+    <select name="driver_filter" class="form-select form-select-sm" style="max-width:160px" onchange="this.form.submit()">
+      <option value="">— Řidič —</option>
+      {% for p in people %}<option value="{{ p.id }}" {% if driver_filter==p.id %}selected{% endif %}>{{ p.full_name }}</option>{% endfor %}
+    </select>
+    <select name="vehicle_filter" class="form-select form-select-sm" style="max-width:130px" onchange="this.form.submit()">
+      <option value="">— Vozidlo —</option>
+      {% for v in vehicles %}<option value="{{ v.id }}" {% if vehicle_filter==v.id %}selected{% endif %}>{{ v.spz }}</option>{% endfor %}
+    </select>
+    <select name="type_filter" class="form-select form-select-sm" style="max-width:120px" onchange="this.form.submit()">
+      <option value="">— Typ —</option>
+      <option value="business" {% if type_filter=='business' %}selected{% endif %}>Služební</option>
+      <option value="private" {% if type_filter=='private' %}selected{% endif %}>Soukromá</option>
+      <option value="mixed" {% if type_filter=='mixed' %}selected{% endif %}>Smíšená</option>
+    </select>
+    <select name="status_filter" class="form-select form-select-sm" style="max-width:120px" onchange="this.form.submit()">
+      <option value="">— Stav —</option>
+      <option value="draft" {% if status_filter=='draft' %}selected{% endif %}>Draft</option>
+      <option value="submitted" {% if status_filter=='submitted' %}selected{% endif %}>Odesláno</option>
+      <option value="approved" {% if status_filter=='approved' %}selected{% endif %}>Schváleno</option>
+      <option value="ignored" {% if status_filter=='ignored' %}selected{% endif %}>Ignorováno</option>
+    </select>
+    <input type="date" name="date_from" class="form-control form-control-sm" style="max-width:140px" value="{{ date_from }}" onchange="this.form.submit()">
+    <input type="date" name="date_to" class="form-control form-control-sm" style="max-width:140px" value="{{ date_to }}" onchange="this.form.submit()">
+    {% if driver_filter or vehicle_filter or type_filter or status_filter or date_from or date_to %}
+    <a href="/fleet/trips" class="btn btn-outline-secondary btn-sm">✕ Reset</a>
+    {% endif %}
+  </form>
+
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr><th>Datum</th><th>Řidič</th><th>Vozidlo</th>
+              <th>Start km</th><th>End km</th><th>Vzdálenost</th>
+              <th>Typ</th><th>Účel / Cíl</th><th>Stav</th><th style="width:90px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in trips %}
+          <tr>
+            <td class="text-muted">{{ t.trip_date }}</td>
+            <td>
+              {% if t.person %}
+              <a href="/fleet/driver/{{ t.person_id }}" class="text-reset text-decoration-none fw-medium">{{ t.person.full_name }}</a>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if t.vehicle %}
+              <a href="/fleet/{{ t.vehicle_id }}" class="text-reset text-decoration-none">
+                <span class="nx-badge nx-badge-neutral">{{ t.vehicle.spz }}</span>
+              </a>
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-muted">{{ "{:,}".format(t.start_km).replace(",", " ") if t.start_km else '—' }}</td>
+            <td class="text-muted">{{ "{:,}".format(t.end_km).replace(",", " ") if t.end_km else '—' }}</td>
+            <td>{% if t.distance_km %}<strong>{{ t.distance_km }} km</strong>{% else %}—{% endif %}</td>
+            <td>
+              {% if t.trip_type=='business' %}<span class="nx-badge nx-badge-ok">služební</span>
+              {% elif t.trip_type=='private' %}<span class="nx-badge nx-badge-neutral">soukromá</span>
+              {% elif t.trip_type=='mixed' %}<span class="nx-badge nx-badge-warn">smíšená</span>
+              {% else %}<span class="nx-badge nx-badge-neutral">{{ t.trip_type }}</span>{% endif %}
+            </td>
+            <td style="font-size:12px">
+              {{ t.purpose or '' }}{% if t.destination %} → <span class="text-muted">{{ t.destination }}</span>{% endif %}
+            </td>
+            <td>
+              {% if t.status=='draft' %}<span class="nx-badge nx-badge-neutral">draft</span>
+              {% elif t.status=='submitted' %}<span class="nx-badge nx-badge-info">odesláno</span>
+              {% elif t.status=='approved' %}<span class="nx-badge nx-badge-ok">schváleno</span>
+              {% elif t.status=='ignored' %}<span class="nx-badge nx-badge-neutral" style="opacity:.5">ignorováno</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="d-flex gap-1">
+                {% if t.status in ('draft','submitted') and current_user.has_role('owner','admin','manager') %}
+                <form method="post" action="/fleet/trips/{{ t.id }}/approve" style="margin:0">
+                  <button class="btn btn-ghost btn-sm" style="color:#2fb344" title="Schválit">✓</button>
+                </form>
+                {% endif %}
+                {% if t.status != 'ignored' %}
+                <form method="post" action="/fleet/trips/{{ t.id }}/ignore" style="margin:0">
+                  <button class="btn btn-ghost btn-sm" style="color:#9ba3af" title="Ignorovat">✕</button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="10"><div class="nx-empty"><div class="nx-empty-title">Žádné záznamy</div><div class="nx-empty-sub">Vytvořte první záznam jízdy.</div></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# NEW TRIP MODAL #}
+<div id="modal-new" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:flex-start;justify-content:center;padding-top:40px">
+  <div style="background:#fff;border-radius:10px;padding:24px;width:500px;max-height:88vh;overflow-y:auto">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 style="font-size:16px;font-weight:600;margin:0">Nová jízda</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-new')">✕</button>
+    </div>
+    <form method="post" action="/fleet/trips/new" id="trip-form" onsubmit="return validateTrip()">
+      <div class="row g-3">
+        <div class="col-6">
+          <label class="form-label">Řidič *</label>
+          <select name="person_id" class="form-select" required>
+            <option value="">— vyberte —</option>
+            {% for p in people %}<option value="{{ p.id }}">{{ p.full_name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Vozidlo *</label>
+          <select name="vehicle_id" class="form-select" required>
+            <option value="">— vyberte —</option>
+            {% for v in vehicles %}<option value="{{ v.id }}">{{ v.spz }} — {{ v.make }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Datum *</label>
+          <input name="trip_date" type="date" class="form-control" required value="{{ now_date }}">
+        </div>
+        <div class="col-6">
+          <label class="form-label">Typ jízdy</label>
+          <select name="trip_type" class="form-select">
+            <option value="business">Služební</option>
+            <option value="private">Soukromá</option>
+            <option value="mixed">Smíšená</option>
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Start km</label>
+          <input name="start_km" id="start_km" type="number" class="form-control" oninput="calcDist()">
+        </div>
+        <div class="col-6">
+          <label class="form-label">End km</label>
+          <input name="end_km" id="end_km" type="number" class="form-control" oninput="calcDist()">
+        </div>
+        <div class="col-12" id="dist-preview" style="font-size:12px;color:#6b7280;display:none">
+          Vzdálenost: <strong id="dist-val">—</strong> km
+        </div>
+        <div class="col-6">
+          <label class="form-label">Účel</label>
+          <input name="purpose" class="form-control" placeholder="Obchodní schůzka, servis…">
+        </div>
+        <div class="col-6">
+          <label class="form-label">Cíl / Destinace</label>
+          <input name="destination" class="form-control" placeholder="Praha, Ústí n.L.…">
+        </div>
+        <div class="col-6">
+          <label class="form-label">Entita</label>
+          <select name="entity_id" class="form-select">
+            <option value="">— nevybráno —</option>
+            {% for e in entities %}<option value="{{ e.id }}">{{ e.code }} — {{ e.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Cost center</label>
+          <input name="cost_center" class="form-control">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Poznámka</label>
+          <textarea name="notes" class="form-control" rows="2"></textarea>
+        </div>
+        <div id="trip-error" class="col-12" style="display:none">
+          <div class="nx-alert nx-alert-warning">End km musí být ≥ Start km</div>
+        </div>
+      </div>
+      <div class="d-flex gap-2 justify-content-end mt-3">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeModal('modal-new')">Zrušit</button>
+        <button type="submit" class="btn btn-primary btn-sm">Uložit jízdu</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function openModal(id){document.getElementById(id).style.display='flex'}
+function closeModal(id){document.getElementById(id).style.display='none'}
+function calcDist(){
+  const s=parseInt(document.getElementById('start_km').value)||0;
+  const e=parseInt(document.getElementById('end_km').value)||0;
+  const d=document.getElementById('dist-preview');
+  const v=document.getElementById('dist-val');
+  if(s>0&&e>0){d.style.display='block';v.textContent=e-s;}else{d.style.display='none';}
+}
+function validateTrip(){
+  const s=parseInt(document.getElementById('start_km').value)||0;
+  const e=parseInt(document.getElementById('end_km').value)||0;
+  if(s>0&&e>0&&e<s){
+    document.getElementById('trip-error').style.display='block';return false;
+  }
+  return true;
+}
+</script>
+{% endblock %}

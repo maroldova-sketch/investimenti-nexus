@@ -1,0 +1,100 @@
+{% extends "layouts/base.html" %}
+{% block title %}Notifikace{% endblock %}
+{% block breadcrumb %}Notifikace{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="d-flex align-items-center justify-content-between">
+    <div>
+      <div class="page-pretitle">Operace</div>
+      <h2 class="page-title">Centrum notifikací
+        {% if new_count > 0 %}<span class="nx-badge nx-badge-err ms-2">{{ new_count }} nové</span>{% endif %}
+      </h2>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <form method="post" action="/notifications/generate/all" style="margin:0">
+        <button class="btn btn-primary btn-sm">⟳ Generovat vše</button>
+      </form>
+      <div class="dropdown">
+        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="dropdown">Generovat ▾</button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><form method="post" action="/notifications/generate/odometer" style="margin:0"><button class="dropdown-item">Tachometry</button></form></li>
+          <li><form method="post" action="/notifications/generate/compliance" style="margin:0"><button class="dropdown-item">Compliance (STK)</button></form></li>
+          <li><form method="post" action="/notifications/generate/deductions" style="margin:0"><button class="dropdown-item">Srážky</button></form></li>
+          <li><form method="post" action="/notifications/generate/fuel" style="margin:0"><button class="dropdown-item">PHM nevyřešené</button></form></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a href="/notifications" class="btn btn-sm {% if not status_filter and not severity_filter %}btn-primary{% else %}btn-outline-secondary{% endif %}">Vše ({{ enriched|length }})</a>
+    <a href="?status_filter=new" class="btn btn-sm {% if status_filter=='new' %}btn-danger{% else %}btn-outline-secondary{% endif %}">Nové</a>
+    <a href="?status_filter=acknowledged" class="btn btn-sm {% if status_filter=='acknowledged' %}btn-warning{% else %}btn-outline-secondary{% endif %}">Potvrzeno</a>
+    <a href="?status_filter=closed" class="btn btn-sm {% if status_filter=='closed' %}btn-success{% else %}btn-outline-secondary{% endif %}">Uzavřeno</a>
+    <a href="?severity_filter=error" class="btn btn-sm {% if severity_filter=='error' %}btn-danger{% else %}btn-outline-secondary{% endif %}">Error</a>
+    <a href="?severity_filter=warn" class="btn btn-sm {% if severity_filter=='warn' %}btn-warning{% else %}btn-outline-secondary{% endif %}">Warn</a>
+  </div>
+
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table">
+        <thead><tr>
+          <th>Datum</th><th>Titulek</th><th>Typ</th><th>Závažnost</th>
+          <th>Stav</th><th>Splatnost</th><th>Cíl</th><th style="width:130px">Akce</th>
+        </tr></thead>
+        <tbody>
+          {% for item in enriched %}
+          {% set n = item.n %}
+          <tr style="{% if n.status=='new' %}font-weight:500{% elif n.status=='closed' %}opacity:.6{% endif %}">
+            <td class="text-muted" style="font-size:11px">{{ n.created_at.strftime('%d.%m %H:%M') }}</td>
+            <td>
+              <div>{{ n.title }}</div>
+              {% if n.body %}<div class="text-muted" style="font-size:11px">{{ n.body[:80] }}</div>{% endif %}
+            </td>
+            <td><span class="nx-badge nx-badge-neutral" style="font-size:10px">{{ n.related_type or 'general' }}</span></td>
+            <td>
+              {% if n.severity=='error' %}<span class="nx-badge nx-badge-err">error</span>
+              {% elif n.severity=='warn' %}<span class="nx-badge nx-badge-warn">warn</span>
+              {% else %}<span class="nx-badge nx-badge-neutral">info</span>{% endif %}
+            </td>
+            <td>
+              {% if n.status=='new' %}<span class="nx-badge nx-badge-err">new</span>
+              {% elif n.status=='read' %}<span class="nx-badge nx-badge-neutral">přečteno</span>
+              {% elif n.status=='acknowledged' %}<span class="nx-badge nx-badge-warn">potvrzeno</span>
+              {% elif n.status=='closed' %}<span class="nx-badge nx-badge-ok">uzavřeno</span>
+              {% else %}<span class="nx-badge nx-badge-neutral">{{ n.status }}</span>{% endif %}
+            </td>
+            <td class="text-muted" style="font-size:11px">{{ n.due_at.strftime('%d.%m.%Y') if n.due_at else '—' }}</td>
+            <td style="font-size:11px">{{ n.target_scope }}</td>
+            <td>
+              {% if n.status not in ('closed',) %}
+              <div class="d-flex gap-1 flex-wrap">
+                {% if n.status == 'new' %}
+                <form method="post" action="/notifications/{{ n.id }}/read" style="margin:0">
+                  <button class="btn btn-ghost btn-sm" title="Přečteno" style="font-size:10px">👁</button>
+                </form>
+                {% endif %}
+                {% if n.status in ('new','read') %}
+                <form method="post" action="/notifications/{{ n.id }}/acknowledge" style="margin:0">
+                  <button class="btn btn-ghost btn-sm" title="Potvrdit" style="font-size:10px">✓</button>
+                </form>
+                {% endif %}
+                <form method="post" action="/notifications/{{ n.id }}/close" style="margin:0">
+                  <button class="btn btn-ghost btn-sm" title="Uzavřít" style="color:#9ba3af;font-size:10px">✕</button>
+                </form>
+              </div>
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8"><div class="nx-empty"><div class="nx-empty-title">Žádné notifikace</div><div class="nx-empty-sub">Klikněte "Generovat vše" pro vytvoření upozornění.</div></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

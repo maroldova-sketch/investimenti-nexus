@@ -61,7 +61,49 @@
         </div>
       </div>
 
-      {# C. PHM #}
+
+      {# TRIPS SECTION #}
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between fw-medium">
+          Jízdy — tento měsíc
+          <a href="/fleet/trips?driver_filter={{ p.id }}" class="btn btn-ghost btn-sm" style="font-size:11px">Všechny →</a>
+        </div>
+        {% if driver_trip_summary %}
+        <div class="card-body border-bottom py-2 d-flex gap-3 flex-wrap">
+          <div><div class="form-label">Jízdy</div><div class="fw-semibold">{{ driver_trip_summary.count }}</div></div>
+          <div><div class="form-label">km celkem</div><div class="fw-semibold">{{ "{:,}".format(driver_trip_summary.total_km).replace(",", " ") }}</div></div>
+          <div><div class="form-label">Služební km</div><div class="fw-semibold" style="color:#2fb344">{{ "{:,}".format(driver_trip_summary.business_km).replace(",", " ") }}</div></div>
+          <div><div class="form-label">Soukromé km</div><div class="fw-semibold" style="color:#9ba3af">{{ "{:,}".format(driver_trip_summary.private_km).replace(",", " ") }}</div></div>
+        </div>
+        {% endif %}
+        {% if driver_trips %}
+        <div class="table-responsive">
+          <table class="table" style="font-size:12px">
+            <thead><tr><th>Datum</th><th>Vozidlo</th><th>km</th><th>Typ</th><th>Účel</th><th>Stav</th></tr></thead>
+            <tbody>
+              {% for t in driver_trips %}
+              <tr>
+                <td class="text-muted">{{ t.trip_date }}</td>
+                <td>{% set v = vehicles_map.get(t.vehicle_id) %}{% if v %}<span class="nx-badge nx-badge-neutral">{{ v.spz }}</span>{% else %}—{% endif %}</td>
+                <td>{% if t.distance_km %}<strong>{{ t.distance_km }}</strong>{% else %}—{% endif %}</td>
+                <td>{% if t.trip_type=='business' %}<span class="nx-badge nx-badge-ok" style="font-size:9px">sl</span>
+                  {% elif t.trip_type=='private' %}<span class="nx-badge nx-badge-neutral" style="font-size:9px">so</span>
+                  {% else %}<span class="nx-badge nx-badge-warn" style="font-size:9px">sm</span>{% endif %}</td>
+                <td class="text-muted">{{ t.purpose or '—' }}</td>
+                <td>{% if t.status=='approved' %}<span class="nx-badge nx-badge-ok" style="font-size:9px">✓</span>
+                  {% elif t.status=='submitted' %}<span class="nx-badge nx-badge-info" style="font-size:9px">→</span>
+                  {% else %}<span class="nx-badge nx-badge-neutral" style="font-size:9px">{{ t.status }}</span>{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="card-body"><div class="text-muted" style="font-size:12px">Žádné jízdy tento měsíc</div></div>
+        {% endif %}
+      </div>
+
+            {# C. PHM #}
       <div class="card mb-3">
         <div class="card-header d-flex justify-content-between fw-medium">
           PHM
@@ -142,7 +184,7 @@
       <div class="card mb-3">
         <div class="card-header d-flex justify-content-between fw-medium">
           Srážky / Deductions
-          <button class="btn btn-ghost btn-sm" onclick="openModal('modal-deduction')">+</button>
+          <div class="d-flex gap-1"><a href="/fleet/deductions" class="btn btn-ghost btn-sm" style="font-size:11px">Vše →</a><button class="btn btn-ghost btn-sm" onclick="openModal('modal-deduction')">+</button></div>
         </div>
         {% if deductions %}
         {% for d in deductions %}
@@ -151,6 +193,7 @@
             <div>
               <div class="fw-medium" style="font-size:13px">{{ d.case_type }}</div>
               <div class="text-muted" style="font-size:11px">{{ d.payroll_period_target or '—' }} · {{ d.description[:50] if d.description else '' }}</div>
+              {% if d.export_batch_id %}<div style="font-size:10px;font-family:monospace;color:#9ba3af">batch: {{ d.export_batch_id[:12] }}… · {{ d.exported_at.strftime('%d.%m %H:%M') if d.exported_at else '' }}</div>{% endif %}
             </div>
             <div class="text-end">
               {% if d.amount %}<div class="fw-semibold">{{ "{:,.0f}".format(d.amount).replace(",", " ") }} Kč</div>{% endif %}

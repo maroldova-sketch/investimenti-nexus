@@ -34,6 +34,42 @@
   </div>
   {% endif %}
 
+  {# VEHICLE TRIPS #}
+  {% if vehicle_trips %}
+  <div class="card mt-3">
+    <div class="card-header d-flex justify-content-between fw-medium">
+      Jízdy — tento měsíc
+      <div class="d-flex gap-2 align-items-center">
+        {% if vehicle_trip_summary %}
+        <span class="text-muted" style="font-size:12px">{{ vehicle_trip_summary.count }} jízd · {{ "{:,}".format(vehicle_trip_summary.total_km).replace(",", " ") }} km</span>
+        {% endif %}
+        <a href="/fleet/trips?vehicle_filter={{ vehicle.id }}" class="btn btn-ghost btn-sm" style="font-size:11px">Vše →</a>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table" style="font-size:12px">
+        <thead><tr><th>Datum</th><th>Řidič</th><th>km</th><th>Typ</th><th>Účel</th><th>Stav</th></tr></thead>
+        <tbody>
+          {% for t in vehicle_trips %}
+          <tr>
+            <td class="text-muted">{{ t.trip_date }}</td>
+            <td>{% if t.person %}<a href="/fleet/driver/{{ t.person_id }}" class="text-reset text-decoration-none">{{ t.person.full_name }}</a>{% else %}—{% endif %}</td>
+            <td>{% if t.distance_km %}<strong>{{ t.distance_km }}</strong>{% else %}—{% endif %}</td>
+            <td>{% if t.trip_type=='business' %}<span class="nx-badge nx-badge-ok" style="font-size:9px">sl</span>
+              {% elif t.trip_type=='private' %}<span class="nx-badge nx-badge-neutral" style="font-size:9px">so</span>
+              {% else %}<span class="nx-badge nx-badge-warn" style="font-size:9px">sm</span>{% endif %}</td>
+            <td class="text-muted">{{ t.purpose or '—' }}</td>
+            <td>{% if t.status=='approved' %}<span class="nx-badge nx-badge-ok" style="font-size:9px">✓</span>
+              {% elif t.status=='submitted' %}<span class="nx-badge nx-badge-info" style="font-size:9px">→</span>
+              {% else %}<span class="nx-badge nx-badge-neutral" style="font-size:9px">{{ t.status }}</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
 {% endblock %}
 
 {% block page_header %}

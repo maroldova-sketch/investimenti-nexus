@@ -1,0 +1,58 @@
+{% extends "layouts/base.html" %}
+{% block title %}Intake{% endblock %}
+{% block breadcrumb %}Intake{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="d-flex align-items-center justify-content-between">
+    <div><div class="page-pretitle">Operace</div><h2 class="page-title">Intake záznamy</h2></div>
+    <a href="/intake/new" class="btn btn-primary btn-sm">+ Nový intake</a>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a href="/intake" class="btn btn-sm {% if not type_filter and not status_filter %}btn-primary{% else %}btn-outline-secondary{% endif %}">Vše ({{ enriched|length }})</a>
+    <a href="?status_filter=new" class="btn btn-sm {% if status_filter=='new' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Nové</a>
+    <a href="?status_filter=reviewed" class="btn btn-sm {% if status_filter=='reviewed' %}btn-warning{% else %}btn-outline-secondary{% endif %}">Reviewed</a>
+    <a href="?status_filter=converted" class="btn btn-sm {% if status_filter=='converted' %}btn-success{% else %}btn-outline-secondary{% endif %}">Konvertováno</a>
+    <a href="?status_filter=ignored" class="btn btn-sm {% if status_filter=='ignored' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">Ignorováno</a>
+  </div>
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table">
+        <thead><tr>
+          <th>Datum</th><th>Typ</th><th>Titulek</th><th>Kanál</th>
+          <th>Osoba/Vozidlo</th><th>Stav</th><th style="width:100px">Akce</th>
+        </tr></thead>
+        <tbody>
+          {% for item in enriched %}
+          {% set r = item.r %}
+          <tr onclick="location.href='/intake/{{ r.id }}'" style="cursor:pointer">
+            <td class="text-muted" style="font-size:11px">{{ r.created_at.strftime('%d.%m %H:%M') }}</td>
+            <td><span class="nx-badge nx-badge-info">{{ r.intake_type }}</span></td>
+            <td class="fw-medium">{{ r.title }}</td>
+            <td><span class="nx-badge nx-badge-neutral">{{ r.source_channel }}</span></td>
+            <td class="text-muted" style="font-size:12px">
+              {{ item.person.full_name if item.person else '' }}
+            </td>
+            <td>
+              {% if r.status=='new' %}<span class="nx-badge nx-badge-err">new</span>
+              {% elif r.status=='reviewed' %}<span class="nx-badge nx-badge-warn">reviewed</span>
+              {% elif r.status=='converted' %}<span class="nx-badge nx-badge-ok">converted</span>
+              {% elif r.status=='ignored' %}<span class="nx-badge nx-badge-neutral">ignored</span>
+              {% else %}<span class="nx-badge nx-badge-neutral">{{ r.status }}</span>{% endif %}
+            </td>
+            <td onclick="event.stopPropagation()">
+              <a href="/intake/{{ r.id }}" class="btn btn-ghost btn-sm">Detail</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7"><div class="nx-empty"><div class="nx-empty-title">Žádné intake záznamy</div></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

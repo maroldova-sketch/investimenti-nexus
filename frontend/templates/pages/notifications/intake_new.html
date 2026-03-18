@@ -1,0 +1,77 @@
+{% extends "layouts/base.html" %}
+{% block title %}Nový intake{% endblock %}
+{% block breadcrumb %}<a href="/intake" class="text-muted text-decoration-none">Intake</a> / Nový{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="d-flex align-items-center justify-content-between">
+    <div><div class="page-pretitle">Intake</div><h2 class="page-title">Nový intake záznam</h2></div>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+  <div class="card" style="max-width:640px">
+    <div class="card-body">
+      <form method="post" action="/intake/new">
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <label class="form-label">Typ *</label>
+            <select name="intake_type" class="form-select" required>
+              <option value="general">general</option>
+              <option value="odometer">odometer</option>
+              <option value="fine">fine</option>
+              <option value="claim">claim</option>
+              <option value="fuel_note">fuel_note</option>
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label">Kanál</label>
+            <input name="source_channel" class="form-control" value="manual" readonly>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Titulek *</label>
+            <input name="title" class="form-control" required placeholder="Stručný popis">
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label">Entita</label>
+            <select name="entity_id" class="form-select">
+              <option value="">— nevybráno —</option>
+              {% for e in entities %}<option value="{{ e.id }}">{{ e.code }} — {{ e.name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label">Vozidlo</label>
+            <select name="vehicle_id" class="form-select">
+              <option value="">— nevybráno —</option>
+              {% for v in vehicles %}<option value="{{ v.id }}">{{ v.spz }} — {{ v.make }} {{ v.model }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label">Osoba</label>
+            <select name="person_id" class="form-select">
+              <option value="">— nevybráno —</option>
+              {% for p in people %}<option value="{{ p.id }}">{{ p.full_name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label">Zdroj ref.</label>
+            <input name="source_ref" class="form-control" placeholder="číslo emailu, ticket, …">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Popis / Obsah</label>
+            <textarea name="body" class="form-control" rows="4"></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Payload JSON (volitelné)</label>
+            <textarea name="payload_json" class="form-control" rows="2" style="font-family:monospace;font-size:11px" placeholder='{"km": 125000, "date": "2026-03-18"}'></textarea>
+          </div>
+        </div>
+        <div class="d-flex gap-2 justify-content-end mt-3">
+          <a href="/intake" class="btn btn-outline-secondary btn-sm">Zrušit</a>
+          <button type="submit" class="btn btn-primary btn-sm">Uložit intake</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

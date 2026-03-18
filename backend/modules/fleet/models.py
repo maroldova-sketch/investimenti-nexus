@@ -284,7 +284,37 @@ class DeductionCase(Base):
     source_ref_id: Mapped[str|None] = mapped_column(String(36))
     reviewed_by: Mapped[str|None] = mapped_column(String(200))
     reviewed_at: Mapped[datetime|None] = mapped_column(DateTime)
+    export_batch_id: Mapped[str|None] = mapped_column(String(36))
+    exported_at: Mapped[datetime|None] = mapped_column(DateTime)
+    exported_by: Mapped[str|None] = mapped_column(String(200))
     created_by_id: Mapped[str|None] = mapped_column(String(36), ForeignKey("person.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     person: Mapped["Person"] = relationship(foreign_keys=[person_id])
     vehicle: Mapped["Vehicle|None"] = relationship(foreign_keys=[vehicle_id])
+
+
+class TripLog(Base):
+    __tablename__ = "trip_log"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(__import__('uuid').uuid4()))
+    person_id: Mapped[str] = mapped_column(String(36), ForeignKey("person.id"), index=True)
+    vehicle_id: Mapped[str] = mapped_column(String(36), ForeignKey("vehicle.id"), index=True)
+    entity_id: Mapped[str|None] = mapped_column(String(36), ForeignKey("entity.id"))
+    trip_date: Mapped[str] = mapped_column(String(10))          # YYYY-MM-DD
+    start_km: Mapped[int|None] = mapped_column(Integer)
+    end_km: Mapped[int|None] = mapped_column(Integer)
+    distance_km: Mapped[int|None] = mapped_column(Integer)      # persisted after validation
+    trip_type: Mapped[str] = mapped_column(String(20), default="business")  # business/private/mixed
+    purpose: Mapped[str|None] = mapped_column(String(300))
+    destination: Mapped[str|None] = mapped_column(String(200))
+    cost_center: Mapped[str|None] = mapped_column(String(100))
+    notes: Mapped[str|None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft/submitted/approved/ignored
+    source: Mapped[str] = mapped_column(String(20), default="manual") # manual/imported/derived
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    reviewed_by: Mapped[str|None] = mapped_column(String(200))
+    reviewed_at: Mapped[datetime|None] = mapped_column(DateTime)
+    created_by_id: Mapped[str|None] = mapped_column(String(36), ForeignKey("person.id"))
+
+    person: Mapped["Person"] = relationship(foreign_keys=[person_id])
+    vehicle: Mapped["Vehicle"] = relationship(foreign_keys=[vehicle_id])
