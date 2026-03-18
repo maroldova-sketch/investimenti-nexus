@@ -13,9 +13,9 @@
 {% endblock %}
 {% block content %}
 <div class="container-xl">
-  <div class="nx-filter-bar">
+  <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
     <input type="text" id="nx-search" class="form-control" style="max-width:260px" placeholder="Hledat jméno, email…">
-    <span id="nx-count" class="nx-filter-count">{{ people|length }} osob</span>
+    <span id="nx-count" class="text-muted ms-auto" style="font-size:12px">{{ people|length }} osob</span>
   </div>
   <div class="card">
     <div class="table-responsive">

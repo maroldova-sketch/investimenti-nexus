@@ -1,0 +1,139 @@
+{% extends "layouts/base.html" %}
+{% block title %}Axigon{% endblock %}
+{% block breadcrumb %}<a href="/fleet" class="text-muted text-decoration-none">Fleet</a> / Axigon{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="row g-2 align-items-center">
+    <div class="col"><div class="page-pretitle">Fleet — Externý účet</div><h2 class="page-title">Axigon</h2></div>
+    <div class="col-auto">
+      <a href="/fleet/axigon/contacts" class="btn btn-outline-secondary btn-sm">Kontakty →</a>
+    </div>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+
+  {# WARNINGS #}
+  {% for w in warnings %}
+  <div class="nx-alert {% if w.level == 'error' %}nx-alert-danger{% else %}nx-alert-warning{% endif %} mb-2">
+    <strong>{{ w.msg }}</strong>
+  </div>
+  {% endfor %}
+
+  {% if account %}
+  <div class="row g-3">
+
+    {# LEFT — account details #}
+    <div class="col-lg-7">
+      <div class="card mb-3">
+        <div class="card-header fw-medium">Detaily účtu</div>
+        <div class="card-body">
+          <div class="row g-3">
+            {% macro df(label, val) %}
+            <div class="col-sm-6">
+              <div class="form-label">{{ label }}</div>
+              <div style="font-size:13px">{{ val or '—' }}</div>
+            </div>
+            {% endmacro %}
+            {{ df("Poskytovatel", "Axigon") }}
+            {{ df("Entita", account.entity.name if account.entity else '—') }}
+            {{ df("Typ registrace", account.registration_type) }}
+            <div class="col-sm-6">
+              <div class="form-label">Platnost registrace do</div>
+              <div style="font-size:13px">
+                {% if account.registration_valid_to %}
+                  {% set days_left = (account.registration_valid_to | string) %}
+                  <strong {% if account.registration_valid_to < now_date %}class="text-danger"{% endif %}>
+                    {{ account.registration_valid_to }}
+                  </strong>
+                {% else %}—{% endif %}
+              </div>
+            </div>
+            <div class="col-sm-6">
+              <div class="form-label">Vratná záloha</div>
+              <div style="font-size:13px"><strong>{{ "{:,.0f}".format(account.deposit_amount).replace(",", "\u00a0") }} Kč</strong></div>
+            </div>
+            <div class="col-12">
+              <div class="form-label">Adresa registrace</div>
+              <div style="font-size:13px">{{ account.registered_address or '—' }}</div>
+            </div>
+            <div class="col-12">
+              <div class="form-label">Doručovací adresa (karty)</div>
+              <div style="font-size:13px">{{ account.delivery_address or '—' }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# OPERATIONAL RULES #}
+      <div class="card mb-3">
+        <div class="card-header fw-medium">Provozní pravidla</div>
+        <div class="card-body">
+          <div class="nx-alert nx-alert-info" style="margin-bottom:0">
+            <div>
+              <div class="fw-medium" style="font-size:13px">⚠ Změna emailu NEMĚNÍ přihlašovací jméno</div>
+              <div style="font-size:12px;margin-top:4px;color:#374151">
+                Přihlašovací jméno a heslo jsou v Axigonu oddělené od kontaktního emailu. 
+                Pokud je nutná změna jména kontaktu, starý kontakt je třeba smazat/deaktivovat a vytvořit nový.
+                Skupinový (oddělení) email je povolen.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# RIGHT — contacts summary + sources #}
+    <div class="col-lg-5">
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between fw-medium">
+          Kontakty
+          <a href="/fleet/axigon/contacts" class="btn btn-ghost btn-sm">Vše →</a>
+        </div>
+        {% for area in ['contracts','fuel_cards','billing'] %}
+        <div class="card-body py-2 border-bottom">
+          <div class="form-label" style="margin-bottom:3px">{{ area }}</div>
+          {% set ns = namespace(found=false) %}
+          {% for c in contacts %}
+            {% for a in assignments %}
+              {% if a.external_contact_id == c.id and a.area == area and a.is_primary and c.is_active %}
+                <div style="font-size:13px" class="fw-medium">{{ c.display_name }}</div>
+                <div style="font-size:11px;color:#9ba3af">{{ c.email or '—' }} · {{ c.phone or '—' }}</div>
+                {% set ns.found = true %}
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+          {% if not ns.found %}<span class="nx-badge nx-badge-err">chybí primární</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+      {# INTAKE SOURCES #}
+      <div class="card">
+        <div class="card-header fw-medium">Zdroje dat (intake)</div>
+        {% for s in sources %}
+        <div class="card-body py-2 border-bottom">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="fw-medium" style="font-size:13px">{{ s.display_name }}</div>
+              <div style="font-size:11px;color:#9ba3af">{{ s.source_type }} · {{ s.default_for_type or '—' }}</div>
+            </div>
+            <span class="nx-badge {% if s.status == 'active' %}nx-badge-ok{% else %}nx-badge-neutral{% endif %}">{{ s.status }}</span>
+          </div>
+        </div>
+        {% else %}
+        <div class="card-body"><div class="text-muted" style="font-size:12px">Žádné zdroje</div></div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+  {% else %}
+  <div class="nx-empty">
+    <div class="nx-empty-title">Axigon účet nenastaven</div>
+    <div class="nx-empty-sub">Spusťte seed script pro načtení dat.</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

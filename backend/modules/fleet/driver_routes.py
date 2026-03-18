@@ -11,7 +11,7 @@ from backend.core.security.auth import get_current_user, CurrentUser
 from backend.core.audit.log import audit
 from backend.modules.fleet.models import (
     Vehicle, VehicleAssignment, OdometerReading,
-    InsuranceClaim, TrafficFine, DeductionCase, FuelTransaction
+    InsuranceClaim, TrafficFine, DeductionCase, FuelTransaction, TripLog
 )
 
 templates = Jinja2Templates(
@@ -175,8 +175,11 @@ def driver_detail(person_id: str, request: Request, db: Session = Depends(get_db
     from calendar import monthrange as _mr
     today_d = date.today()
     _tf, _tt = f'{today_d.year}-{today_d.month:02d}-01', f'{today_d.year}-{today_d.month:02d}-{_mr(today_d.year, today_d.month)[1]:02d}'
-    driver_trips = []
-    _all_trips = []
+    driver_trips = db.query(TripLog).filter(
+        TripLog.person_id == person_id, TripLog.status != 'ignored',
+        TripLog.trip_date >= _tf, TripLog.trip_date <= _tt
+    ).order_by(TripLog.trip_date.desc()).limit(8).all()
+    _all_trips = db.query(TripLog).filter(TripLog.person_id == person_id, TripLog.status != 'ignored').all()
     driver_trip_summary = {
         "count": len(_all_trips),
         "total_km": sum(t.distance_km or 0 for t in _all_trips),

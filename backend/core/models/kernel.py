@@ -35,6 +35,20 @@ class Person(Base):
     notes: Mapped[str|None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
+    # HR extended fields
+    birth_date: Mapped[str|None] = mapped_column(String(10))
+    hire_date: Mapped[str|None] = mapped_column(String(10))
+    birth_place: Mapped[str|None] = mapped_column(String(200))
+    rod_cislo: Mapped[str|None] = mapped_column(String(20))
+    bank_account: Mapped[str|None] = mapped_column(String(60))
+    health_insurance: Mapped[str|None] = mapped_column(String(100))
+    marital_status: Mapped[str|None] = mapped_column(String(40))
+    education: Mapped[str|None] = mapped_column(Text)
+    position: Mapped[str|None] = mapped_column(String(200))
+    department: Mapped[str|None] = mapped_column(String(200))
+    work_location: Mapped[str|None] = mapped_column(String(100))
+    employment_type: Mapped[str|None] = mapped_column(String(200))
+    source_holding: Mapped[str|None] = mapped_column(String(20))
 
     memberships: Mapped[list["EntityMembership"]] = relationship(back_populates="person")
     role_assignments: Mapped[list["RoleAssignment"]] = relationship(

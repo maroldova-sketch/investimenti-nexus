@@ -3,17 +3,17 @@
 {% block breadcrumb %}<a href="/fleet" class="text-muted text-decoration-none">Fleet</a> / Srážky{% endblock %}
 {% block page_header %}
 <div class="page-header"><div class="container-xl">
-  <div class="row g-2 align-items-center">
-    <div class="col">
+  <div class="d-flex align-items-center justify-content-between">
+    <div>
       <div class="page-pretitle">Fleet</div>
       <h2 class="page-title">Srážkové případy
-        {% if pending_count > 0 %}<span class="nx-badge nx-badge-warn ms-2">{{ pending_count }} ke schválení</span>{% endif %}
+        {% if pending_count > 0 %}
+        <span class="nx-badge nx-badge-warn ms-2">{{ pending_count }} ke schválení</span>
+        {% endif %}
       </h2>
     </div>
     {% if current_user.has_role('owner','admin','hr','finance') %}
-    <div class="col-auto">
-      <button class="btn btn-primary btn-sm" onclick="openModal('modal-export')">⬇ Export batch</button>
-    </div>
+    <button class="btn btn-primary btn-sm" onclick="openModal('modal-export')">⬇ Export batch</button>
     {% endif %}
   </div>
 </div></div>
@@ -21,41 +21,47 @@
 {% block content %}
 <div class="container-xl">
 
-  <div class="nx-filter-bar">
+  {# FILTERS #}
+  <div class="d-flex gap-2 mb-3 flex-wrap">
     <a href="/fleet/deductions" class="btn btn-sm {% if not status_filter and not period_filter %}btn-primary{% else %}btn-outline-secondary{% endif %}">Vše ({{ enriched|length }})</a>
     <a href="?status_filter=draft" class="btn btn-sm {% if status_filter=='draft' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">Draft</a>
     <a href="?status_filter=pending_approval" class="btn btn-sm {% if status_filter=='pending_approval' %}btn-info{% else %}btn-outline-secondary{% endif %}">Čeká</a>
     <a href="?status_filter=approved" class="btn btn-sm {% if status_filter=='approved' %}btn-warning{% else %}btn-outline-secondary{% endif %}">Schváleno</a>
     <a href="?status_filter=exported" class="btn btn-sm {% if status_filter=='exported' %}btn-success{% else %}btn-outline-secondary{% endif %}">Exportováno</a>
     {% if periods %}
-    <select onchange="location.href='/fleet/deductions?period_filter='+this.value" class="form-select" style="max-width:130px">
+    <select onchange="location.href='/fleet/deductions?period_filter='+this.value" class="form-select form-select-sm" style="max-width:140px">
       <option value="">— Období —</option>
       {% for p in periods %}<option {% if period_filter==p %}selected{% endif %} value="{{ p }}">{{ p }}</option>{% endfor %}
     </select>
     {% endif %}
-    <span class="nx-filter-count">{{ enriched|length }} záznamů</span>
   </div>
 
   <div class="card">
     <div class="table-responsive">
       <table class="table">
-        <thead><tr>
-          <th>Zaměstnanec</th><th>Entita</th><th>Typ</th><th>Vozidlo</th>
-          <th class="col-num">Částka</th><th>Payroll</th><th>Stav</th><th>Export batch</th>
-          <th style="width:70px"></th>
-        </tr></thead>
+        <thead>
+          <tr><th>Zaměstnanec</th><th>Entita</th><th>Typ</th><th>Vozidlo</th>
+              <th>Částka</th><th>Payroll období</th><th>Stav</th><th>Export batch</th>
+              <th style="width:80px">Akce</th>
+          </tr>
+        </thead>
         <tbody>
-          {% for item in enriched %}{% set c = item.case %}{% set p = item.person %}{% set v = item.vehicle %}{% set ent = item.entity %}
+          {% for item in enriched %}
+          {% set c = item.case %}
+          {% set p = item.person %}
+          {% set v = item.vehicle %}
+          {% set ent = item.entity %}
           <tr>
             <td>
-              {% if p %}<a href="/fleet/driver/{{ p.id }}" class="text-reset text-decoration-none fw-medium">{{ p.full_name }}</a>
+              {% if p %}
+              <a href="/fleet/driver/{{ p.id }}" class="text-reset text-decoration-none fw-medium">{{ p.full_name }}</a>
               {% else %}—{% endif %}
             </td>
             <td><span class="nx-badge nx-badge-neutral">{{ ent.code if ent else '—' }}</span></td>
             <td><span class="nx-badge nx-badge-info">{{ c.case_type }}</span></td>
-            <td>{% if v %}<code class="spz">{{ v.spz }}</code>{% else %}—{% endif %}</td>
-            <td class="col-num">{% if c.amount %}<strong>{{ "{:,.0f}".format(c.amount).replace(",", "\u00a0") }} Kč</strong>{% else %}—{% endif %}</td>
-            <td class="text-muted" style="font-size:12px">{{ c.payroll_period_target or '—' }}</td>
+            <td>{% if v %}<span class="nx-badge nx-badge-vzc">{{ v.spz }}</span>{% else %}—{% endif %}</td>
+            <td>{% if c.amount %}<strong>{{ "{:,.0f}".format(c.amount).replace(",", " ") }} Kč</strong>{% else %}—{% endif %}</td>
+            <td class="text-muted">{{ c.payroll_period_target or '—' }}</td>
             <td>
               {% if c.status=='draft' %}<span class="nx-badge nx-badge-neutral">draft</span>
               {% elif c.status=='pending_approval' %}<span class="nx-badge nx-badge-info">čeká</span>
@@ -65,8 +71,9 @@
               {% else %}<span class="nx-badge nx-badge-neutral">{{ c.status }}</span>{% endif %}
             </td>
             <td style="font-size:10px;font-family:monospace;color:#9ba3af">
-              {% if c.export_batch_id %}{{ c.export_batch_id[:12] }}…
-              {% if c.exported_at %}<div>{{ c.exported_at.strftime('%d.%m %H:%M') }}</div>{% endif %}
+              {% if c.export_batch_id %}
+                {{ c.export_batch_id[:12] }}…
+                {% if c.exported_at %}<div class="text-muted">{{ c.exported_at.strftime('%d.%m %H:%M') }}</div>{% endif %}
               {% else %}—{% endif %}
             </td>
             <td>
@@ -74,6 +81,8 @@
               <form method="post" action="/fleet/deduction/{{ c.id }}/approve" style="margin:0">
                 <button class="btn btn-ghost btn-sm" style="color:#2fb344" title="Schválit">✓</button>
               </form>
+              {% elif c.status == 'approved' and current_user.has_role('owner','admin','hr','finance') %}
+              <span class="text-muted" style="font-size:11px">→ export batch</span>
               {% endif %}
             </td>
           </tr>
@@ -86,19 +95,24 @@
   </div>
 </div>
 
+{# EXPORT MODAL #}
 <div id="modal-export" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:10px;padding:24px;width:400px">
     <div class="d-flex justify-content-between align-items-center mb-3">
-      <h3 style="font-size:16px;font-weight:600;margin:0">Export batch — srážky</h3>
+      <h3 style="font-size:16px;font-weight:600;margin:0">Export batch — Fleet srážky</h3>
       <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-export').style.display='none'">✕</button>
     </div>
     <form method="post" action="/fleet/deductions/export-batch">
       <div class="mb-3">
         <label class="form-label">Payroll období (YYYY-MM) *</label>
-        <input name="payroll_period" class="form-control" required placeholder="2026-04" value="{{ period_filter or '' }}">
-        <div class="form-text" style="font-size:11px;color:#9ba3af;margin-top:4px">Zahrne všechny schválené srážky bez export_batch_id.</div>
+        <input name="payroll_period" class="form-control" required
+               placeholder="2026-04"
+               value="{{ period_filter or '' }}">
+        <div class="form-text">Export zahrne všechny schválené srážky pro toto období bez export_batch_id.</div>
       </div>
-      <div class="nx-alert nx-alert-info mb-3" style="font-size:12px">Fleet nikdy nestrhává mzdu. Export je jen podklad pro HR.</div>
+      <div class="nx-alert nx-alert-info mb-3" style="font-size:12px">
+        Fleet nikdy nestrhává mzdu. Export je jen podklad pro HR/mzdy.
+      </div>
       <div class="d-flex gap-2 justify-content-end">
         <button type="button" class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('modal-export').style.display='none'">Zrušit</button>
         <button type="submit" class="btn btn-primary btn-sm">Vytvořit export</button>

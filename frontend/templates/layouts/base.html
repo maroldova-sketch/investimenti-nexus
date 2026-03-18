@@ -6,133 +6,170 @@
   <title>{% block title %}NEXUS{% endblock %} — Holding Operations</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta21/dist/css/tabler.min.css">
   <link rel="stylesheet" href="/static/css/nexus.css">
-  <link rel="stylesheet" href="/static/css/nexus-polish.css">
 </head>
 <body class="antialiased">
 <div class="wrapper">
 
-  {# ── SIDEBAR ─────────────────────────────────────────────────────── #}
+  {# ── SIDEBAR ── #}
   <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
     <div class="container-fluid">
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-nav">
         <span class="navbar-toggler-icon"></span>
       </button>
-      <a href="/fleet" class="navbar-brand">
+      <a href="/dashboard" class="navbar-brand">
         <span class="navbar-brand-nexus">NEXUS<span>Holding Operations</span></span>
       </a>
       <div class="collapse navbar-collapse" id="sidebar-nav">
-        <ul class="navbar-nav pt-lg-2">
+        <ul class="navbar-nav pt-lg-3">
 
-          {# FLEET #}
-          <div class="nav-section-label">Fleet</div>
-
-          <li class="nav-item">
-            <a class="nav-link {% if active_section == 'fleet' %}active{% endif %}" href="/fleet">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
-              <span class="nav-link-title">Vozový park</span>
+          <li class="nav-item {% if active_section == 'dashboard' %}active{% endif %}">
+            <a class="nav-link" href="/dashboard">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
+              <span class="nav-link-title">Dashboard</span>
             </a>
           </li>
 
-          <li class="nav-item">
-            <a class="nav-link {% if active_section == 'fleet-drivers' %}active{% endif %}" href="/fleet/drivers">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>
-              <span class="nav-link-title">Řidiči</span>
-            </a>
-          </li>
+          <div class="nav-section-label">Lidé & Entity</div>
 
-          <li class="nav-item">
-            <a class="nav-link {% if active_section == 'deductions' %}active{% endif %}" href="/fleet/deductions">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
-              <span class="nav-link-title">Srážky</span>
-            </a>
-          </li>
-
-          {# OPERACE #}
-          <div class="nav-section-label">Operace</div>
-
-          <li class="nav-item">
-            <a class="nav-link {% if active_section == 'people' %}active{% endif %}" href="/people">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+          <li class="nav-item {% if active_section == 'people' %}active{% endif %}">
+            <a class="nav-link" href="/people">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.85"/></svg></span>
               <span class="nav-link-title">Lidé</span>
             </a>
           </li>
 
-          <li class="nav-item">
-            <a class="nav-link {% if active_section == 'attendance' %}active{% endif %}" href="/attendance">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+          <li class="nav-item {% if active_section == 'entities' %}active{% endif %}">
+            <a class="nav-link" href="/entities">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span>
+              <span class="nav-link-title">Entity</span>
+            </a>
+          </li>
+
+          <div class="nav-section-label">Operace</div>
+
+          <li class="nav-item {% if active_section == 'attendance' %}active{% endif %}">
+            <a class="nav-link" href="/attendance">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
               <span class="nav-link-title">Docházka</span>
             </a>
           </li>
 
-          <li class="nav-item">
-            <a class="nav-link {% if active_section == 'leave' %}active{% endif %}" href="/leave">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
-              <span class="nav-link-title">Volno</span>
+          <li class="nav-item {% if active_section == 'approvals' %}active{% endif %}">
+            <a class="nav-link" href="/approvals">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+              <span class="nav-link-title">Schvalování</span>
             </a>
           </li>
 
-          <li class="nav-item">
-            <a class="nav-link {% if active_section == 'approvals' %}active{% endif %}" href="/approvals">
+          <li class="nav-item {% if active_section == 'fleet' %}active{% endif %}">
+            <a class="nav-link{% if active_section == 'notifications' %} active{% endif %}" href="/notifications">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+              <span class="nav-link-title">Notifikace</span>
+            </a>
+            <a class="nav-link{% if active_section == 'intake' %} active{% endif %}" href="/intake">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
+              <span class="nav-link-title">Intake</span>
+            </a>
+            <a class="nav-link{% if active_section == 'fleet' %} active{% endif %}" href="/fleet">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
+              <span class="nav-link-title">Vozový park</span>
+            </a>
+            <a class="nav-link{% if active_section == 'fleet-drivers' %} active{% endif %}" href="/fleet/drivers">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>
+              <span class="nav-link-title">Řidiči</span>
+            </a>
+            <a class="nav-link{% if active_section == 'deductions' %} active{% endif %}" href="/fleet/deductions">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+              <span class="nav-link-title">Srážky</span>
+            </a>
+            <a class="nav-link{% if active_section == 'trips' %} active{% endif %}" href="/fleet/trips">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
+              <span class="nav-link-title">Kniha jízd</span>
+            </a>
+            <a class="nav-link{% if active_section == 'people' %} active{% endif %}" href="/people">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+              <span class="nav-link-title">Lidé</span>
+            </a>
+            <a class="nav-link{% if active_section == 'attendance' %} active{% endif %}" href="/attendance">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+              <span class="nav-link-title">Docházka</span>
+            </a>
+            <a class="nav-link{% if active_section == 'attendance' %} active{% endif %}" href="/leave">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
+              <span class="nav-link-title">Volno</span>
+            </a>
+            <a class="nav-link{% if active_section == 'import' %} active{% endif %}" href="/import">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></span>
+              <span class="nav-link-title">Import Center</span>
+            </a>
+            <a class="nav-link{% if active_section == 'approvals' %} active{% endif %}" href="/approvals">
               <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
               <span class="nav-link-title">Schvalování</span>
             </a>
           </li>
 
-          {# DATA & NOTIFIKACE #}
-          <div class="nav-section-label">Data & Systém</div>
+          <div class="nav-section-label">Finance & Systém</div>
 
-          <li class="nav-item">
-            <a class="nav-link {% if active_section == 'notifications' %}active{% endif %}" href="/notifications">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
-              <span class="nav-link-title">Notifikace</span>
+          <li class="nav-item {% if active_section == 'bank' %}active{% endif %}">
+            <a class="nav-link" href="/bank">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+              <span class="nav-link-title">Banka</span>
             </a>
           </li>
 
-          <li class="nav-item">
-            <a class="nav-link {% if active_section == 'intake' %}active{% endif %}" href="/intake">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
-              <span class="nav-link-title">Intake</span>
+          <li class="nav-item {% if active_section == 'sync' %}active{% endif %}">
+            <a class="nav-link" href="/sync">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></span>
+              <span class="nav-link-title">Synchronizace</span>
             </a>
           </li>
 
-          <li class="nav-item">
-            <a class="nav-link {% if active_section == 'import' %}active{% endif %}" href="/import">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></span>
-              <span class="nav-link-title">Import</span>
+          <li class="nav-item {% if active_section == 'audit' %}active{% endif %}">
+            <a class="nav-link" href="/audit">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
+              <span class="nav-link-title">Audit log</span>
             </a>
           </li>
 
         </ul>
 
-        {# USER FOOTER #}
-        <div class="mt-auto pb-3 px-3" style="border-top:1px solid rgba(255,255,255,.08);padding-top:12px;margin-top:16px;">
-          <div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+        <div class="mt-auto pb-3 px-3" style="border-top: 1px solid rgba(255,255,255,.08); padding-top: 12px; margin-top: 16px;">
+          <div style="font-size: 11px; color: rgba(255,255,255,.35); margin-bottom: 6px;">
             {{ current_user.email if current_user else '' }}
           </div>
-          <a href="/auth/logout" style="font-size:12px;color:rgba(255,255,255,.4);text-decoration:none;">← Odhlásit</a>
+          <a href="/auth/logout" style="font-size: 12px; color: rgba(255,255,255,.45); text-decoration: none;">
+            Odhlásit
+          </a>
         </div>
-
       </div>
     </div>
   </aside>
 
-  {# ── MAIN ─────────────────────────────────────────────────────────── #}
+  {# ── MAIN ── #}
   <div class="page-wrapper">
 
     {# Topbar #}
     <header class="navbar navbar-expand-md navbar-light d-print-none">
       <div class="container-xl">
-        <div class="d-flex align-items-center gap-2 text-muted" style="font-size:13px;">
-          {% block breadcrumb %}{% endblock %}
+        <div class="d-flex align-items-center gap-3">
+          <div class="text-muted" style="font-size: 13px;">
+            {% block breadcrumb %}{% endblock %}
+          </div>
         </div>
-        <div class="navbar-nav ms-auto d-flex align-items-center gap-2">
-          <span style="font-size:13px;color:#6b7280;">{{ current_user.person.first_name if current_user and current_user.person else '' }}</span>
-          <span class="nx-badge nx-badge-info" style="font-size:10px;">{{ current_user.role if current_user else '' }}</span>
+        <div class="navbar-nav ms-auto">
+          <div class="nav-item d-flex align-items-center gap-2">
+            <span style="font-size: 13px; color: #6b7280;">
+              {{ current_user.person.first_name if current_user and current_user.person else '' }}
+            </span>
+            <span class="nx-badge nx-badge-info" style="font-size: 10px;">
+              {{ current_user.role if current_user else '' }}
+            </span>
+          </div>
         </div>
       </div>
     </header>
 
-    {# Page header #}
+    {# Page header slot #}
     {% block page_header %}{% endblock %}
 
     {# Content #}

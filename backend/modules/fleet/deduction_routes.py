@@ -91,8 +91,8 @@ def export_deduction_batch(
     # Create PayrollExportBatch (reuse existing model)
     from backend.core.models.kernel import Entity as KEntity
     batch = PayrollExportBatch(
-        period_id="fleet-deductions",
-        entity_id="fleet-deductions",
+        period_id="fleet-deductions",   # no period FK for fleet deductions
+        entity_id=None,
         status="exported",
         row_count=len(cases),
         exported_by_id=cu.person_id,

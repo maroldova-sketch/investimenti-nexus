@@ -1,0 +1,132 @@
+{% extends "layouts/base.html" %}
+{% block title %}Axigon — Kontakty{% endblock %}
+{% block breadcrumb %}<a href="/fleet" class="text-muted text-decoration-none">Fleet</a> / <a href="/fleet/axigon" class="text-muted text-decoration-none">Axigon</a> / Kontakty{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="row g-2 align-items-center">
+    <div class="col"><div class="page-pretitle">Axigon</div><h2 class="page-title">Kontakty</h2></div>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+
+  {# RULES BANNER #}
+  <div class="nx-alert nx-alert-info mb-3" style="font-size:12px">
+    <div>
+      <strong>Provozní pravidla:</strong>
+      Jeden primární kontakt na oblast (contracts / fuel_cards / billing).
+      Email ≠ přihlašovací jméno.
+      Změna jména vyžaduje nový kontakt (starý deaktivovat).
+      Skupinový email je povolen.
+    </div>
+  </div>
+
+  {% macro sort_link(col, label) %}
+  {% set next_dir = 'desc' if sort == col and dir == 'asc' else 'asc' %}
+  <a href="?sort={{ col }}&dir={{ next_dir }}" class="text-reset text-decoration-none d-flex align-items-center gap-1">
+    {{ label }}
+    {% if sort == col %}
+      {% if dir == 'asc' %}↑{% else %}↓{% endif %}
+    {% else %}<span style="opacity:.3">↕</span>{% endif %}
+  </a>
+  {% endmacro %}
+
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table">
+        <thead><tr>
+          <th>{{ sort_link('display_name', 'Jméno / Email') }}</th>
+          <th>{{ sort_link('contact_type', 'Typ') }}</th>
+          <th>Oblast / Priorita</th>
+          <th>{{ sort_link('email', 'Email') }}</th>
+          <th>Telefon</th>
+          <th class="text-center">App</th>
+          <th class="text-center">Faktury</th>
+          <th class="text-center">Ceník</th>
+          <th>{{ sort_link('status', 'Stav') }}</th>
+          <th style="width:80px">Akce</th>
+        </tr></thead>
+        <tbody>
+          {% for item in enriched %}
+          {% set c = item.contact %}
+          <tr {% if not c.is_active %}style="opacity:.55"{% endif %}>
+            <td>
+              <div class="fw-medium">{{ c.display_name }}</div>
+              {% if c.login_name %}<div style="font-size:10px;color:#9ba3af">login: {{ c.login_name }}</div>{% endif %}
+              {% if c.notes %}<div style="font-size:11px;color:#9ba3af">{{ c.notes[:60] }}</div>{% endif %}
+            </td>
+            <td><span class="nx-badge {% if c.contact_type == 'person' %}nx-badge-info{% else %}nx-badge-neutral{% endif %}">{{ c.contact_type }}</span></td>
+            <td>
+              {% for a in item.assignments %}
+              <div style="font-size:11px;white-space:nowrap">
+                <span class="nx-badge nx-badge-neutral" style="font-size:10px">{{ a.area }}</span>
+                {% if a.is_primary %}<span class="nx-badge nx-badge-ok" style="font-size:9px">primary</span>
+                {% else %}<span class="nx-badge nx-badge-neutral" style="font-size:9px">secondary</span>{% endif %}
+              </div>
+              {% endfor %}
+            </td>
+            <td style="font-size:12px">{{ c.email or '—' }}</td>
+            <td style="font-size:12px">{{ c.phone or '—' }}</td>
+            <td class="text-center">{% if c.mobile_app_access %}✅{% else %}—{% endif %}</td>
+            <td class="text-center">{% if c.send_invoices %}✅{% else %}—{% endif %}</td>
+            <td class="text-center">{% if c.send_price_lists %}✅{% else %}—{% endif %}</td>
+            <td>
+              {% if c.is_active %}<span class="nx-badge nx-badge-ok">aktivní</span>
+              {% else %}<span class="nx-badge nx-badge-neutral">neaktivní</span>{% endif %}
+            </td>
+            <td>
+              <div class="d-flex gap-1">
+                <form method="post" action="/fleet/axigon/contacts/{{ c.id }}/toggle" style="margin:0">
+                  <button class="btn btn-ghost btn-sm" title="Aktivovat/Deaktivovat" style="font-size:11px">
+                    {% if c.is_active %}⏸{% else %}▶{% endif %}
+                  </button>
+                </form>
+                <div class="dropdown">
+                  <button class="btn btn-ghost btn-sm" data-bs-toggle="dropdown" style="font-size:11px">Oblast ▾</button>
+                  <div class="dropdown-menu" style="min-width:220px;padding:12px">
+                    <div style="font-size:11px;font-weight:600;color:#9ba3af;margin-bottom:8px">Nastavit jako primární:</div>
+                    {% for area in ['contracts','fuel_cards','billing'] %}
+                    <form method="post" action="/fleet/axigon/contacts/{{ c.id }}/set-primary" style="margin:0 0 4px">
+                      <input type="hidden" name="area" value="{{ area }}">
+                      <button class="btn btn-outline-secondary btn-sm w-100" style="font-size:11px">{{ area }}</button>
+                    </form>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="10"><div class="nx-empty"><div class="nx-empty-title">Žádné kontakty</div></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# INTAKE SOURCES #}
+  {% if sources %}
+  <div class="card mt-3">
+    <div class="card-header fw-medium">Zdroje dat — Intake Sources</div>
+    <div class="table-responsive">
+      <table class="table">
+        <thead><tr><th>Název</th><th>Typ</th><th>Kód</th><th>Default pro</th><th>Stav</th></tr></thead>
+        <tbody>
+          {% for s in sources %}
+          <tr>
+            <td class="fw-medium">{{ s.display_name }}</td>
+            <td><span class="nx-badge nx-badge-neutral">{{ s.source_type }}</span></td>
+            <td style="font-size:11px;font-family:monospace;color:#9ba3af">{{ s.code }}</td>
+            <td><span class="nx-badge nx-badge-info" style="font-size:10px">{{ s.default_for_type or '—' }}</span></td>
+            <td><span class="nx-badge {% if s.status == 'active' %}nx-badge-ok{% else %}nx-badge-neutral{% endif %}">{{ s.status }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

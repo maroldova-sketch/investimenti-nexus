@@ -29,7 +29,7 @@
 {% endblock %}
 {% block content %}
 <div class="container-xl">
-  <div class="nx-filter-bar">
+  <div class="d-flex gap-2 mb-3 flex-wrap">
     <a href="/notifications" class="btn btn-sm {% if not status_filter and not severity_filter %}btn-primary{% else %}btn-outline-secondary{% endif %}">Vše ({{ enriched|length }})</a>
     <a href="?status_filter=new" class="btn btn-sm {% if status_filter=='new' %}btn-danger{% else %}btn-outline-secondary{% endif %}">Nové</a>
     <a href="?status_filter=acknowledged" class="btn btn-sm {% if status_filter=='acknowledged' %}btn-warning{% else %}btn-outline-secondary{% endif %}">Potvrzeno</a>

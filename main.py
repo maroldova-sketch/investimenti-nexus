@@ -16,12 +16,16 @@ from backend.modules.fleet.driver_routes import router as driver_router
 from backend.modules.fleet.deduction_routes import router as deduction_router
 from backend.modules.notifications.routes import router as notifications_router
 from backend.modules.fleet.trip_routes import router as trip_router
+from backend.modules.axigon.routes import router as axigon_router
+from backend.modules.people.calendar_routes import router as calendar_router
 
 app = FastAPI(title="NEXUS", redirect_slashes=False, docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
 
 app.include_router(auth_router)
+app.include_router(calendar_router)
 app.include_router(notifications_router)
+app.include_router(axigon_router)
 app.include_router(deduction_router)
 app.include_router(driver_router)
 app.include_router(fleet_router)

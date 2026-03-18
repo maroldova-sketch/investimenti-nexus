@@ -3,17 +3,16 @@
 {% block breadcrumb %}<a href="/fleet" class="text-muted text-decoration-none">Fleet</a> / Řidiči{% endblock %}
 {% block page_header %}
 <div class="page-header"><div class="container-xl">
-  <div class="row g-2 align-items-center">
-    <div class="col"><div class="page-pretitle">Fleet</div><h2 class="page-title">Řidiči</h2></div>
+  <div class="d-flex align-items-center justify-content-between">
+    <div><div class="page-pretitle">Fleet</div><h2 class="page-title">Řidiči</h2></div>
   </div>
 </div></div>
 {% endblock %}
 {% block content %}
 <div class="container-xl">
-
-  <div class="nx-filter-bar">
+  <div class="d-flex gap-2 mb-3 flex-wrap">
     <a href="?" class="btn btn-sm {% if not entity_filter and not has_open %}btn-primary{% else %}btn-outline-secondary{% endif %}">Všichni ({{ rows|length }})</a>
-    <a href="?has_open=1" class="btn btn-sm {% if has_open=='1' %}btn-warning{% else %}btn-outline-secondary{% endif %}">S otevřenými</a>
+    <a href="?has_open=1" class="btn btn-sm {% if has_open=='1' %}btn-warning{% else %}btn-outline-secondary{% endif %}">S otevřenými položkami</a>
     {% for e in entities %}
     <a href="?entity_filter={{ e.code }}" class="btn btn-sm {% if entity_filter==e.code %}btn-primary{% else %}btn-outline-secondary{% endif %}">{{ e.code }}</a>
     {% endfor %}
@@ -24,23 +23,26 @@
       <table class="table">
         <thead><tr>
           <th>Řidič</th><th>Entita</th><th>Vozidlo</th>
-          <th>Tachometr</th><th class="text-center">Pokuty</th>
+          <th>Posl. tachometr</th><th class="text-center">Pokuty</th>
           <th class="text-center">Škody</th><th class="text-center">Srážky</th><th style="width:80px"></th>
         </tr></thead>
         <tbody>
-          {% for r in rows %}{% set p = r.person %}
+          {% for r in rows %}
+          {% set p = r.person %}
           <tr onclick="location.href='/fleet/driver/{{ p.id }}'" style="cursor:pointer">
             <td>
               <div class="d-flex align-items-center gap-2">
-                <div style="width:30px;height:30px;border-radius:50%;background:#e0f2fe;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px;color:#0369a1;flex-shrink:0">{{ (p.first_name or '?')[0] }}{{ (p.last_name or '')[0] }}</div>
-                <div><div class="fw-medium">{{ p.full_name }}</div>
-                  {% if p.email_work %}<div style="font-size:11px;color:#9ba3af">{{ p.email_work }}</div>{% endif %}
+                <div style="width:32px;height:32px;border-radius:50%;background:#e0f2fe;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px;color:#0369a1;flex-shrink:0">{{ p.first_name[0] if p.first_name else '?' }}{{ p.last_name[0] if p.last_name else '' }}</div>
+                <div>
+                  <div class="fw-medium">{{ p.full_name }}</div>
+                  <div style="font-size:11px;color:#9ba3af">{{ p.email_work or '' }}</div>
                 </div>
               </div>
             </td>
             <td><span class="nx-badge nx-badge-neutral">{{ r.entity.code if r.entity else '—' }}</span></td>
             <td>
-              {% if r.vehicle %}<code class="spz">{{ r.vehicle.spz }}</code>
+              {% if r.vehicle %}
+              <span class="nx-badge nx-badge-vzc">{{ r.vehicle.spz }}</span>
               <span class="text-muted" style="font-size:12px"> {{ r.vehicle.make }} {{ r.vehicle.model }}</span>
               {% else %}—{% endif %}
             </td>
@@ -54,7 +56,7 @@
             <td class="text-center">{% if r.open_fines > 0 %}<span class="nx-badge nx-badge-err">{{ r.open_fines }}</span>{% else %}<span class="text-muted">0</span>{% endif %}</td>
             <td class="text-center">{% if r.open_claims > 0 %}<span class="nx-badge nx-badge-warn">{{ r.open_claims }}</span>{% else %}<span class="text-muted">0</span>{% endif %}</td>
             <td class="text-center">{% if r.open_deductions > 0 %}<span class="nx-badge nx-badge-info">{{ r.open_deductions }}</span>{% else %}<span class="text-muted">0</span>{% endif %}</td>
-            <td onclick="event.stopPropagation()"><a href="/fleet/driver/{{ p.id }}" class="btn btn-ghost btn-sm">Detail →</a></td>
+            <td onclick="event.stopPropagation()"><a href="/fleet/driver/{{ p.id }}" class="btn btn-ghost btn-sm">Detail</a></td>
           </tr>
           {% else %}
           <tr><td colspan="8"><div class="nx-empty"><div class="nx-empty-title">Žádní řidiči</div></div></td></tr>
