@@ -16,13 +16,37 @@ router = APIRouter(prefix="/people", tags=["people"])
 @router.get("", response_class=HTMLResponse)
 def people_list(request: Request, db: Session = Depends(get_db),
                 cu: CurrentUser = Depends(get_current_user)):
+    from sqlalchemy import text as _text
     people = get_all_people(db)
     entities = db.query(Entity).filter(Entity.is_active==True).all()
+    # Persons missing key data — for dashboard widget
+    incomplete = db.execute(_text("""
+        SELECT id, last_name, first_name,
+               CASE WHEN rod_cislo IS NULL OR rod_cislo='' THEN 1 ELSE 0 END as no_rc,
+               CASE WHEN email_work IS NULL OR email_work='' THEN 1 ELSE 0 END as no_email,
+               CASE WHEN phone IS NULL OR phone='' THEN 1 ELSE 0 END as no_phone,
+               CASE WHEN birth_date IS NULL OR birth_date='' THEN 1 ELSE 0 END as no_bdate
+        FROM person WHERE is_active=1
+        AND (rod_cislo IS NULL OR rod_cislo=''
+          OR email_work IS NULL OR email_work=''
+          OR phone IS NULL OR phone=''
+          OR birth_date IS NULL OR birth_date='')
+        ORDER BY
+          (CASE WHEN rod_cislo IS NULL OR rod_cislo='' THEN 2 ELSE 0 END +
+           CASE WHEN email_work IS NULL OR email_work='' THEN 1 ELSE 0 END) DESC,
+          last_name
+        LIMIT 50
+    """)).fetchall()
+    incomplete_list = [{'id': r[0], 'name': r[1]+' '+r[2],
+                        'missing': (['RC'] if r[3] else []) + (['email'] if r[4] else []) + (['tel'] if r[5] else []) + (['datum nar.'] if r[6] else [])}
+                       for r in incomplete]
     return templates.TemplateResponse("pages/people/manager.html", {
         "request": request, "current_user": cu, "active_section": "people",
         "people": people, "entities": entities,
         "now_date": __import__('datetime').date.today().isoformat(),
         "page_title": "Lidé",
+        "incomplete": incomplete_list,
+        "incomplete_count": len(incomplete_list),
     })
 
 @router.post("/new")

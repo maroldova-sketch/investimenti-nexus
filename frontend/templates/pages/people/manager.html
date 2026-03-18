@@ -13,6 +13,29 @@
 {% endblock %}
 {% block content %}
 <div class="container-xl">
+
+{% if incomplete and incomplete|length > 0 %}
+<div class="card mb-3 border-warning">
+  <div class="card-header d-flex align-items-center justify-content-between" style="background:rgba(255,193,7,.08)">
+    <h3 class="card-title mb-0">&#9888; K doplnění &mdash; {{ incomplete_count }} osob</h3>
+    <span class="text-muted" style="font-size:12px">RC &bull; email &bull; telefon &bull; datum nar.</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead><tr><th>Jméno</th><th>Chybí</th><th></th></tr></thead>
+      <tbody>
+        {% for p in incomplete %}
+        <tr>
+          <td><a href="/people/{{ p.id }}" class="fw-medium text-reset text-decoration-none">{{ p.name }}</a></td>
+          <td>{% for m in p.missing %}<span class="nx-badge nx-badge-warn me-1" style="font-size:10px">{{ m }}</span>{% endfor %}</td>
+          <td><a href="/people/{{ p.id }}" class="btn btn-ghost btn-sm">→</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
   <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
     <input type="text" id="nx-search" class="form-control" style="max-width:260px" placeholder="Hledat jméno, email…">
     <span id="nx-count" class="text-muted ms-auto" style="font-size:12px">{{ people|length }} osob</span>
