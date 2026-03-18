@@ -17,6 +17,7 @@ from backend.modules.fleet.deduction_routes import router as deduction_router
 from backend.modules.fleet.completion_routes import router as completion_router
 from backend.modules.notifications.routes import router as notifications_router
 from backend.modules.fleet.trip_routes import router as trip_router
+from backend.modules.fleet.phm_routes import router as phm2_router
 from backend.modules.axigon.routes import router as axigon_router
 from backend.modules.people.calendar_routes import router as calendar_router
 from backend.modules.people.merge_routes import router as merge_router
@@ -43,6 +44,7 @@ app.include_router(attendance_router)
 app.include_router(staging_router)
 app.include_router(trip_router)
 app.include_router(atlas_router)
+app.include_router(phm2_router)
 
 @app.get("/")
 def root(): return RedirectResponse("/fleet")

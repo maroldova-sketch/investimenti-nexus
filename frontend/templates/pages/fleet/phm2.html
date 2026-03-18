@@ -1,0 +1,194 @@
+{% extends "layouts/base.html" %}
+{% block title %}PHM – Přehled{% endblock %}
+{% block breadcrumb %}<a href="/fleet" class="text-muted text-decoration-none">Fleet</a> / PHM{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div><div class="page-pretitle">Fleet</div><h2 class="page-title">PHM – {{ "Vozidla" if view=="vozidla" else "Řidiči" }}</h2></div>
+    <div class="d-flex gap-2 flex-wrap align-items-center">
+      <a href="/fleet/phm?view=vozidla{% if entity %}&entity={{ entity }}{% endif %}" class="btn btn-sm {% if view=='vozidla' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Vozidla</a>
+      <a href="/fleet/phm?view=lide{% if entity %}&entity={{ entity }}{% endif %}" class="btn btn-sm {% if view=='lide' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Řidiči</a>
+      <div class="mx-1" style="width:1px;background:var(--tblr-border-color);height:20px"></div>
+      <a href="/fleet/phm?view={{ view }}" class="btn btn-sm {% if not entity %}btn-dark{% else %}btn-outline-secondary{% endif %}">Vše</a>
+      {% for e in entities %}<a href="/fleet/phm?view={{ view }}&entity={{ e }}" class="btn btn-sm {% if entity==e %}btn-dark{% else %}btn-outline-secondary{% endif %}">{{ e }}</a>{% endfor %}
+    </div>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+  <div class="row g-2 mb-3">
+    <div class="col-4 col-lg-auto"><div class="card card-sm"><div class="card-body py-2 px-3"><div class="subheader">{{ "Vozidel" if view=="vozidla" else "Řidičů" }}</div><div class="fw-bold">{{ data|length }}</div></div></div></div>
+    <div class="col-4 col-lg-auto"><div class="card card-sm"><div class="card-body py-2 px-3"><div class="subheader">Celkem Kč</div><div class="fw-bold font-monospace">{{ "{:,.0f}".format(total_kc).replace(",", " ") }}</div></div></div></div>
+    <div class="col-4 col-lg-auto"><div class="card card-sm"><div class="card-body py-2 px-3"><div class="subheader">Litrů</div><div class="fw-bold font-monospace">{{ "{:,.0f}".format(total_lit).replace(",", " ") }}</div></div></div></div>
+    <div class="col-4 col-lg-auto"><div class="card card-sm"><div class="card-body py-2 px-3"><div class="subheader">Tankování</div><div class="fw-bold">{{ total_txn }}</div></div></div></div>
+    <div class="col-auto ms-auto d-flex align-items-center gap-1">
+      <button class="btn btn-sm btn-outline-secondary" onclick="toggleAll(1)">+ rozbalit vše L1</button>
+      <button class="btn btn-sm btn-outline-secondary" onclick="toggleAll(0)">− sbalit vše</button>
+    </div>
+  </div>
+
+  {% set mesice = ['Led','Uno','Bre','Dub','Kve','Cvn','Cvc','Srp','Zar','Rij','Lis','Pro'] %}
+
+  {% if view == "vozidla" %}
+  <div class="card"><div class="table-responsive">
+    <table class="table table-sm table-hover mb-0" id="phm-table">
+      <thead class="table-light sticky-top"><tr>
+        <th style="width:22px"></th>
+        <th>SPZ</th><th>Vozidlo</th><th>Entita</th>
+        <th class="text-end">Kč celkem</th>
+        <th class="text-end">Litry</th>
+        <th class="text-end">Tank.</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+      {% for v in data %}
+      {% set vid = v.veh_id | replace('-','') %}
+      <tr class="l1-row" data-id="v{{ vid }}" onclick="toggle('v{{ vid }}')" style="cursor:pointer">
+        <td class="text-muted" id="ico-v{{ vid }}">▶</td>
+        <td><code class="fw-bold">{{ v.spz }}</code></td>
+        <td class="text-muted" style="font-size:12px">{{ v.vozidlo }}</td>
+        <td><span class="nx-badge nx-badge-neutral">{{ v.entita }}</span></td>
+        <td class="text-end font-monospace fw-medium">{{ "{:,.0f}".format(v.kc).replace(",", " ") }}</td>
+        <td class="text-end font-monospace text-muted">{{ "{:,.0f}".format(v.litry).replace(",", " ") }}</td>
+        <td class="text-end text-muted" style="font-size:11px">{{ v.txn }}</td>
+        <td onclick="event.stopPropagation()"><a href="/fleet/{{ v.veh_id }}" class="btn btn-ghost btn-sm btn-icon" title="Detail vozidla">↗</a></td>
+      </tr>
+      {% for d in v.drivers %}
+      {% set did = (v.veh_id + d.ridic) | replace(' ','') | replace('-','') %}
+      <tr class="l2-row d-none" data-parent="v{{ vid }}" data-id="d{{ did }}" onclick="toggle('d{{ did }}')" style="cursor:pointer;background:rgba(0,0,0,0.015)">
+        <td></td>
+        <td class="text-muted ps-3" style="font-size:11px">▶</td>
+        <td colspan="2">
+          <a href="{% if d.person_id %}/fleet/driver/{{ d.person_id }}{% else %}#{% endif %}" onclick="event.stopPropagation()" class="fw-medium text-decoration-none text-reset">{{ d.ridic }}</a>
+          <span class="text-muted ms-2" style="font-size:10px">{{ d.date_from or "—" }} → {{ d.date_to or "aktivní" }}</span>
+        </td>
+        <td class="text-end font-monospace">{% if d.kc > 0 %}{{ "{:,.0f}".format(d.kc).replace(",", " ") }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+        <td class="text-end font-monospace text-muted" style="font-size:11px">{% if d.litry > 0 %}{{ "{:,.0f}".format(d.litry).replace(",", " ") }}{% endif %}</td>
+        <td class="text-end text-muted" style="font-size:11px">{% if d.txn > 0 %}{{ d.txn }}{% endif %}</td>
+        <td></td>
+      </tr>
+      {% for m in d.months %}
+      {% set mid = did + m.yr|string + m.mo|string %}
+      <tr class="l3-row d-none" data-parent="d{{ did }}" data-id="m{{ mid }}" onclick="toggle('m{{ mid }}')" style="cursor:pointer;background:rgba(0,0,0,0.03)">
+        <td colspan="2"></td>
+        <td class="text-muted ps-4" style="font-size:11px">▶ {{ mesice[m.mo-1] }} {{ m.yr }}</td>
+        <td class="text-muted" style="font-size:11px">{{ m.txn }}× tank.</td>
+        <td class="text-end font-monospace" style="font-size:12px">{{ "{:,.0f}".format(m.kc).replace(",", " ") }}</td>
+        <td class="text-end font-monospace text-muted" style="font-size:11px">{{ "{:,.0f}".format(m.litry).replace(",", " ") }}</td>
+        <td></td><td></td>
+      </tr>
+      {% for t in m.transactions %}
+      <tr class="l4-row d-none" data-parent="m{{ mid }}" style="background:rgba(0,0,0,0.04)">
+        <td colspan="2"></td>
+        <td class="ps-5 text-muted" style="font-size:11px">{{ t.datum }}</td>
+        <td class="text-muted" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px">{{ t.vendor }}</td>
+        <td class="text-end font-monospace" style="font-size:11px">{{ "{:,.0f}".format(t.kc).replace(",", " ") }}</td>
+        <td class="text-end font-monospace text-muted" style="font-size:11px">{{ "{:,.1f}".format(t.lit).replace(",", ".") }} L</td>
+        <td></td><td></td>
+      </tr>
+      {% endfor %}
+      {% endfor %}
+      {% endfor %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+
+  {% else %}{# view == lide #}
+  <div class="card"><div class="table-responsive">
+    <table class="table table-sm table-hover mb-0" id="phm-table">
+      <thead class="table-light sticky-top"><tr>
+        <th style="width:22px"></th>
+        <th>Řidič</th><th>Entita</th>
+        <th class="text-end">Kč celkem</th>
+        <th class="text-end">Litry</th>
+        <th class="text-end">Tank.</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+      {% for p in data %}
+      {% set pid2 = p.person_id | replace('-','') %}
+      <tr class="l1-row" data-id="p{{ pid2 }}" onclick="toggle('p{{ pid2 }}')" style="cursor:pointer">
+        <td class="text-muted" id="ico-p{{ pid2 }}">▶</td>
+        <td class="fw-medium">{{ p.ridic }}</td>
+        <td><span class="nx-badge nx-badge-neutral">{{ p.entita }}</span></td>
+        <td class="text-end font-monospace fw-medium">{{ "{:,.0f}".format(p.kc).replace(",", " ") }}</td>
+        <td class="text-end font-monospace text-muted">{{ "{:,.0f}".format(p.litry).replace(",", " ") }}</td>
+        <td class="text-end text-muted" style="font-size:11px">{{ p.txn }}</td>
+        <td onclick="event.stopPropagation()"><a href="/fleet/driver/{{ p.person_id }}" class="btn btn-ghost btn-sm btn-icon" title="Detail řidiče">↗</a></td>
+      </tr>
+      {% for v in p.vehicles %}
+      {% set vid2 = (p.person_id + v.veh_id) | replace('-','') %}
+      <tr class="l2-row d-none" data-parent="p{{ pid2 }}" data-id="pv{{ vid2 }}" onclick="toggle('pv{{ vid2 }}')" style="cursor:pointer;background:rgba(0,0,0,0.015)">
+        <td></td>
+        <td class="ps-3" style="font-size:12px">
+          <span class="text-muted">▶</span>
+          <a href="/fleet/{{ v.veh_id }}" onclick="event.stopPropagation()" class="text-decoration-none text-reset fw-medium ms-1"><code>{{ v.spz }}</code></a>
+          <span class="text-muted ms-1" style="font-size:11px">{{ v.vozidlo }}</span>
+        </td>
+        <td style="font-size:11px"><span class="text-muted">{{ v.date_from or "—" }} → {{ v.date_to or "aktivní" }}</span></td>
+        <td class="text-end font-monospace">{% if v.kc > 0 %}{{ "{:,.0f}".format(v.kc).replace(",", " ") }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+        <td class="text-end font-monospace text-muted" style="font-size:11px">{% if v.litry > 0 %}{{ "{:,.0f}".format(v.litry).replace(",", " ") }}{% endif %}</td>
+        <td class="text-end text-muted" style="font-size:11px">{% if v.txn > 0 %}{{ v.txn }}{% endif %}</td>
+        <td></td>
+      </tr>
+      {% for m in v.months %}
+      {% set mid2 = vid2 + m.yr|string + m.mo|string %}
+      <tr class="l3-row d-none" data-parent="pv{{ vid2 }}" data-id="pm{{ mid2 }}" onclick="toggle('pm{{ mid2 }}')" style="cursor:pointer;background:rgba(0,0,0,0.03)">
+        <td colspan="2" class="text-muted ps-5" style="font-size:11px">▶ {{ mesice[m.mo-1] }} {{ m.yr }}</td>
+        <td class="text-muted" style="font-size:11px">{{ m.txn }}× tank.</td>
+        <td class="text-end font-monospace" style="font-size:12px">{{ "{:,.0f}".format(m.kc).replace(",", " ") }}</td>
+        <td class="text-end font-monospace text-muted" style="font-size:11px">{{ "{:,.0f}".format(m.litry).replace(",", " ") }}</td>
+        <td></td><td></td>
+      </tr>
+      {% for t in m.transactions %}
+      <tr class="l4-row d-none" data-parent="pm{{ mid2 }}" style="background:rgba(0,0,0,0.04)">
+        <td colspan="2" class="ps-6 text-muted" style="font-size:11px">{{ t.datum }}</td>
+        <td class="text-muted" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px">{{ t.vendor }}</td>
+        <td class="text-end font-monospace" style="font-size:11px">{{ "{:,.0f}".format(t.kc).replace(",", " ") }}</td>
+        <td class="text-end font-monospace text-muted" style="font-size:11px">{{ "{:,.1f}".format(t.lit).replace(",", ".") }} L</td>
+        <td></td><td></td>
+      </tr>
+      {% endfor %}
+      {% endfor %}
+      {% endfor %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  {% endif %}
+</div>
+
+<script>
+function toggle(id) {
+  const ico = document.getElementById('ico-' + id);
+  const children = document.querySelectorAll('[data-parent="' + id + '"]');
+  const isOpen = children.length > 0 && !children[0].classList.contains('d-none');
+  if (isOpen) {
+    // close this and all descendants
+    closeAll(id);
+    if (ico) ico.textContent = '▶';
+  } else {
+    children.forEach(r => r.classList.remove('d-none'));
+    if (ico) ico.textContent = '▼';
+  }
+}
+function closeAll(id) {
+  document.querySelectorAll('[data-parent="' + id + '"]').forEach(r => {
+    closeAll(r.dataset.id);
+    r.classList.add('d-none');
+    const ic = document.getElementById('ico-' + r.dataset.id);
+    if (ic) ic.textContent = '▶';
+  });
+}
+function toggleAll(open) {
+  if (!open) {
+    document.querySelectorAll('.l2-row,.l3-row,.l4-row').forEach(r => r.classList.add('d-none'));
+    document.querySelectorAll('[id^="ico-"]').forEach(el => el.textContent = '▶');
+  } else {
+    document.querySelectorAll('.l2-row').forEach(r => r.classList.remove('d-none'));
+  }
+}
+</script>
+{% endblock %}
