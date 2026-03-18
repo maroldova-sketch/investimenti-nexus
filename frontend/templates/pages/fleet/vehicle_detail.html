@@ -43,7 +43,6 @@
         {% if vehicle_trip_summary %}
         <span class="text-muted" style="font-size:12px">{{ vehicle_trip_summary.count }} jízd · {{ "{:,}".format(vehicle_trip_summary.total_km).replace(",", " ") }} km</span>
         {% endif %}
-        <a href="/fleet/trips?vehicle_filter={{ vehicle.id }}" class="btn btn-ghost btn-sm" style="font-size:11px">Vše →</a>
       </div>
     </div>
     <div class="table-responsive">

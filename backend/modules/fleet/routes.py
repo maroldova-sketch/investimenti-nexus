@@ -86,7 +86,6 @@ def vehicle_detail(vehicle_id: str, request: Request, db: Session = Depends(get_
         "v": v,
         "phm_transactions": phm,
         "phm_canonical_txns": phm_canonical_txns,
-        **trip_ctx,
         "event_types": [e.value for e in FleetEventType],
         "people": db.query(Person).filter(Person.is_active == True).order_by(Person.last_name).all(),
         "page_title": f"{v.make} {v.model}",
