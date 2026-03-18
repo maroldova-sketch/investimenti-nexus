@@ -21,14 +21,14 @@ app = FastAPI(title="NEXUS", redirect_slashes=False, docs_url=None, redoc_url=No
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
 
 app.include_router(auth_router)
+app.include_router(notifications_router)
+app.include_router(deduction_router)
+app.include_router(driver_router)
 app.include_router(fleet_router)
 app.include_router(people_router)
 app.include_router(attendance_router)
 app.include_router(staging_router)
 app.include_router(trip_router)
-app.include_router(notifications_router)
-app.include_router(deduction_router)
-app.include_router(driver_router)
 
 @app.get("/")
 def root(): return RedirectResponse("/fleet")
