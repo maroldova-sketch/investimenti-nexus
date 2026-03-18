@@ -1,0 +1,55 @@
+{% extends "layouts/base.html" %}
+{% block title %}ATLAS Dashboard{% endblock %}
+{% block breadcrumb %}ATLAS{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl"><div class="d-flex align-items-center justify-content-between">
+  <div><div class="page-pretitle">ATLAS</div><h2 class="page-title">KPI Dashboard</h2></div>
+  <span class="text-muted" style="font-size:12px">{{ period }}</span>
+</div></div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="subheader">Aktivni zamestnanci</div><div class="h1 mt-1 mb-0">{{ headcount }}</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="subheader">Hrube mzdy ({{ payroll_month }})</div><div class="h1 mt-1 mb-0">{{ "{:,.0f}".format(payroll_gross).replace(","," ") }} Kc</div><div class="text-muted" style="font-size:12px">naklad {{ "{:,.0f}".format(payroll_emp).replace(","," ") }} Kc</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="subheader">PHM ({{ period }})</div><div class="h1 mt-1 mb-0">{{ "{:,.0f}".format(phm_cur).replace(","," ") }} Kc</div><div class="{%if phm_delta_pct>10%}text-danger{%elif phm_delta_pct<-5%}text-success{%else%}text-muted{%endif%}" style="font-size:12px">{%if phm_delta_pct>0%}+{%endif%}{{ phm_delta_pct }}% vs predchozi</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card card-sm"><div class="card-body"><div class="subheader">Vozidel aktivnich</div><div class="h1 mt-1 mb-0">{{ vehicles_active }}</div><div class="text-muted" style="font-size:12px">{{ open_claims }} PJ &middot; {{ open_fines }} pokut &middot; {{ open_deductions }} srazek</div></div></div></div>
+  </div>
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-lg-6">
+      <div class="card"><div class="card-header"><h3 class="card-title">Mzdy dle entity ({{ payroll_month }})</h3></div>
+        <div class="card-body p-0"><table class="table table-sm mb-0">
+          <thead><tr><th>Entita</th><th class="text-end">Osob</th><th class="text-end">Hruba mzda</th><th class="text-end">Naklad</th></tr></thead>
+          <tbody>
+            {%for e in payroll_by_entity%}<tr><td><span class="nx-badge nx-badge-neutral">{{ e.code }}</span></td><td class="text-end">{{ e.cnt }}</td><td class="text-end font-monospace">{{ "{:,.0f}".format(e.gross).replace(","," ") }} Kc</td><td class="text-end font-monospace text-muted">{{ "{:,.0f}".format(e.cost).replace(","," ") }} Kc</td></tr>{%endfor%}
+            <tr class="fw-bold"><td>CELKEM</td><td class="text-end">{{ payroll_by_entity|sum(attribute="cnt") }}</td><td class="text-end font-monospace">{{ "{:,.0f}".format(payroll_gross).replace(","," ") }} Kc</td><td class="text-end font-monospace text-muted">{{ "{:,.0f}".format(payroll_emp).replace(","," ") }} Kc</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="card"><div class="card-header"><h3 class="card-title">PHM dle entity</h3><a href="/fleet/phm" class="card-options-link">Detail &rarr;</a></div>
+        <div class="card-body p-0"><table class="table table-sm mb-0">
+          <thead><tr><th>Entita</th><th class="text-end">Kc</th><th class="text-end">Litry</th><th class="text-end">Tankovani</th></tr></thead>
+          <tbody>{%for e in phm_by_entity%}<tr><td><span class="nx-badge nx-badge-neutral">{{ e.code }}</span></td><td class="text-end font-monospace">{{ "{:,.0f}".format(e.kc).replace(","," ") }}</td><td class="text-end font-monospace">{{ "{:,.0f}".format(e.lit) }}</td><td class="text-end">{{ e.txn }}</td></tr>{%endfor%}</tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+  <div class="card"><div class="card-header"><h3 class="card-title">PHM trend</h3></div>
+    <div class="card-body">
+      {%set mesice=["L","U","B","D","K","C","C","S","Z","R","N","P"]%}
+      {%set max_kc=phm_trend|map(attribute="kc")|max if phm_trend else 1%}
+      <div class="d-flex gap-2 align-items-end" style="height:80px">
+        {%for t in phm_trend%}{%set h=((t.kc/max_kc*100)|round|int) if max_kc>0 else 4%}
+        <div class="flex-grow-1 text-center d-flex flex-column align-items-center justify-content-end" style="height:100%">
+          <div class="text-muted mb-1" style="font-size:9px">{{ (t.kc/1000)|round|int }}k</div>
+          <div style="background:var(--tblr-primary);border-radius:2px 2px 0 0;width:80%;height:{%if h<4%}4{%else%}{{ h }}{%endif%}%"></div>
+          <div class="text-muted mt-1" style="font-size:9px">{{ mesice[t.mo-1] }}{{ t.yr|string|replace("20","") }}</div>
+        </div>
+        {%endfor%}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

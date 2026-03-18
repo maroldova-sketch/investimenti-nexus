@@ -22,6 +22,7 @@ from backend.modules.people.calendar_routes import router as calendar_router
 from backend.modules.people.merge_routes import router as merge_router
 from backend.modules.people.contract_routes import router as contract_router
 from backend.modules.webhooks.routes import router as webhook_router
+from backend.modules.atlas.routes import router as atlas_router
 
 app = FastAPI(title="NEXUS", redirect_slashes=False, docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
@@ -41,6 +42,7 @@ app.include_router(people_router)
 app.include_router(attendance_router)
 app.include_router(staging_router)
 app.include_router(trip_router)
+app.include_router(atlas_router)
 
 @app.get("/")
 def root(): return RedirectResponse("/fleet")
