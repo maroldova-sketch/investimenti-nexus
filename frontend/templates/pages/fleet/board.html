@@ -256,7 +256,7 @@
         <tbody>
           {% for item in phm_top_vehicles %}
           {% set v = item.vehicle %}
-          <tr onclick="location.href='/fleet/{{ v.id if v else \"\" }}'" style="cursor:pointer">
+          <tr onclick="location.href='/fleet/{% if v %}{{ v.id }}{% endif %}'" style="cursor:pointer">
             <td class="fw-medium">{{ v.make ~ ' ' ~ v.model if v else '—' }}</td>
             <td>{% if v %}<code class="spz">{{ v.spz }}</code>{% else %}—{% endif %}</td>
             <td class="col-num"><strong>{{ "{:,.0f}".format(item.total_kc).replace(",", "\u00a0") }} Kč</strong></td>
