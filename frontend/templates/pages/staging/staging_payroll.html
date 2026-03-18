@@ -1,0 +1,83 @@
+{% extends "layouts/base.html" %}
+{% block title %}Staging — Payroll{% endblock %}
+{% block breadcrumb %}<a href="/import" class="text-muted text-decoration-none">Import</a> / <a href="/import/{{ batch.id }}" class="text-muted text-decoration-none">{{ batch.id[:8] }}</a> / Payroll{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="d-flex align-items-center justify-content-between">
+    <div><div class="page-pretitle">Staging</div><h2 class="page-title">Payroll — {{ batch.source_filename or batch.id[:12] }}</h2></div>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+  <div class="d-flex gap-2 mb-3">
+    <a href="?" class="btn btn-sm {% if not status_filter %}btn-primary{% else %}btn-outline-secondary{% endif %}">Vše</a>
+    <a href="?status_filter=unresolved" class="btn btn-sm {% if status_filter=='unresolved' %}btn-warning{% else %}btn-outline-secondary{% endif %}">Nevyřešené</a>
+    <a href="?status_filter=matched" class="btn btn-sm {% if status_filter=='matched' %}btn-success{% else %}btn-outline-secondary{% endif %}">Matched</a>
+    <a href="?status_filter=ignored" class="btn btn-sm {% if status_filter=='ignored' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">Ignorované</a>
+  </div>
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table">
+        <thead><tr><th>#</th><th>Zaměstnanec</th><th>Firma</th><th>Měsíc</th><th>Dny</th><th>Dovolená</th><th>Mzda</th><th>Kandidát</th><th>Stav</th><th style="width:90px">Akce</th></tr></thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td class="text-muted">{{ r.source_row_ref }}</td>
+            <td class="fw-medium">{{ r.employee_name_raw or '—' }}</td>
+            <td><span class="nx-badge nx-badge-neutral">{{ r.company_code or '—' }}</span></td>
+            <td class="text-muted">{% if r.year and r.month %}{{ r.year }}/{{ "%02d"|format(r.month) }}{% else %}—{% endif %}</td>
+            <td>{{ r.attendance_days or '—' }}</td>
+            <td>{{ r.leave_days or '—' }}</td>
+            <td>{{ r.salary_component_raw or '—' }}</td>
+            <td>{% if r.candidate_person_id %}<span class="nx-badge nx-badge-ok" style="font-size:10px">✓ {{ r.candidate_person_id[:8] }}</span>{% else %}—{% endif %}</td>
+            <td>{% if r.status=='matched' %}<span class="nx-badge nx-badge-ok">matched</span>
+              {% elif r.status=='unresolved' %}<span class="nx-badge nx-badge-warn">unresolved</span>
+              {% elif r.status=='reviewed' %}<span class="nx-badge nx-badge-info">reviewed</span>
+              {% elif r.status=='ignored' %}<span class="nx-badge nx-badge-neutral">ignored</span>
+              {% else %}<span class="nx-badge nx-badge-neutral">{{ r.status }}</span>{% endif %}</td>
+            <td>
+              {% if r.status not in ('ignored','applied') %}
+              <div class="d-flex gap-1">
+                <button class="btn btn-ghost btn-sm" onclick="openPayLink('{{ r.id }}')" title="Propojit">🔗</button>
+                <form method="post" action="/import/{{ batch.id }}/payroll/{{ r.id }}/ignore" style="margin:0">
+                  <button class="btn btn-ghost btn-sm" style="color:#9ba3af" title="Ignorovat">✕</button>
+                </form>
+              </div>{% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div id="modal-pay-link" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:24px;width:420px">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 style="font-size:16px;font-weight:600;margin:0">Propojit se zaměstnancem</h3>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-pay-link').style.display='none'">✕</button>
+    </div>
+    <form id="pay-link-form" method="post">
+      <div class="mb-3"><label class="form-label">Osoba</label>
+        <select name="person_id" class="form-select" required>
+          <option value="">— vyberte —</option>
+          {% for p in people %}<option value="{{ p.id }}">{{ p.full_name }} ({{ p.email_work or '?' }})</option>{% endfor %}
+        </select>
+      </div>
+      <div class="d-flex gap-2 justify-content-end">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('modal-pay-link').style.display='none'">Zrušit</button>
+        <button type="submit" class="btn btn-primary btn-sm">Propojit</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function openPayLink(rowId){
+  document.getElementById('pay-link-form').action='/import/{{ batch.id }}/payroll/'+rowId+'/link';
+  document.getElementById('modal-pay-link').style.display='flex';
+}
+</script>
+{% endblock %}

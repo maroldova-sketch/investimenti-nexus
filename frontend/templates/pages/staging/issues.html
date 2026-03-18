@@ -1,0 +1,54 @@
+{% extends "layouts/base.html" %}
+{% block title %}Issues — {{ batch.id[:8] }}{% endblock %}
+{% block breadcrumb %}<a href="/import" class="text-muted text-decoration-none">Import</a> / <a href="/import/{{ batch.id }}" class="text-muted text-decoration-none">{{ batch.id[:8] }}</a> / Issues{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="d-flex align-items-center justify-content-between">
+    <div><div class="page-pretitle">Issues</div>
+      <h2 class="page-title">{{ batch.source_type|upper }} — {{ batch.source_filename or batch.id[:12] }}</h2></div>
+    <a href="/import/{{ batch.id }}" class="btn btn-outline-secondary btn-sm">← Batch</a>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+  {% set errors=issues|selectattr('severity','equalto','error')|list %}
+  {% set warnings=issues|selectattr('severity','equalto','warn')|list %}
+  {% set infos=issues|selectattr('severity','equalto','info')|list %}
+  {% set open=issues|rejectattr('resolved_flag')|list %}
+  <div class="d-flex gap-3 mb-3">
+    <span class="nx-badge nx-badge-err">{{ errors|length }} error</span>
+    <span class="nx-badge nx-badge-warn">{{ warnings|length }} warn</span>
+    <span class="nx-badge nx-badge-neutral">{{ infos|length }} info</span>
+    <span class="nx-badge nx-badge-ok">{{ (issues|length)-(open|length) }} vyřešeno</span>
+  </div>
+  {% if not issues %}
+  <div class="card"><div class="nx-empty"><div class="nx-empty-title">Žádné issues</div></div></div>
+  {% else %}
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table">
+        <thead><tr><th>Řádek</th><th>Závažnost</th><th>Kód</th><th>Zpráva</th><th>Vyřešeno</th><th style="width:80px"></th></tr></thead>
+        <tbody>
+          {% for iss in issues %}
+          <tr style="{% if iss.resolved_flag %}opacity:.5{% endif %}">
+            <td class="text-muted">{{ iss.source_row_ref or '—' }}</td>
+            <td>{% if iss.severity=='error' %}<span class="nx-badge nx-badge-err">error</span>
+              {% elif iss.severity=='warn' %}<span class="nx-badge nx-badge-warn">warn</span>
+              {% else %}<span class="nx-badge nx-badge-neutral">info</span>{% endif %}</td>
+            <td style="font-family:monospace;font-size:11px;color:#6b7280">{{ iss.issue_code }}</td>
+            <td style="font-size:12px">{{ iss.issue_message }}</td>
+            <td>{% if iss.resolved_flag %}<span class="nx-badge nx-badge-ok">✓</span>{% endif %}</td>
+            <td>{% if not iss.resolved_flag %}
+              <form method="post" action="/import/{{ batch.id }}/issues/{{ iss.id }}/resolve" style="margin:0">
+                <button class="btn btn-ghost btn-sm" style="font-size:11px">Vyřešit</button>
+              </form>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

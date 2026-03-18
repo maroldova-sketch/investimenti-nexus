@@ -1,0 +1,335 @@
+{% extends "layouts/base.html" %}
+{% block title %}{{ p.full_name }} — Fleet{% endblock %}
+{% block breadcrumb %}<a href="/fleet" class="text-muted text-decoration-none">Fleet</a> / <a href="/fleet/drivers" class="text-muted text-decoration-none">Řidiči</a> / {{ p.full_name }}{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="d-flex align-items-center justify-content-between">
+    <div>
+      <div class="page-pretitle">Fleet — Řidič</div>
+      <h2 class="page-title">{{ p.full_name }}
+        {% if open_alerts > 0 %}<span class="nx-badge nx-badge-err ms-2">{{ open_alerts }} alert</span>{% endif %}
+      </h2>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="/people/{{ p.id }}" class="btn btn-outline-secondary btn-sm">HR profil →</a>
+      <button class="btn btn-primary btn-sm" onclick="openModal('modal-fine')">+ Pokuta</button>
+      <button class="btn btn-outline-secondary btn-sm" onclick="openModal('modal-claim')">+ Škoda</button>
+    </div>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+  <div class="row g-3">
+
+    {# LEFT COLUMN #}
+    <div class="col-lg-8">
+
+      {# A. SUMMARY CARDS #}
+      <div class="row g-2 mb-3">
+        <div class="col-4"><div class="nx-stat"><div class="nx-stat-label">Entita</div><div class="nx-stat-value" style="font-size:16px">{{ entity.code if entity else '—' }}</div></div></div>
+        <div class="col-4"><div class="nx-stat {% if odo_warn %}nx-stat-warning{% endif %}">
+          <div class="nx-stat-label">Tachometr</div>
+          <div class="nx-stat-value" style="font-size:13px">
+            {% if last_odo %}{{ last_odo.reading_date }}{% if odo_days %} ({{ odo_days }}d){% endif %}
+            {% else %}chybí{% endif %}
+          </div>
+        </div></div>
+        <div class="col-4"><div class="nx-stat {% if open_alerts > 0 %}nx-stat-danger{% endif %}">
+          <div class="nx-stat-label">Alerty</div><div class="nx-stat-value">{{ open_alerts }}</div>
+        </div></div>
+      </div>
+
+      {# B. ASSIGNED VEHICLES #}
+      <div class="card mb-3">
+        <div class="card-header fw-medium">Přiřazená vozidla</div>
+        <div class="table-responsive">
+          <table class="table">
+            <thead><tr><th>Vozidlo</th><th>SPZ</th><th>Od</th><th>Do</th></tr></thead>
+            <tbody>
+              {% for a in assignments %}
+              {% set v = vehicles_map.get(a.vehicle_id) %}
+              <tr {% if not a.date_to %}class="table-active"{% endif %}>
+                <td><a href="/fleet/{{ a.vehicle_id }}" class="text-reset text-decoration-none fw-medium">{{ v.make ~ ' ' ~ v.model if v else '?' }}</a></td>
+                <td>{% if v %}<span class="nx-badge nx-badge-vzc">{{ v.spz }}</span>{% endif %}</td>
+                <td class="text-muted">{{ a.date_from or '—' }}</td>
+                <td>{% if a.date_to %}<span class="text-muted">{{ a.date_to }}</span>{% else %}<span class="nx-badge nx-badge-ok">aktuální</span>{% endif %}</td>
+              </tr>
+              {% else %}<tr><td colspan="4" class="text-muted">Žádná přiřazení</td></tr>{% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {# C. PHM #}
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between fw-medium">
+          PHM
+          <span class="text-muted" style="font-size:12px">{{ "{:,.0f}".format(phm_total_kc).replace(",", " ") }} Kč · {{ "{:.1f}".format(phm_total_l) }} L celkem</span>
+        </div>
+        {% if phm_txns %}
+        <div class="table-responsive">
+          <table class="table">
+            <thead><tr><th>Měsíc</th><th>Vozidlo</th><th>Kč s DPH</th><th>Litry</th><th>Doklad</th></tr></thead>
+            <tbody>
+              {% for t in phm_txns[:10] %}
+              <tr>
+                <td class="text-muted">{% if t.year and t.month %}{{ t.year }}/{{ "%02d"|format(t.month) }}{% else %}—{% endif %}</td>
+                <td>{% set v = vehicles_map.get(t.vehicle_id) %}{% if v %}<span class="nx-badge nx-badge-neutral">{{ v.spz }}</span>{% else %}—{% endif %}</td>
+                <td><strong>{{ "{:,.0f}".format(t.amount_total|float).replace(",", " ") if t.amount_total else "—" }} Kč</strong></td>
+                <td>{{ "{:.2f}".format(t.liters_total|float) if t.liters_total else "—" }} L</td>
+                <td style="font-size:11px;color:#9ba3af">{{ t.source_doc_ref or "—" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="card-body"><div class="nx-empty"><div class="nx-empty-title">Žádné PHM transakce</div></div></div>
+        {% endif %}
+      </div>
+
+      {# D. FINES + CLAIMS #}
+      <div class="card mb-3">
+        <div class="card-header fw-medium">Pokuty a pojistné události</div>
+        {% if fines or claims %}
+        <div class="table-responsive">
+          <table class="table">
+            <thead><tr><th>Typ</th><th>Datum</th><th>Popis</th><th>Částka</th><th>Stav</th><th style="width:60px"></th></tr></thead>
+            <tbody>
+              {% for f in fines %}
+              <tr>
+                <td><span class="nx-badge nx-badge-err">pokuta</span></td>
+                <td class="text-muted">{{ f.fine_date or '—' }}</td>
+                <td style="font-size:12px">{{ f.reason or '—' }}</td>
+                <td>{% if f.amount %}<strong>{{ "{:,.0f}".format(f.amount).replace(",", " ") }} Kč</strong>{% else %}—{% endif %}</td>
+                <td>{% if f.status=='open' %}<span class="nx-badge nx-badge-err">open</span>
+                  {% elif f.status=='paid' %}<span class="nx-badge nx-badge-ok">zaplaceno</span>
+                  {% elif f.status=='disputed' %}<span class="nx-badge nx-badge-warn">sporná</span>
+                  {% else %}<span class="nx-badge nx-badge-neutral">{{ f.status }}</span>{% endif %}</td>
+                <td>{% if f.amount and f.status=='open' %}
+                  <button class="btn btn-ghost btn-sm" onclick="openDeduction('{{ p.id }}','{{ f.id }}','traffic_fine','pokuta','{{ f.amount }}')" title="Srážka">↳ HR</button>
+                  {% endif %}</td>
+              </tr>
+              {% endfor %}
+              {% for c in claims %}
+              <tr>
+                <td><span class="nx-badge nx-badge-warn">škoda</span></td>
+                <td class="text-muted">{{ c.claim_date or '—' }}</td>
+                <td style="font-size:12px">{{ c.description[:60] if c.description else '—' }}</td>
+                <td>{% if c.amount_claimed %}<strong>{{ "{:,.0f}".format(c.amount_claimed).replace(",", " ") }} Kč</strong>{% else %}—{% endif %}</td>
+                <td>{% if c.status=='open' %}<span class="nx-badge nx-badge-warn">open</span>
+                  {% elif c.status=='closed' %}<span class="nx-badge nx-badge-ok">uzavřeno</span>
+                  {% elif c.status=='investigating' %}<span class="nx-badge nx-badge-info">šetření</span>
+                  {% else %}<span class="nx-badge nx-badge-neutral">{{ c.status }}</span>{% endif %}</td>
+                <td></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="card-body"><div class="nx-empty"><div class="nx-empty-title">Žádné pokuty ani škody</div></div></div>
+        {% endif %}
+      </div>
+
+    </div>{# end left col #}
+
+    {# RIGHT COLUMN #}
+    <div class="col-lg-4">
+
+      {# E. DEDUCTIONS #}
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between fw-medium">
+          Srážky / Deductions
+          <button class="btn btn-ghost btn-sm" onclick="openModal('modal-deduction')">+</button>
+        </div>
+        {% if deductions %}
+        {% for d in deductions %}
+        <div class="card-body border-bottom py-2">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="fw-medium" style="font-size:13px">{{ d.case_type }}</div>
+              <div class="text-muted" style="font-size:11px">{{ d.payroll_period_target or '—' }} · {{ d.description[:50] if d.description else '' }}</div>
+            </div>
+            <div class="text-end">
+              {% if d.amount %}<div class="fw-semibold">{{ "{:,.0f}".format(d.amount).replace(",", " ") }} Kč</div>{% endif %}
+              {% if d.status=='draft' %}<span class="nx-badge nx-badge-neutral">draft</span>
+              {% elif d.status=='pending_approval' %}<span class="nx-badge nx-badge-info">čeká</span>
+              {% elif d.status=='approved' %}<span class="nx-badge nx-badge-warn">schváleno</span>
+              {% elif d.status=='exported' %}<span class="nx-badge nx-badge-ok">exportováno</span>
+              {% elif d.status=='closed' %}<span class="nx-badge nx-badge-ok">uzavřeno</span>
+              {% endif %}
+            </div>
+          </div>
+          {% if d.status in ('draft','pending_approval') and current_user.has_role('owner','admin','manager') %}
+          <div class="d-flex gap-1 mt-1">
+            {% if d.status=='draft' %}
+            <form method="post" action="/fleet/deduction/{{ d.id }}/approve" style="margin:0">
+              <button class="btn btn-ghost btn-sm" style="color:#2fb344;font-size:11px">✓ Schválit</button>
+            </form>
+            {% endif %}
+            {% if d.status=='approved' and current_user.has_role('owner','admin','hr','finance') %}
+            <form method="post" action="/fleet/deduction/{{ d.id }}/export" style="margin:0">
+              <button class="btn btn-ghost btn-sm" style="font-size:11px">⬇ Export do payrollu</button>
+            </form>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="card-body"><div class="text-muted" style="font-size:12px">Žádné srážkové případy</div></div>
+        {% endif %}
+      </div>
+
+      {# F. ODOMETER / COMPLIANCE #}
+      <div class="card">
+        <div class="card-header d-flex justify-content-between fw-medium">
+          Tachometr / Compliance
+          {% if current_vehicle %}
+          <button class="btn btn-ghost btn-sm" onclick="openModal('modal-odo')">+ Stav</button>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          {% if odo_warn %}
+          <div class="nx-alert nx-alert-warning mb-2" style="font-size:12px">
+            {% if last_odo %}Poslední odečet: {{ last_odo.reading_date }} ({{ odo_days }} dní) — aktualizujte!
+            {% else %}Žádný odečet tachometru{% endif %}
+          </div>
+          {% endif %}
+          {% if last_odo %}
+          <div class="mb-2">
+            <div class="form-label">Poslední stav km</div>
+            <div class="fw-semibold" style="font-size:18px">{{ "{:,}".format(last_odo.km).replace(",", " ") }} km</div>
+            <div class="text-muted" style="font-size:12px">{{ last_odo.reading_date }}{% if odo_days %} · {{ odo_days }} dní{% endif %}</div>
+          </div>
+          {% else %}
+          <div class="text-muted" style="font-size:12px">Žádný odečet</div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{# MODALS #}
+{% macro field(label, name, type="text", req=False, val="") %}
+<div class="mb-3"><label class="form-label">{{ label }}{% if req %} *{% endif %}</label>
+<input name="{{ name }}" type="{{ type }}" class="form-control" {% if req %}required{% endif %} value="{{ val }}"></div>
+{% endmacro %}
+
+{# POKUTA MODAL #}
+<div id="modal-fine" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:24px;width:420px;max-height:85vh;overflow-y:auto">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 style="font-size:16px;font-weight:600;margin:0">Nová pokuta</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-fine')">✕</button>
+    </div>
+    <form method="post" action="/fleet/{{ current_vehicle.id if current_vehicle else '__none__' }}/fine/new">
+      <input type="hidden" name="driver_person_id" value="{{ p.id }}">
+      {{ field("Datum pokuty *", "fine_date", "date", True, now_date) }}
+      {{ field("Částka (Kč)", "amount", "number") }}
+      <div class="mb-3"><label class="form-label">Důvod</label><textarea name="reason" class="form-control" rows="2"></textarea></div>
+      {{ field("Splatnost", "due_date", "date") }}
+      {% if not current_vehicle %}
+      <div class="mb-3"><label class="form-label">Vozidlo *</label>
+        <select name="vehicle_id_override" class="form-select">
+          {% for v in all_vehicles %}<option value="{{ v.id }}">{{ v.spz }} — {{ v.make }} {{ v.model }}</option>{% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="d-flex gap-2 justify-content-end">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeModal('modal-fine')">Zrušit</button>
+        <button type="submit" class="btn btn-primary btn-sm">Uložit pokutu</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ŠKODA MODAL #}
+<div id="modal-claim" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:24px;width:440px;max-height:85vh;overflow-y:auto">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 style="font-size:16px;font-weight:600;margin:0">Nová pojistná událost / škoda</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-claim')">✕</button>
+    </div>
+    <form method="post" action="/fleet/{{ current_vehicle.id if current_vehicle else '__none__' }}/claim/new">
+      <input type="hidden" name="driver_person_id" value="{{ p.id }}">
+      {{ field("Datum události *", "claim_date", "date", True, now_date) }}
+      {{ field("Místo", "location") }}
+      <div class="mb-3"><label class="form-label">Popis</label><textarea name="description" class="form-control" rows="3"></textarea></div>
+      {{ field("Ref. pojišťovny", "insurer_ref") }}
+      {{ field("Nárokovaná částka (Kč)", "amount_claimed", "number") }}
+      <div class="d-flex gap-2 justify-content-end">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeModal('modal-claim')">Zrušit</button>
+        <button type="submit" class="btn btn-primary btn-sm">Uložit škodu</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# TACHOMETR MODAL #}
+<div id="modal-odo" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:24px;width:360px">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 style="font-size:16px;font-weight:600;margin:0">Stav tachometru</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-odo')">✕</button>
+    </div>
+    <form method="post" action="/fleet/driver/{{ p.id }}/odometer">
+      <input type="hidden" name="vehicle_id" value="{{ current_vehicle.id if current_vehicle else '' }}">
+      {{ field("Datum *", "reading_date", "date", True, now_date) }}
+      {{ field("Stav km *", "km", "number", True) }}
+      <div class="mb-3"><label class="form-label">Poznámka</label><input name="notes" class="form-control"></div>
+      <div class="d-flex gap-2 justify-content-end">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeModal('modal-odo')">Zrušit</button>
+        <button type="submit" class="btn btn-primary btn-sm">Uložit</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# DEDUCTION MODAL #}
+<div id="modal-deduction" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:24px;width:420px">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 style="font-size:16px;font-weight:600;margin:0">Nový srážkový případ</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-deduction')">✕</button>
+    </div>
+    <form id="deduction-form" method="post" action="/fleet/deduction/new">
+      <input type="hidden" name="person_id" value="{{ p.id }}">
+      <input type="hidden" name="vehicle_id" value="{{ current_vehicle.id if current_vehicle else '' }}">
+      <input id="ded-source-type" type="hidden" name="source_ref_type" value="">
+      <input id="ded-source-id" type="hidden" name="source_ref_id" value="">
+      <div class="mb-3"><label class="form-label">Typ *</label>
+        <select name="case_type" class="form-select" required>
+          <option>pokuta</option><option>škoda</option><option>spoluúčast</option>
+          <option>soukromé_phm</option><option>jiné</option>
+        </select>
+      </div>
+      {{ field("Částka (Kč)", "amount", "number") }}
+      <div class="mb-3"><label class="form-label">Popis</label><textarea name="description" class="form-control" rows="2"></textarea></div>
+      {{ field("Payroll periode (YYYY-MM)", "payroll_period_target") }}
+      <div class="d-flex gap-2 justify-content-end">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeModal('modal-deduction')">Zrušit</button>
+        <button type="submit" class="btn btn-primary btn-sm">Vytvořit</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function openModal(id){document.getElementById(id).style.display='flex'}
+function closeModal(id){document.getElementById(id).style.display='none'}
+document.querySelectorAll('[id^="modal-"]').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.style.display='none'}))
+function openDeduction(pid, srcId, srcType, caseType, amount) {
+  document.getElementById('ded-source-id').value = srcId;
+  document.getElementById('ded-source-type').value = srcType;
+  document.querySelector('#modal-deduction select[name="case_type"]').value = caseType;
+  document.querySelector('#modal-deduction input[name="amount"]').value = amount;
+  openModal('modal-deduction');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,404 @@
+{% extends "layouts/base.html" %}
+{% block title %}{{ v.make }} {{ v.model }}{% endblock %}
+
+{% block breadcrumb %}
+<a href="/fleet" class="text-muted text-decoration-none">Fleet Board</a>
+<span class="mx-2 text-muted">/</span>
+{{ v.make }} {{ v.model }} {% if v.spz %}<code class="spz ms-1">{{ v.spz }}</code>{% endif %}
+  {# CANONICAL PHM TRANSACTIONS #}
+  {% if phm_canonical_txns %}
+  <div class="card mt-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <div class="fw-medium">PHM transakce (schválené)</div>
+      <div class="text-muted" style="font-size:12px">
+        Celkem: <strong>{{ "{:,.0f}".format(phm_canonical_txns|sum(attribute='amount_total')|float).replace(",", " ") }} Kč</strong>
+        · {{ "{:.1f}".format(phm_canonical_txns|sum(attribute='liters_total')|float) }} L
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table">
+        <thead><tr><th>Měsíc</th><th>Kč s DPH</th><th>Litry</th><th>Doklad</th><th>Stav</th></tr></thead>
+        <tbody>
+          {% for tx in phm_canonical_txns %}
+          <tr>
+            <td>{% if tx.year and tx.month %}{{ tx.year }}/{{ "%02d"|format(tx.month) }}{% else %}—{% endif %}</td>
+            <td><strong>{{ "{:,.0f}".format(tx.amount_total|float).replace(",", " ") if tx.amount_total else "—" }} Kč</strong></td>
+            <td>{{ "{:.2f}".format(tx.liters_total|float) if tx.liters_total else "—" }} L</td>
+            <td style="font-size:11px;color:#9ba3af">{{ tx.source_doc_ref or "—" }}</td>
+            <td><span class="nx-badge nx-badge-ok">{{ tx.status }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div class="container-xl">
+    <div class="d-flex align-items-start justify-content-between">
+      <div>
+        <div class="page-pretitle">Fleet</div>
+        <h2 class="page-title">
+          {{ v.make }} {{ v.model }}
+          {% if v.spz %}<code class="spz" style="font-size:15px">{{ v.spz }}</code>{% endif %}
+          {% if v.status == 'aktivní' %}<span class="nx-badge nx-badge-ok ms-1">aktivní</span>
+          {% elif v.status == 'rezervní' %}<span class="nx-badge nx-badge-info ms-1">rezervní</span>
+          {% elif v.status == 'vyřazeno' %}<span class="nx-badge nx-badge-neutral ms-1">vyřazeno</span>
+          {% endif %}
+        </h2>
+      </div>
+      {% if current_user and current_user.has_role('owner','admin','manager','fleet_manager') %}
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-outline-secondary btn-sm" onclick="openModal('modal-event')">+ Událost</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="openModal('modal-driver')">Změnit řidiče</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="openModal('modal-edit')">Upravit</button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-xl">
+
+  {# STK alert #}
+  {% if v.stk_status == 'expired' %}
+  <div class="nx-alert nx-alert-danger mb-3">
+    <div>
+      <div class="nx-alert-title">STK prošlá — {{ v.stk_valid_to }}</div>
+      <div>Vozidlo není způsobilé k provozu na pozemních komunikacích.</div>
+    </div>
+  </div>
+  {% elif v.stk_status == 'warn' %}
+  <div class="nx-alert nx-alert-warning mb-3">
+    <div>
+      <div class="nx-alert-title">STK vyprší brzy — {{ v.stk_valid_to }}</div>
+      <div>Objednejte STK kontrolu v autorizovaném servisu.</div>
+    </div>
+  </div>
+  {% endif %}
+  {% if not v.spz %}
+  <div class="nx-alert nx-alert-warning mb-3">
+    <div><div class="nx-alert-title">SPZ chybí</div><div>Doplňte registrační značku vozidla.</div></div>
+  </div>
+  {% endif %}
+
+  <div class="row g-3">
+
+    {# LEFT COLUMN — detail #}
+    <div class="col-lg-8">
+
+      {# TECHNICKÁ DATA #}
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          Technické údaje
+          <button class="btn btn-ghost btn-sm" onclick="openModal('modal-edit')">Upravit</button>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            {% macro field(label, value) %}
+            <div class="col-6 col-md-4">
+              <div class="form-label">{{ label }}</div>
+              <div class="fw-medium" style="font-size:13px">{{ value or '—' }}</div>
+            </div>
+            {% endmacro %}
+            {{ field('Značka', v.make) }}
+            {{ field('Model', v.model) }}
+            {{ field('Rok výroby', v.year) }}
+            {{ field('SPZ', v.spz) }}
+            <div class="col-6 col-md-4">
+              <div class="form-label">VIN</div>
+              <div style="font-size:11.5px;font-family:monospace;color:#6b7280">{{ v.vin or '—' }}</div>
+            </div>
+            {{ field('Motor', v.engine) }}
+            {{ field('Výkon', (v.power_kw | string + ' kW') if v.power_kw else None) }}
+            {{ field('Palivo', v.fuel_type) }}
+            {{ field('Provozovatel', v.provoz) }}
+            {{ field('Smlouva', v.smlouva) }}
+            {{ field('Cena pořízení', ("{:,.0f}".format(v.price_kc).replace(',', ' ') + ' Kč') if v.price_kc else None) }}
+            {{ field('Konec financování', v.lease_end) }}
+            {{ field('Č. leasingové smlouvy', v.lease_contract_no) }}
+            {{ field('STK platná do', v.stk_valid_to) }}
+            {{ field('Pojistná smlouva č.', v.insurance_contract_no) }}
+            {{ field('Stav km', (v.km_current | string + ' km') if v.km_current else None) }}
+            {{ field('PHM preference', v.phm_pref) }}
+          </div>
+          {% if v.notes %}
+          <div class="mt-3 p-2" style="background:#f8f9fb;border-radius:6px;font-size:13px;color:#6b7280">
+            {{ v.notes }}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      {# PHM TRANSAKCE #}
+      <div class="card mb-3" id="phm">
+        <div class="card-header">PHM transakce</div>
+        {% if phm_transactions %}
+        <div class="table-responsive">
+          <table class="table">
+            <thead><tr>
+              <th>Období</th><th>Palivo</th><th>Litry</th><th>Kč bez DPH</th><th>Kč s DPH</th><th>Kč/l</th><th>Stanice</th><th>Faktura</th>
+            </tr></thead>
+            <tbody>
+              {% for t in phm_transactions %}
+              <tr>
+                <td class="fw-medium">{{ t.period or '—' }}</td>
+                <td>
+                  {% if t.fuel_type == 'CNG' %}<span class="nx-badge nx-badge-warn">CNG</span>
+                  {% elif t.fuel_type and '100' in t.fuel_type %}<span class="nx-badge nx-badge-info">{{ t.fuel_type }}</span>
+                  {% else %}<span class="nx-badge nx-badge-neutral">{{ t.fuel_type or '—' }}</span>{% endif %}
+                </td>
+                <td>{{ "%.2f"|format(t.litres or 0) }} l</td>
+                <td>{{ "{:,.0f}".format(t.price_ex_vat or 0).replace(",", " ") }} Kč</td>
+                <td class="fw-medium">{{ "{:,.0f}".format(t.price_inc_vat or 0).replace(",", " ") }} Kč</td>
+                <td class="text-muted">{{ "%.2f"|format(t.price_per_litre or 0) }}</td>
+                <td class="text-muted fs-small">{{ t.site or '—' }}</td>
+                <td class="text-muted fs-small">{{ t.invoice_no or '—' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="card-body">
+          <div class="nx-empty"><div class="nx-empty-title">Žádné PHM transakce</div></div>
+        </div>
+        {% endif %}
+      </div>
+
+      {# UDÁLOSTI #}
+      <div class="card" id="events">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          Události a záznamy
+          <button class="btn btn-ghost btn-sm" onclick="openModal('modal-event')">+ Přidat</button>
+        </div>
+        <div class="card-body">
+          {% if v.events %}
+          <ul class="nx-timeline">
+            {% for e in v.events | sort(attribute='event_date', reverse=True) %}
+            <li>
+              <div class="nx-tl-dot {% if e.event_type in ['Pojistná událost', 'Vyřazení'] %}nx-tl-dot-err{% elif e.event_type == 'STK' %}nx-tl-dot-active{% else %}{% endif %}"></div>
+              <div class="nx-tl-content">
+                <div class="nx-tl-title">
+                  <span class="nx-badge nx-badge-neutral me-2">{{ e.event_type }}</span>
+                  {% if e.cost_kc %}<span class="text-muted fs-small">{{ "{:+,.0f}".format(e.cost_kc).replace(",", " ") }} Kč</span>{% endif %}
+                </div>
+                <div class="nx-tl-meta">{{ e.event_date }} {% if e.description %}— {{ e.description }}{% endif %}</div>
+              </div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <div class="nx-empty"><div class="nx-empty-title">Žádné záznamy</div></div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+
+    {# RIGHT COLUMN — řidič, karty #}
+    <div class="col-lg-4">
+
+      {# AKTUÁLNÍ ŘIDIČ #}
+      <div class="card mb-3" id="driver">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          Aktuální řidič
+          {% if current_user and current_user.has_role('owner','admin','manager') %}
+          <button class="btn btn-ghost btn-sm" onclick="openModal('modal-driver')">Změnit</button>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          {% set drv = v.current_driver %}
+          {% if drv and drv.person %}
+          <div class="d-flex align-items-center gap-3">
+            <div style="width:40px;height:40px;border-radius:50%;background:#e0f2fe;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;color:#0369a1;flex-shrink:0">
+              {{ drv.person.first_name[0] }}{{ drv.person.last_name[0] }}
+            </div>
+            <div>
+              <a href="/people/{{ drv.person_id }}" class="fw-medium text-reset text-decoration-none">{{ drv.person.full_name }}</a>
+              <div class="text-muted fs-small">od {{ drv.date_from }}</div>
+              {% if drv.person.email_work or drv.person.email_personal %}
+              <div class="text-muted fs-small">{{ drv.person.email_work or drv.person.email_personal }}</div>
+              {% endif %}
+            </div>
+          </div>
+          {% else %}
+          <div class="text-muted fs-small">Nepřiřazen</div>
+          {% endif %}
+        </div>
+      </div>
+
+      {# HISTORIE ŘIDIČŮ #}
+      <div class="card mb-3">
+        <div class="card-header">Historie přiřazení</div>
+        <div class="card-body">
+          {% set past = v.assignments | sort(attribute='date_from', reverse=True) %}
+          {% if past %}
+          <ul class="nx-timeline">
+            {% for a in past %}
+            <li>
+              <div class="nx-tl-dot {% if not a.date_to %}nx-tl-dot-active{% endif %}"></div>
+              <div class="nx-tl-content">
+                <div class="nx-tl-title">{{ a.person.full_name if a.person else '?' }}</div>
+                <div class="nx-tl-meta">
+                  {{ a.date_from }} –
+                  {% if a.date_to %}{{ a.date_to }}{% else %}<strong style="color:#2fb344">aktuálně</strong>{% endif %}
+                  {% if a.reason %}<br><span class="text-muted">{{ a.reason }}</span>{% endif %}
+                </div>
+              </div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <div class="text-muted fs-small">Žádná historie</div>
+          {% endif %}
+        </div>
+      </div>
+
+      {# AXIGON KARTY #}
+      <div class="card">
+        <div class="card-header">Axigon / PHM karty</div>
+        <div class="card-body">
+          {% if v.fuel_cards %}
+          {% for c in v.fuel_cards %}
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div>
+              <code class="spz">…{{ c.card_last4 or '????' }}</code>
+              <span class="text-muted fs-small ms-2">{{ c.provider }}</span>
+            </div>
+            {% if c.is_active %}<span class="nx-badge nx-badge-ok">aktivní</span>
+            {% else %}<span class="nx-badge nx-badge-neutral">neaktivní</span>{% endif %}
+          </div>
+          {% endfor %}
+          {% else %}
+          <div class="nx-badge nx-badge-err">Karta chybí</div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{# ── MODALS ── #}
+<div id="modal-event" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:24px;width:420px;max-height:90vh;overflow-y:auto">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 style="font-size:16px;font-weight:600;margin:0">Přidat událost</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-event')">✕</button>
+    </div>
+    <form method="post" action="/fleet/{{ v.id }}/event">
+      <div class="mb-3">
+        <label class="form-label">Typ události</label>
+        <select name="event_type" class="form-select" required>
+          {% for et in event_types %}<option>{{ et }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Datum</label>
+        <input type="date" name="event_date" class="form-control" required
+               value="{{ now_date }}">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Popis</label>
+        <textarea name="description" class="form-control" rows="2"></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Náklady (Kč)</label>
+        <input type="number" name="cost_kc" class="form-control" placeholder="0">
+      </div>
+      <div class="d-flex gap-2 justify-content-end">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeModal('modal-event')">Zrušit</button>
+        <button type="submit" class="btn btn-primary btn-sm">Uložit</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="modal-driver" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:24px;width:380px">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 style="font-size:16px;font-weight:600;margin:0">Změna řidiče</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-driver')">✕</button>
+    </div>
+    <form method="post" action="/fleet/{{ v.id }}/driver">
+      <div class="mb-3">
+        <label class="form-label">Nový řidič</label>
+        <select name="person_id" class="form-select" required>
+          {% for p in people %}<option value="{{ p.id }}">{{ p.full_name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Datum změny</label>
+        <input type="date" name="date_from" class="form-control" required value="{{ now_date }}">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Důvod</label>
+        <input type="text" name="reason" class="form-control" placeholder="volitelné">
+      </div>
+      <div class="d-flex gap-2 justify-content-end">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeModal('modal-driver')">Zrušit</button>
+        <button type="submit" class="btn btn-primary btn-sm">Potvrdit</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="modal-edit" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:24px;width:420px">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 style="font-size:16px;font-weight:600;margin:0">Upravit vozidlo</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-edit')">✕</button>
+    </div>
+    <form method="post" action="/fleet/{{ v.id }}/edit">
+      <div class="row g-3">
+        <div class="col-6">
+          <label class="form-label">SPZ</label>
+          <input type="text" name="spz" class="form-control" value="{{ v.spz or '' }}">
+        </div>
+        <div class="col-6">
+          <label class="form-label">STK platná do</label>
+          <input type="date" name="stk_valid_to" class="form-control" value="{{ v.stk_valid_to or '' }}">
+        </div>
+        <div class="col-6">
+          <label class="form-label">Stav km</label>
+          <input type="number" name="km_current" class="form-control" value="{{ v.km_current or '' }}">
+        </div>
+        <div class="col-6">
+          <label class="form-label">Stav</label>
+          <select name="status" class="form-select">
+            <option {% if v.status == 'aktivní' %}selected{% endif %}>aktivní</option>
+            <option {% if v.status == 'rezervní' %}selected{% endif %}>rezervní</option>
+            <option {% if v.status == 'vyřazeno' %}selected{% endif %}>vyřazeno</option>
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Poznámka</label>
+          <textarea name="notes" class="form-control" rows="2">{{ v.notes or '' }}</textarea>
+        </div>
+      </div>
+      <div class="d-flex gap-2 justify-content-end mt-3">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeModal('modal-edit')">Zrušit</button>
+        <button type="submit" class="btn btn-primary btn-sm">Uložit</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openModal(id){ const m=document.getElementById(id); m.style.display='flex'; }
+function closeModal(id){ document.getElementById(id).style.display='none'; }
+document.querySelectorAll('[id^="modal-"]').forEach(m=>{
+  m.addEventListener('click', e=>{ if(e.target===m) m.style.display='none'; });
+});
+</script>
+{% endblock %}

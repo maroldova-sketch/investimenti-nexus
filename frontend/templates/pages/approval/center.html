@@ -1,0 +1,83 @@
+{% extends "layouts/base.html" %}
+{% block title %}Schvalování{% endblock %}
+{% block breadcrumb %}Schvalování{% endblock %}
+{% block page_header %}
+<div class="page-header">
+  <div class="container-xl">
+    <div class="d-flex align-items-center justify-content-between">
+      <div><div class="page-pretitle">Operace</div><h2 class="page-title">Schvalovací centrum</h2></div>
+      <span class="nx-badge nx-badge-warn" style="font-size:13px">{{ pending|length }} čeká</span>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+  {% if pending %}
+  <div class="card mb-4">
+    <div class="card-header"><strong>Čeká na akci</strong></div>
+    <div class="card-body" style="padding:0">
+      {% for c in pending %}
+      <div style="padding:14px 16px;border-bottom:.5px solid #e4e6ea;display:flex;align-items:center;justify-content:space-between;gap:16px">
+        <div>
+          <span class="nx-badge {% if c.approval_type=='attendance' %}nx-badge-info{% else %}nx-badge-warn{% endif %} me-2">{{ c.approval_type }}</span>
+          {% if c.approval_type == 'attendance' and c.attendance_period %}
+            <span class="fw-medium">{{ c.attendance_period.label }}</span>
+          {% elif c.approval_type == 'leave' and c.leave_request %}
+            <span class="fw-medium">{{ c.leave_request.person.full_name if c.leave_request.person else '?' }}</span>
+            <span class="nx-badge nx-badge-neutral ms-2">{{ c.leave_request.leave_type }}</span>
+            <span class="text-muted ms-2" style="font-size:12px">{{ c.leave_request.date_from }} – {{ c.leave_request.date_to }}</span>
+          {% endif %}
+        </div>
+        <div class="d-flex gap-2 flex-shrink-0">
+          {% if c.approval_type == 'attendance' and c.attendance_period %}
+          <a href="/attendance/{{ c.attendance_period_id }}" class="btn btn-ghost btn-sm">Otevřít →</a>
+          <form method="post" action="/attendance/{{ c.attendance_period_id }}/approve">
+            <button class="btn btn-primary btn-sm">✓ Schválit</button>
+          </form>
+          {% elif c.approval_type == 'leave' and c.leave_request %}
+          <form method="post" action="/leave/{{ c.leave_request_id }}/decide" class="d-flex gap-2">
+            <input type="hidden" name="decision" value="approve">
+            <button class="btn btn-primary btn-sm">✓ Schválit</button>
+          </form>
+          <form method="post" action="/leave/{{ c.leave_request_id }}/decide">
+            <input type="hidden" name="decision" value="reject">
+            <button class="btn btn-outline-secondary btn-sm" style="color:var(--nx-err)">✗ Zamítnout</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="card mb-4"><div class="card-body"><div class="nx-empty"><div class="nx-empty-title">Nic nečeká</div><div class="nx-empty-sub">Všechny položky jsou vyřízeny.</div></div></div></div>
+  {% endif %}
+  <div class="card">
+    <div class="card-header">Historie schvalování</div>
+    <div class="table-responsive"><table class="table"><thead><tr><th>Typ</th><th>Předmět</th><th>Stav</th><th>Rozhodl</th><th>Datum</th></tr></thead>
+    <tbody>
+      {% for c in all_cases %}
+      <tr>
+        <td><span class="nx-badge nx-badge-neutral">{{ c.approval_type }}</span></td>
+        <td style="font-size:12.5px">
+          {% if c.attendance_period %}{{ c.attendance_period.label }}
+          {% elif c.leave_request and c.leave_request.person %}{{ c.leave_request.person.full_name }} — {{ c.leave_request.leave_type }}
+          {% else %}—{% endif %}
+        </td>
+        <td>
+          {% if c.status=='pending' %}<span class="nx-badge nx-badge-warn">čeká</span>
+          {% elif c.status=='approved' %}<span class="nx-badge nx-badge-ok">schváleno</span>
+          {% elif c.status=='rejected' %}<span class="nx-badge nx-badge-err">zamítnuto</span>
+          {% endif %}
+        </td>
+        <td class="text-muted" style="font-size:12px">{{ c.decided_by.full_name if c.decided_by else '—' }}</td>
+        <td class="text-muted" style="font-size:12px">{{ c.decided_at.strftime('%d.%m.%Y') if c.decided_at else '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="text-center text-muted py-3" style="font-size:13px">Žádná historie</td></tr>
+      {% endfor %}
+    </tbody></table></div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,157 @@
+{% extends "layouts/base.html" %}
+{% block title %}Staging — PHM{% endblock %}
+{% block breadcrumb %}<a href="/import" class="text-muted text-decoration-none">Import</a> / <a href="/import/{{ batch.id }}" class="text-muted text-decoration-none">{{ batch.id[:8] }}</a> / PHM{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="d-flex align-items-center justify-content-between">
+    <div><div class="page-pretitle">Staging</div><h2 class="page-title">PHM / Palivo — {{ batch.source_filename or batch.id[:12] }}</h2></div>
+    <div class="text-muted" style="font-size:12px">Batch: {{ batch.id[:8] }}</div>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+
+  {# Summary stat row #}
+  {% set total = rows|length %}
+  {% set matched_rows = rows|selectattr('status','in',['matched','reviewed'])|list %}
+  {% set applied_rows = rows|selectattr('status','equalto','applied')|list %}
+  {% set unresolved_rows = rows|selectattr('status','equalto','unresolved')|list %}
+  {% set ignored_rows = rows|selectattr('status','equalto','ignored')|list %}
+  <div class="row g-2 mb-3">
+    <div class="col-auto"><div class="nx-stat"><div class="nx-stat-label">Celkem</div><div class="nx-stat-value">{{ total }}</div></div></div>
+    <div class="col-auto"><div class="nx-stat nx-stat-success"><div class="nx-stat-label">Matched</div><div class="nx-stat-value">{{ matched_rows|length }}</div></div></div>
+    <div class="col-auto"><div class="nx-stat nx-stat-success"><div class="nx-stat-label">Aplikováno</div><div class="nx-stat-value">{{ applied_rows|length }}</div></div></div>
+    <div class="col-auto"><div class="nx-stat nx-stat-warning"><div class="nx-stat-label">Nevyřešeno</div><div class="nx-stat-value">{{ unresolved_rows|length }}</div></div></div>
+    <div class="col-auto"><div class="nx-stat"><div class="nx-stat-label">Ignorováno</div><div class="nx-stat-value">{{ ignored_rows|length }}</div></div></div>
+  </div>
+
+  {# Filter bar #}
+  <div class="d-flex gap-2 mb-3 flex-wrap">
+    <a href="?" class="btn btn-sm {% if not status_filter %}btn-primary{% else %}btn-outline-secondary{% endif %}">Vše</a>
+    <a href="?status_filter=unresolved" class="btn btn-sm {% if status_filter=='unresolved' %}btn-warning{% else %}btn-outline-secondary{% endif %}">Nevyřešené ({{ unresolved_rows|length }})</a>
+    <a href="?status_filter=matched" class="btn btn-sm {% if status_filter=='matched' %}btn-success{% else %}btn-outline-secondary{% endif %}">Matched</a>
+    <a href="?status_filter=reviewed" class="btn btn-sm {% if status_filter=='reviewed' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Reviewed</a>
+    <a href="?status_filter=applied" class="btn btn-sm {% if status_filter=='applied' %}btn-success{% else %}btn-outline-secondary{% endif %}">Aplikováno</a>
+    <a href="?status_filter=ignored" class="btn btn-sm {% if status_filter=='ignored' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">Ignorováno</a>
+  </div>
+
+  {% if unresolved_rows and not status_filter %}
+  <div class="nx-alert nx-alert-warning mb-3">
+    <strong>{{ unresolved_rows|length }} řádků bez přiřazení</strong> — přiřaďte vozidlo nebo ignorujte.
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Karta</th>
+            <th>Vozidlo (kandid.)</th>
+            <th>Kč s DPH</th>
+            <th>Litry</th>
+            <th>Doklad</th>
+            <th>Firma</th>
+            <th>Měsíc</th>
+            <th>Stav</th>
+            <th style="width:110px">Akce</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td class="text-muted" style="font-size:11px">{{ r.source_row_ref }}</td>
+            <td class="fw-medium">{{ r.card_number_masked or '—' }}</td>
+            <td>
+              {% if r.candidate_vehicle_id %}
+                <span class="nx-badge nx-badge-ok" style="font-size:10px">✓ {{ r.candidate_vehicle_id }}</span>
+              {% elif r.plate_number %}
+                <span class="text-muted">{{ r.plate_number }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td>{% if r.amount_total %}<strong>{{ "%.0f"|format(r.amount_total) }} Kč</strong>{% else %}—{% endif %}</td>
+            <td>{{ "%.2f"|format(r.liters_total) if r.liters_total else '—' }}</td>
+            <td style="font-size:11px;color:#9ba3af">{{ r.source_doc_ref or '—' }}</td>
+            <td><span class="nx-badge nx-badge-neutral">{{ r.company_hint or '—' }}</span></td>
+            <td class="text-muted">{% if r.year and r.month %}{{ r.year }}/{{ "%02d"|format(r.month) }}{% else %}—{% endif %}</td>
+            <td>
+              {% if r.status == 'matched' %}<span class="nx-badge nx-badge-ok">matched</span>
+              {% elif r.status == 'unresolved' %}<span class="nx-badge nx-badge-warn">unresolved</span>
+              {% elif r.status == 'reviewed' %}<span class="nx-badge nx-badge-info">reviewed</span>
+              {% elif r.status == 'applied' %}<span class="nx-badge nx-badge-ok">applied</span>
+              {% elif r.status == 'ignored' %}<span class="nx-badge nx-badge-neutral">ignored</span>
+              {% else %}<span class="nx-badge nx-badge-neutral">{{ r.status }}</span>{% endif %}
+            </td>
+            <td>
+              {% if r.status not in ('applied', 'ignored') %}
+              <div class="d-flex gap-1">
+                {% if r.candidate_vehicle_id %}
+                {# Apply directly if already matched #}
+                <form method="post" action="/import/{{ batch.id }}/fuel/{{ r.id }}/apply" style="margin:0">
+                  <button class="btn btn-ghost btn-sm" style="color:#2fb344" title="Aplikovat do canonical">✓</button>
+                </form>
+                {% else %}
+                {# Assign vehicle first #}
+                <button class="btn btn-ghost btn-sm" onclick="openFuelAssign('{{ r.id }}')" title="Přiřadit vozidlo">🔗</button>
+                {% endif %}
+                <form method="post" action="/import/{{ batch.id }}/fuel/{{ r.id }}/ignore" style="margin:0">
+                  <button class="btn btn-ghost btn-sm" style="color:#9ba3af" title="Ignorovat">✕</button>
+                </form>
+              </div>
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          {% if not rows %}
+          <tr><td colspan="10"><div class="nx-empty"><div class="nx-empty-title">Žádné řádky</div></div></td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ASSIGN MODAL #}
+<div id="modal-fuel-assign" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:24px;width:440px">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 style="font-size:16px;font-weight:600;margin:0">Přiřadit vozidlo / řidiče</h3>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-fuel-assign').style.display='none'">✕</button>
+    </div>
+    <form id="fuel-assign-form" method="post">
+      <div class="mb-3">
+        <label class="form-label">Vozidlo *</label>
+        <select name="vehicle_id" class="form-select" required>
+          <option value="">— vyberte vozidlo —</option>
+          {% for v in vehicles %}
+          <option value="{{ v.id }}">{{ v.spz }} — {{ v.make }} {{ v.model }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Řidič (volitelné)</label>
+        <select name="person_id" class="form-select">
+          <option value="">— nevybráno —</option>
+          {% for p in people %}
+          <option value="{{ p.id }}">{{ p.full_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="d-flex gap-2 justify-content-end mt-3">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('modal-fuel-assign').style.display='none'">Zrušit</button>
+        <button type="submit" class="btn btn-primary btn-sm">Přiřadit</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function openFuelAssign(rowId) {
+  document.getElementById('fuel-assign-form').action = '/import/{{ batch.id }}/fuel/' + rowId + '/assign';
+  document.getElementById('modal-fuel-assign').style.display = 'flex';
+}
+</script>
+{% endblock %}

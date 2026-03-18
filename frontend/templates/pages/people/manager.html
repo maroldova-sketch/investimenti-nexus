@@ -1,0 +1,96 @@
+{% extends "layouts/base.html" %}
+{% block title %}Lidé{% endblock %}
+{% block breadcrumb %}Lidé{% endblock %}
+{% block page_header %}
+<div class="page-header">
+  <div class="container-xl">
+    <div class="d-flex align-items-center justify-content-between">
+      <div><div class="page-pretitle">Operace</div><h2 class="page-title">Lidé</h2></div>
+      <button class="btn btn-primary btn-sm" onclick="openModal('modal-new')">+ Přidat osobu</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+  <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+    <input type="text" id="nx-search" class="form-control" style="max-width:260px" placeholder="Hledat jméno, email…">
+    <span id="nx-count" class="text-muted ms-auto" style="font-size:12px">{{ people|length }} osob</span>
+  </div>
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table" id="people-table">
+        <thead><tr><th>Jméno</th><th>Email (práce)</th><th>Telefon</th><th>Entity</th><th>Role</th><th style="width:40px"></th></tr></thead>
+        <tbody>
+          {% for p in people %}
+          <tr class="nx-row" data-q="{{ p.full_name }} {{ p.email_work or '' }} {{ p.email_personal or '' }}"
+              onclick="location.href='/people/{{ p.id }}'">
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div style="width:32px;height:32px;border-radius:50%;background:#e0f2fe;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#0369a1;flex-shrink:0">
+                  {{ p.first_name[0] }}{{ p.last_name[0] }}
+                </div>
+                <div class="fw-medium">{{ p.full_name }}</div>
+              </div>
+            </td>
+            <td class="text-muted">{{ p.email_work or '—' }}</td>
+            <td class="text-muted">{{ p.phone or '—' }}</td>
+            <td>
+              {% for m in p.memberships %}
+                <span class="nx-badge nx-badge-info me-1" style="font-size:10px">{{ m.entity.code if m.entity else '?' }}</span>
+              {% endfor %}
+            </td>
+            <td>
+              {% for r in p.role_assignments %}
+                <span class="nx-badge nx-badge-neutral me-1" style="font-size:10px">{{ r.role }}</span>
+              {% endfor %}
+            </td>
+            <td onclick="event.stopPropagation()">
+              <div class="dropdown">
+                <button class="btn btn-ghost btn-sm" data-bs-toggle="dropdown">⋯</button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <li><a class="dropdown-item" href="/people/{{ p.id }}">Detail</a></li>
+                </ul>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6"><div class="nx-empty"><div class="nx-empty-title">Žádné osoby</div></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="modal-new" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:24px;width:440px">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 style="font-size:16px;font-weight:600;margin:0">Přidat osobu</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-new')">✕</button>
+    </div>
+    <form method="post" action="/people/new">
+      <div class="row g-3">
+        <div class="col-3"><label class="form-label">Titul</label><input type="text" name="title_before" class="form-control" placeholder="MUDr."></div>
+        <div class="col-4"><label class="form-label">Jméno *</label><input type="text" name="first_name" class="form-control" required></div>
+        <div class="col-5"><label class="form-label">Příjmení *</label><input type="text" name="last_name" class="form-control" required></div>
+        <div class="col-6"><label class="form-label">Email (práce)</label><input type="email" name="email_work" class="form-control"></div>
+        <div class="col-6"><label class="form-label">Telefon</label><input type="text" name="phone" class="form-control"></div>
+      </div>
+      <div class="d-flex gap-2 justify-content-end mt-3">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeModal('modal-new')">Zrušit</button>
+        <button type="submit" class="btn btn-primary btn-sm">Vytvořit</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function openModal(id){document.getElementById(id).style.display='flex'}
+function closeModal(id){document.getElementById(id).style.display='none'}
+const rows=document.querySelectorAll('.nx-row'),s=document.getElementById('nx-search'),c=document.getElementById('nx-count');
+s.addEventListener('input',()=>{const q=s.value.toLowerCase();let n=0;rows.forEach(r=>{const ok=!q||r.dataset.q.toLowerCase().includes(q);r.style.display=ok?'':'none';if(ok)n++;});c.textContent=n+' osob';});
+rows.forEach(r=>r.style.cursor='pointer');
+</script>
+{% endblock %}

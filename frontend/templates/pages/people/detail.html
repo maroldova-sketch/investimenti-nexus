@@ -1,0 +1,143 @@
+{% extends "layouts/base.html" %}
+{% block title %}{{ p.full_name }}{% endblock %}
+{% block breadcrumb %}<a href="/people" class="text-muted text-decoration-none">Lidé</a> <span class="mx-2 text-muted">/</span> {{ p.full_name }}{% endblock %}
+{% block page_header %}
+<div class="page-header">
+  <div class="container-xl">
+    <div class="d-flex align-items-center justify-content-between">
+      <div>
+        <div class="page-pretitle">Lidé</div>
+        <h2 class="page-title">{{ p.full_name }} <span class="nx-badge {% if p.is_active %}nx-badge-ok{% else %}nx-badge-neutral{% endif %} ms-2">{% if p.is_active %}aktivní{% else %}neaktivní{% endif %}</span></h2>
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm" onclick="openModal('modal-edit')">Upravit</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="openModal('modal-membership')">+ Entita</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="openModal('modal-role')">+ Role</button>
+        <button class="btn btn-primary btn-sm" onclick="openModal('modal-employment')">+ Pracovní poměr</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+  <div class="row g-3">
+    <div class="col-lg-8">
+
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">Osobní údaje <button class="btn btn-ghost btn-sm" onclick="openModal('modal-edit')">Upravit</button></div>
+        <div class="card-body">
+          <div class="row g-3">
+            {% macro f(label, val) %}<div class="col-6 col-md-4"><div class="form-label">{{ label }}</div><div class="fw-medium" style="font-size:13px">{{ val or '—' }}</div></div>{% endmacro %}
+            {{ f('Jméno', p.full_name) }}
+            {{ f('Email (práce)', p.email_work) }}
+            {{ f('Email (osobní)', p.email_personal) }}
+            {{ f('Telefon', p.phone) }}
+          </div>
+          {% if p.notes %}<div class="mt-3 p-2" style="background:#f8f9fb;border-radius:6px;font-size:13px;color:#6b7280">{{ p.notes }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="card mb-3" id="employment">
+        <div class="card-header d-flex justify-content-between align-items-center">Pracovní poměry <button class="btn btn-ghost btn-sm" onclick="openModal('modal-employment')">+ Přidat</button></div>
+        {% if employments %}
+        <div class="table-responsive"><table class="table"><thead><tr><th>Entita</th><th>Pozice</th><th>Typ</th><th>Od</th><th>Hrubá mzda / měsíc</th><th>Stav</th></tr></thead><tbody>
+          {% for e in employments %}
+          <tr>
+            <td><span class="nx-badge nx-badge-info">{{ e.entity.code if e.entity else '?' }}</span></td>
+            <td>{{ e.position or '—' }}</td>
+            <td class="text-muted">{{ e.employment_type }}</td>
+            <td class="text-muted">{{ e.date_start }}</td>
+            <td class="fw-medium">{% if e.monthly_gross_kc %}{{ "{:,.0f}".format(e.monthly_gross_kc).replace(",", " ") }} Kč{% else %}—{% endif %}</td>
+            <td><span class="nx-badge {% if e.status=='active' %}nx-badge-ok{% else %}nx-badge-neutral{% endif %}">{{ e.status }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody></table></div>
+        {% else %}<div class="card-body"><div class="nx-empty"><div class="nx-empty-title">Žádný pracovní poměr</div></div></div>{% endif %}
+      </div>
+
+    </div>
+    <div class="col-lg-4">
+
+      <div class="card mb-3" id="memberships">
+        <div class="card-header d-flex justify-content-between align-items-center">Entity <button class="btn btn-ghost btn-sm" onclick="openModal('modal-membership')">+ Přidat</button></div>
+        <div class="card-body">
+          {% if memberships %}
+          {% for m in memberships %}
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div><span class="nx-badge nx-badge-vzc me-2">{{ m.entity.code if m.entity else '?' }}</span><span style="font-size:12.5px">{{ m.position or '—' }}</span></div>
+            <span class="text-muted" style="font-size:11px">od {{ m.valid_from or '?' }}</span>
+          </div>
+          {% endfor %}
+          {% else %}<span class="text-muted" style="font-size:13px">Žádná přiřazení</span>{% endif %}
+        </div>
+      </div>
+
+      <div class="card" id="roles">
+        <div class="card-header d-flex justify-content-between align-items-center">Role <button class="btn btn-ghost btn-sm" onclick="openModal('modal-role')">+ Přidat</button></div>
+        <div class="card-body">
+          {% if roles %}
+          {% for r in roles %}
+          <div class="mb-2">
+            <span class="nx-badge nx-badge-neutral">{{ r.role }}</span>
+            <span class="text-muted ms-2" style="font-size:11px">{{ r.scope_type }}</span>
+          </div>
+          {% endfor %}
+          {% else %}<span class="text-muted" style="font-size:13px">Žádné role</span>{% endif %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% for mid, mtitle, maction in [('modal-edit','Upravit osobu','/people/'+p.id+'/edit'),('modal-membership','Přiřadit entitu','/people/'+p.id+'/membership'),('modal-role','Přiřadit roli','/people/'+p.id+'/role'),('modal-employment','Pracovní poměr','/people/'+p.id+'/employment')] %}
+<div id="{{ mid }}" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:24px;width:420px;max-height:90vh;overflow-y:auto">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 style="font-size:16px;font-weight:600;margin:0">{{ mtitle }}</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('{{ mid }}')">✕</button>
+    </div>
+    <form method="post" action="{{ maction }}">
+      {% if mid == 'modal-edit' %}
+      <div class="row g-3">
+        <div class="col-3"><label class="form-label">Titul</label><input type="text" name="title_before" class="form-control" value="{{ p.title_before or '' }}"></div>
+        <div class="col-4"><label class="form-label">Jméno *</label><input type="text" name="first_name" class="form-control" value="{{ p.first_name }}" required></div>
+        <div class="col-5"><label class="form-label">Příjmení *</label><input type="text" name="last_name" class="form-control" value="{{ p.last_name }}" required></div>
+        <div class="col-6"><label class="form-label">Email (práce)</label><input type="email" name="email_work" class="form-control" value="{{ p.email_work or '' }}"></div>
+        <div class="col-6"><label class="form-label">Telefon</label><input type="text" name="phone" class="form-control" value="{{ p.phone or '' }}"></div>
+        <div class="col-12"><label class="form-label">Poznámka</label><textarea name="notes" class="form-control" rows="2">{{ p.notes or '' }}</textarea></div>
+      </div>
+      {% elif mid == 'modal-membership' %}
+      <div class="mb-3"><label class="form-label">Entita *</label><select name="entity_id" class="form-select" required>{% for e in entities %}<option value="{{ e.id }}">{{ e.code }} — {{ e.name }}</option>{% endfor %}</select></div>
+      <div class="mb-3"><label class="form-label">Pozice</label><input type="text" name="position" class="form-control" placeholder="Zubní lékař, Asistentka…"></div>
+      <div class="mb-3"><label class="form-label">Platí od</label><input type="date" name="valid_from" class="form-control" value="{{ now_date }}"></div>
+      {% elif mid == 'modal-role' %}
+      <div class="mb-3"><label class="form-label">Role *</label><select name="role" class="form-select" required>{% for r in all_roles %}<option>{{ r }}</option>{% endfor %}</select></div>
+      <div class="mb-3"><label class="form-label">Scope</label><select name="scope_type" class="form-select"><option value="all">Vše</option><option value="entity">Entita</option><option value="division">Divize</option></select></div>
+      <div class="mb-3"><label class="form-label">Entita (pro scope=entity)</label><select name="scope_entity_id" class="form-select"><option value="">—</option>{% for e in entities %}<option value="{{ e.id }}">{{ e.code }}</option>{% endfor %}</select></div>
+      {% elif mid == 'modal-employment' %}
+      <div class="mb-3"><label class="form-label">Entita *</label><select name="entity_id" class="form-select" required>{% for e in entities %}<option value="{{ e.id }}">{{ e.code }} — {{ e.name }}</option>{% endfor %}</select></div>
+      <div class="mb-3"><label class="form-label">Pozice</label><input type="text" name="position" class="form-control"></div>
+      <div class="row g-2 mb-3">
+        <div class="col-6"><label class="form-label">Typ</label><select name="employment_type" class="form-select"><option>HPP</option><option>DPP</option><option>DPČ</option><option>OSVČ</option></select></div>
+        <div class="col-6"><label class="form-label">Datum nástupu *</label><input type="date" name="date_start" class="form-control" value="{{ now_date }}" required></div>
+      </div>
+      <div class="mb-3"><label class="form-label">Hrubá mzda / měsíc (Kč)</label><input type="number" name="monthly_gross_kc" class="form-control" placeholder="50000"></div>
+      {% endif %}
+      <div class="d-flex gap-2 justify-content-end mt-3">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeModal('{{ mid }}')">Zrušit</button>
+        <button type="submit" class="btn btn-primary btn-sm">Uložit</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}
+{% block scripts %}
+<script>
+function openModal(id){document.getElementById(id).style.display='flex'}
+function closeModal(id){document.getElementById(id).style.display='none'}
+document.querySelectorAll('[id^="modal-"]').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.style.display='none'}));
+</script>
+{% endblock %}

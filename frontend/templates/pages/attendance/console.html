@@ -1,0 +1,80 @@
+{% extends "layouts/base.html" %}
+{% block title %}Docházka{% endblock %}
+{% block breadcrumb %}Docházka{% endblock %}
+{% block page_header %}
+<div class="page-header">
+  <div class="container-xl">
+    <div class="d-flex align-items-center justify-content-between">
+      <div><div class="page-pretitle">Operace</div><h2 class="page-title">Docházkové periody</h2></div>
+      <button class="btn btn-primary btn-sm" onclick="openModal('modal-new')">+ Nová perioda</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+  {% set open_c = periods|selectattr('status','equalto','open')|list|length %}
+  {% set approved_c = periods|selectattr('status','equalto','approved')|list|length %}
+  {% set locked_c = periods|selectattr('status','equalto','locked')|list|length %}
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3"><div class="card"><div class="nx-stat"><div class="nx-stat-label">Otevřené</div><div class="nx-stat-value nx-stat-warn">{{ open_c }}</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card"><div class="nx-stat"><div class="nx-stat-label">Schválené</div><div class="nx-stat-value nx-stat-info">{{ approved_c }}</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card"><div class="nx-stat"><div class="nx-stat-label">Uzavřené</div><div class="nx-stat-value nx-stat-success">{{ locked_c }}</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card"><div class="nx-stat"><div class="nx-stat-label">Celkem</div><div class="nx-stat-value">{{ periods|length }}</div></div></div></div>
+  </div>
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table">
+        <thead><tr><th>Perioda</th><th>Entita</th><th>Záznamy</th><th>Stav</th><th>Akce</th></tr></thead>
+        <tbody>
+          {% for p in periods %}
+          <tr onclick="location.href='/attendance/{{ p.id }}'" style="cursor:pointer">
+            <td class="fw-medium">{{ p.label }}</td>
+            <td><span class="nx-badge nx-badge-info">{{ p.entity.code if p.entity else '?' }}</span></td>
+            <td class="text-muted">{{ p.submissions|length }} záznamů</td>
+            <td>
+              {% if p.status=='open' %}<span class="nx-badge nx-badge-warn">otevřeno</span>
+              {% elif p.status=='submitted' %}<span class="nx-badge nx-badge-info">odesláno</span>
+              {% elif p.status=='approved' %}<span class="nx-badge nx-badge-ok">schváleno</span>
+              {% elif p.status=='locked' %}<span class="nx-badge nx-badge-neutral">uzavřeno</span>
+              {% endif %}
+            </td>
+            <td onclick="event.stopPropagation()">
+              <a href="/attendance/{{ p.id }}" class="btn btn-ghost btn-sm">Detail →</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5"><div class="nx-empty"><div class="nx-empty-title">Žádné periody</div><div class="nx-empty-sub">Vytvořte první docházkovou periodu.</div></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div id="modal-new" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:24px;width:400px">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 style="font-size:16px;font-weight:600;margin:0">Nová perioda</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-new')">✕</button>
+    </div>
+    <form method="post" action="/attendance/new">
+      <div class="mb-3"><label class="form-label">Entita *</label><select name="entity_id" class="form-select" required>{% for e in entities %}<option value="{{ e.id }}">{{ e.code }} — {{ e.name }}</option>{% endfor %}</select></div>
+      <div class="row g-2 mb-3">
+        <div class="col-6"><label class="form-label">Rok *</label><input type="number" name="year" class="form-control" value="2026" required min="2020" max="2030"></div>
+        <div class="col-6"><label class="form-label">Měsíc *</label><select name="month" class="form-select" required>{% for m in range(1,13) %}<option value="{{ m }}" {% if m==3 %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div>
+      </div>
+      <div class="mb-3"><label class="form-label">Poznámka</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+      <div class="d-flex gap-2 justify-content-end">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeModal('modal-new')">Zrušit</button>
+        <button type="submit" class="btn btn-primary btn-sm">Vytvořit</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function openModal(id){document.getElementById(id).style.display='flex'}
+function closeModal(id){document.getElementById(id).style.display='none'}
+</script>
+{% endblock %}

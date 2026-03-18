@@ -1,0 +1,79 @@
+{% extends "layouts/base.html" %}
+{% block title %}Schvalování{% endblock %}
+{% block breadcrumb %}Schvalování{% endblock %}
+{% block page_header %}
+<div class="page-header">
+  <div class="container-xl">
+    <div class="d-flex align-items-center justify-content-between">
+      <div><div class="page-pretitle">Operace</div><h2 class="page-title">Centrum schvalování</h2></div>
+      <div>
+        {% set pending = cases | selectattr('case.status','equalto','pending') | list | length %}
+        {% if pending > 0 %}<span class="nx-badge nx-badge-warn">{{ pending }} čeká</span>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+  {% if not cases %}
+  <div class="card"><div class="nx-empty"><div class="nx-empty-title">Žádné položky ke schválení</div><div class="nx-empty-sub">Vše schváleno nebo žádné požadavky.</div></div></div>
+  {% else %}
+  {% for item in cases %}
+  {% set c = item.case %}
+  {% set ref = item.ref %}
+  {% set ent = item.entity %}
+  <div class="card mb-3" style="border-left:3px solid {% if c.status=='pending' %}#f59f00{% elif c.status=='approved' %}#2fb344{% else %}#d63939{% endif %}">
+    <div class="card-body">
+      <div class="d-flex align-items-start justify-content-between">
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;margin-bottom:4px">
+            {{ 'Docházka' if c.case_type == 'attendance' else 'Volno' }}
+            {% if ent %} · {{ ent.code }}{% endif %}
+          </div>
+          <div class="fw-medium" style="font-size:14px">
+            {% if c.case_type == 'attendance' and ref %}
+              Docházkové období {{ ref.label }}
+            {% elif c.case_type == 'leave' and ref %}
+              Volno — {{ ref.person.full_name if ref.person else '?' }} · {{ ref.leave_type }} · {{ ref.date_from }}–{{ ref.date_to }}{% if ref.days %} ({{ ref.days }} dní){% endif %}
+            {% else %}
+              Ref: {{ c.ref_id[:12] }}…
+            {% endif %}
+          </div>
+          <div class="text-muted" style="font-size:12px;margin-top:3px">Vytvořeno: {{ c.created_at.strftime('%d.%m.%Y %H:%M') }}</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          {% if c.status == 'pending' %}
+            <span class="nx-badge nx-badge-warn">čeká</span>
+            {% if c.case_type == 'attendance' and ref %}
+              {% if ref.status == 'submitted' and current_user.has_role('owner','admin','manager') %}
+              <form method="post" action="/attendance/{{ ref.id }}/approve" style="margin:0">
+                <button class="btn btn-primary btn-sm">✓ Schválit</button>
+              </form>
+              {% endif %}
+            {% elif c.case_type == 'leave' and ref %}
+              {% if ref.status == 'submitted' and current_user.has_role('owner','admin','manager') %}
+              <form method="post" action="/leave/{{ ref.id }}/approve" style="margin:0">
+                <button class="btn btn-primary btn-sm">✓ Schválit</button>
+              </form>
+              <form method="post" action="/leave/{{ ref.id }}/reject" style="margin:0">
+                <button class="btn btn-outline-secondary btn-sm">✗ Zamítnout</button>
+              </form>
+              {% endif %}
+            {% endif %}
+          {% elif c.status == 'approved' %}
+            <span class="nx-badge nx-badge-ok">schváleno</span>
+          {% else %}
+            <span class="nx-badge nx-badge-err">zamítnuto</span>
+          {% endif %}
+          {% if c.case_type == 'attendance' and ref %}
+          <a href="/attendance/{{ ref.id }}" class="btn btn-ghost btn-sm">Detail</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+</div>
+{% endblock %}

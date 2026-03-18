@@ -1,0 +1,74 @@
+{% extends "layouts/base.html" %}
+{% block title %}Dovolené{% endblock %}
+{% block breadcrumb %}Dovolené a absence{% endblock %}
+{% block page_header %}
+<div class="page-header">
+  <div class="container-xl">
+    <div class="d-flex align-items-center justify-content-between">
+      <div><div class="page-pretitle">Operace</div><h2 class="page-title">Dovolené a absence</h2></div>
+      <button class="btn btn-primary btn-sm" onclick="openModal('modal-new')">+ Nová žádost</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table">
+        <thead><tr><th>Zaměstnanec</th><th>Typ</th><th>Od</th><th>Do</th><th>Dny</th><th>Stav</th><th>Rozhodl</th><th style="width:120px">Akce</th></tr></thead>
+        <tbody>
+          {% for r in requests %}
+          <tr>
+            <td class="fw-medium">{{ r.person.full_name if r.person else '?' }}</td>
+            <td><span class="nx-badge nx-badge-neutral">{{ r.leave_type }}</span></td>
+            <td>{{ r.date_from }}</td>
+            <td>{{ r.date_to }}</td>
+            <td>{{ r.days or '—' }}</td>
+            <td>
+              {% if r.status=='draft' %}<span class="nx-badge nx-badge-neutral">draft</span>
+              {% elif r.status=='submitted' %}<span class="nx-badge nx-badge-warn">čeká</span>
+              {% elif r.status=='approved' %}<span class="nx-badge nx-badge-ok">schváleno</span>
+              {% elif r.status=='rejected' %}<span class="nx-badge nx-badge-err">zamítnuto</span>
+              {% endif %}
+            </td>
+            <td class="text-muted" style="font-size:12px">{{ r.decided_by.full_name if r.decided_by else '—' }}</td>
+            <td onclick="event.stopPropagation()">
+              {% if r.status == 'submitted' %}
+              <form method="post" action="/leave/{{ r.id }}/decide" class="d-inline">
+                <input type="hidden" name="decision" value="approve">
+                <button class="btn btn-ghost btn-sm text-success">✓</button>
+              </form>
+              <form method="post" action="/leave/{{ r.id }}/decide" class="d-inline">
+                <input type="hidden" name="decision" value="reject">
+                <button class="btn btn-ghost btn-sm text-danger">✗</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8"><div class="nx-empty"><div class="nx-empty-title">Žádné žádosti</div></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div id="modal-new" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:24px;width:420px">
+    <div class="d-flex justify-content-between align-items-center mb-3"><h3 style="font-size:16px;font-weight:600;margin:0">Nová žádost</h3><button class="btn btn-ghost btn-sm" onclick="closeModal('modal-new')">✕</button></div>
+    <form method="post" action="/leave/new">
+      <div class="mb-3"><label class="form-label">Zaměstnanec *</label><select name="person_id" class="form-select" required>{% for per in people %}<option value="{{ per.id }}">{{ per.full_name }}</option>{% endfor %}</select></div>
+      <div class="mb-3"><label class="form-label">Entita *</label><select name="entity_id" class="form-select" required>{% for e in entities %}<option value="{{ e.id }}">{{ e.code }} — {{ e.name }}</option>{% endfor %}</select></div>
+      <div class="mb-3"><label class="form-label">Typ *</label><select name="leave_type" class="form-select" required><option>Dovolená</option><option>Nemoc</option><option>Osobní volno</option><option>Neplacené volno</option><option>Jiné</option></select></div>
+      <div class="row g-2 mb-3">
+        <div class="col-6"><label class="form-label">Od *</label><input type="date" name="date_from" class="form-control" value="{{ now_date }}" required></div>
+        <div class="col-6"><label class="form-label">Do *</label><input type="date" name="date_to" class="form-control" value="{{ now_date }}" required></div>
+      </div>
+      <div class="mb-3"><label class="form-label">Důvod</label><textarea name="reason" class="form-control" rows="2"></textarea></div>
+      <div class="d-flex gap-2 justify-content-end"><button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeModal('modal-new')">Zrušit</button><button type="submit" class="btn btn-primary btn-sm">Odeslat žádost</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script>function openModal(id){document.getElementById(id).style.display='flex'}function closeModal(id){document.getElementById(id).style.display='none'}</script>{% endblock %}

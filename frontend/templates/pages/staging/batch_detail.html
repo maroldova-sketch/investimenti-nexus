@@ -1,0 +1,100 @@
+{% extends "layouts/base.html" %}
+{% block title %}Batch {{ batch.id[:8] }}{% endblock %}
+{% block breadcrumb %}<a href="/import" class="text-muted text-decoration-none">Import</a> / {{ batch.source_type }} {{ batch.id[:8] }}{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="d-flex align-items-center justify-content-between">
+    <div><div class="page-pretitle">Import batch</div>
+      <h2 class="page-title">{{ batch.source_type|upper }} — {{ batch.source_filename or batch.id[:12] }}</h2></div>
+    <div class="d-flex gap-2">
+      <a href="/import/{{ batch.id }}/issues" class="btn btn-outline-secondary btn-sm">Issues ({{ batch.issues|length }})</a>
+      {% if batch.source_type=='people' %}<a href="/import/{{ batch.id }}/people" class="btn btn-primary btn-sm">Staging → Lidé</a>
+      {% elif batch.source_type=='fleet' %}<a href="/import/{{ batch.id }}/fleet" class="btn btn-primary btn-sm">Staging → Fleet</a>
+      {% elif batch.source_type=='fuel' %}<a href="/import/{{ batch.id }}/fuel" class="btn btn-primary btn-sm">Staging → PHM</a>
+      {% elif batch.source_type=='payroll' %}<a href="/import/{{ batch.id }}/payroll" class="btn btn-primary btn-sm">Staging → Payroll</a>{% endif %}
+    </div>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-2"><div class="nx-stat"><div class="nx-stat-label">Celkem</div><div class="nx-stat-value">{{ batch.row_count }}</div></div></div>
+    <div class="col-6 col-md-2"><div class="nx-stat nx-stat-success"><div class="nx-stat-label">Matched</div><div class="nx-stat-value">{{ batch.success_count }}</div></div></div>
+    <div class="col-6 col-md-2"><div class="nx-stat nx-stat-warning"><div class="nx-stat-label">Warn</div><div class="nx-stat-value">{{ batch.warning_count }}</div></div></div>
+    <div class="col-6 col-md-2"><div class="nx-stat nx-stat-danger"><div class="nx-stat-label">Err</div><div class="nx-stat-value">{{ batch.error_count }}</div></div></div>
+    <div class="col-6 col-md-2"><div class="nx-stat"><div class="nx-stat-label">Stav</div><div class="nx-stat-value" style="font-size:13px">{{ batch.status }}</div></div></div>
+  </div>
+  {% if status_counts %}
+  <div class="card mb-3"><div class="card-header">Řádky dle stavu</div>
+    <div class="card-body d-flex gap-3 flex-wrap">
+      {% for s,cnt in status_counts.items() %}
+      <div class="d-flex align-items-center gap-2">
+        {% if s=='matched' %}<span class="nx-badge nx-badge-ok">{{ s }}</span>
+        {% elif s=='unresolved' %}<span class="nx-badge nx-badge-warn">{{ s }}</span>
+        {% elif s=='applied' %}<span class="nx-badge nx-badge-ok">{{ s }}</span>
+        {% elif s=='ignored' %}<span class="nx-badge nx-badge-neutral">{{ s }}</span>
+        {% else %}<span class="nx-badge nx-badge-neutral">{{ s }}</span>{% endif %}
+        <strong>{{ cnt }}</strong>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% set open_issues = batch.issues|rejectattr('resolved_flag')|list %}
+  {% if open_issues %}
+  <div class="nx-alert nx-alert-warning mb-3">
+    <strong>{{ open_issues|length }} nevyřešených issues</strong> — <a href="/import/{{ batch.id }}/issues">Zobrazit vše</a>
+  </div>
+  {% endif %}
+  {% if rows %}
+  <div class="card">
+    <div class="card-header">Řádky ({{ rows|length }}) — preview</div>
+    <div class="table-responsive">
+      <table class="table">
+        <thead><tr>
+          <th>#</th>
+          {% if batch.source_type=='people' %}<th>Jméno</th><th>Email</th><th>Firma</th>
+          {% elif batch.source_type=='fleet' %}<th>SPZ</th><th>VIN</th><th>Řidič</th>
+          {% elif batch.source_type=='payroll' %}<th>Zaměstnanec</th><th>Firma</th><th>Dny</th>
+          {% elif batch.source_type=='fuel' %}<th>Karta</th><th>SPZ</th><th>Kč</th>
+          {% endif %}
+          <th>Stav</th><th>Match</th>
+        </tr></thead>
+        <tbody>
+          {% for r in rows[:25] %}
+          <tr>
+            <td class="text-muted">{{ r.source_row_ref }}</td>
+            {% if batch.source_type=='people' %}
+              <td class="fw-medium">{{ r.full_name_raw or '—' }}</td>
+              <td class="text-muted">{{ r.email_raw or '—' }}</td>
+              <td><span class="nx-badge nx-badge-neutral">{{ r.company_hint or '—' }}</span></td>
+            {% elif batch.source_type=='fleet' %}
+              <td class="fw-medium">{{ r.plate_number or '—' }}</td>
+              <td style="font-size:11px;font-family:monospace">{{ r.vin or '—' }}</td>
+              <td class="text-muted">{{ r.driver_name_raw or '—' }}</td>
+            {% elif batch.source_type=='payroll' %}
+              <td class="fw-medium">{{ r.employee_name_raw or '—' }}</td>
+              <td><span class="nx-badge nx-badge-neutral">{{ r.company_code or '—' }}</span></td>
+              <td>{{ r.attendance_days or '—' }}</td>
+            {% elif batch.source_type=='fuel' %}
+              <td class="fw-medium">{{ r.card_number_masked or '—' }}</td>
+              <td>{{ r.plate_number or '—' }}</td>
+              <td>{{ r.amount_total or '—' }}</td>
+            {% endif %}
+            <td>{% if r.status=='matched' %}<span class="nx-badge nx-badge-ok">matched</span>
+              {% elif r.status=='unresolved' %}<span class="nx-badge nx-badge-warn">unresolved</span>
+              {% elif r.status=='applied' %}<span class="nx-badge nx-badge-ok">applied</span>
+              {% elif r.status=='ignored' %}<span class="nx-badge nx-badge-neutral">ignored</span>
+              {% else %}<span class="nx-badge nx-badge-neutral">{{ r.status }}</span>{% endif %}</td>
+            <td>{% if r.candidate_person_id or r.candidate_vehicle_id %}<span class="nx-badge nx-badge-ok" style="font-size:10px">✓</span>{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+          {% if rows|length > 25 %}<tr><td colspan="6" class="text-muted text-center" style="font-size:12px">… a dalších {{ (rows|length)-25 }}</td></tr>{% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

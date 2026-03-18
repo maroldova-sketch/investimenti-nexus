@@ -1,0 +1,95 @@
+{% extends "layouts/base.html" %}
+{% block title %}Staging — Fleet{% endblock %}
+{% block breadcrumb %}<a href="/import" class="text-muted text-decoration-none">Import</a> / <a href="/import/{{ batch.id }}" class="text-muted text-decoration-none">{{ batch.id[:8] }}</a> / Fleet{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="d-flex align-items-center justify-content-between">
+    <div><div class="page-pretitle">Staging</div><h2 class="page-title">Fleet — {{ batch.source_filename or batch.id[:12] }}</h2></div>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+  <div class="d-flex gap-2 mb-3">
+    <a href="?" class="btn btn-sm {% if not status_filter %}btn-primary{% else %}btn-outline-secondary{% endif %}">Vše</a>
+    <a href="?status_filter=unresolved" class="btn btn-sm {% if status_filter=='unresolved' %}btn-warning{% else %}btn-outline-secondary{% endif %}">Nevyřešené</a>
+    <a href="?status_filter=matched" class="btn btn-sm {% if status_filter=='matched' %}btn-success{% else %}btn-outline-secondary{% endif %}">Matched</a>
+    <a href="?status_filter=reviewed" class="btn btn-sm {% if status_filter=='reviewed' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Reviewed</a>
+  </div>
+  {% set unresolved=rows|selectattr('status','equalto','unresolved')|list %}
+  {% if unresolved %}<div class="nx-alert nx-alert-warning mb-3">{{ unresolved|length }} nevyřešených vozidel.</div>{% endif %}
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table">
+        <thead><tr><th>#</th><th>SPZ</th><th>VIN</th><th>Vozidlo</th><th>Řidič</th><th>Firma</th><th>STK do</th><th>Kandidát</th><th>Stav</th><th style="width:90px">Akce</th></tr></thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td class="text-muted">{{ r.source_row_ref }}</td>
+            <td class="fw-medium">{{ r.plate_number or '—' }}</td>
+            <td style="font-size:10px;font-family:monospace;color:#9ba3af">{{ r.vin or '—' }}</td>
+            <td style="font-size:12px">{{ r.vehicle_name_raw or '—' }}</td>
+            <td style="font-size:12px;color:#6b7280">{{ r.driver_name_raw or '—' }}</td>
+            <td><span class="nx-badge nx-badge-neutral">{{ r.company_hint or '—' }}</span></td>
+            <td class="text-muted">{{ r.stk_expiry or '—' }}</td>
+            <td>
+              {% if r.candidate_vehicle_id %}<span class="nx-badge nx-badge-ok" style="font-size:10px">vehicle ✓</span>{% endif %}
+              {% if r.candidate_person_id %}<span class="nx-badge nx-badge-info" style="font-size:10px">driver ✓</span>{% endif %}
+              {% if not r.candidate_vehicle_id and not r.candidate_person_id %}—{% endif %}
+            </td>
+            <td>{% if r.status=='matched' %}<span class="nx-badge nx-badge-ok">matched</span>
+              {% elif r.status=='unresolved' %}<span class="nx-badge nx-badge-warn">unresolved</span>
+              {% elif r.status=='reviewed' %}<span class="nx-badge nx-badge-info">reviewed</span>
+              {% elif r.status=='ignored' %}<span class="nx-badge nx-badge-neutral">ignored</span>
+              {% else %}<span class="nx-badge nx-badge-neutral">{{ r.status }}</span>{% endif %}</td>
+            <td>
+              {% if r.status not in ('ignored','applied') %}
+              <div class="d-flex gap-1">
+                <button class="btn btn-ghost btn-sm" onclick="openFleetLink('{{ r.id }}')" title="Propojit">🔗</button>
+                <form method="post" action="/import/{{ batch.id }}/fleet/{{ r.id }}/ignore" style="margin:0">
+                  <button class="btn btn-ghost btn-sm" style="color:#9ba3af" title="Ignorovat">✕</button>
+                </form>
+              </div>{% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div id="modal-fleet-link" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:10px;padding:24px;width:440px">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 style="font-size:16px;font-weight:600;margin:0">Propojit vozidlo / řidiče</h3>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-fleet-link').style.display='none'">✕</button>
+    </div>
+    <form id="fleet-link-form" method="post">
+      <div class="mb-3"><label class="form-label">Kanonické vozidlo</label>
+        <select name="vehicle_id" class="form-select">
+          <option value="">— nevybráno —</option>
+          {% for v in vehicles %}<option value="{{ v.id }}">{{ v.spz }} — {{ v.make }} {{ v.model }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="mb-3"><label class="form-label">Řidič</label>
+        <select name="person_id" class="form-select">
+          <option value="">— nevybráno —</option>
+          {% for p in people %}<option value="{{ p.id }}">{{ p.full_name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="d-flex gap-2 justify-content-end">
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('modal-fleet-link').style.display='none'">Zrušit</button>
+        <button type="submit" class="btn btn-primary btn-sm">Propojit</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function openFleetLink(rowId){
+  document.getElementById('fleet-link-form').action='/import/{{ batch.id }}/fleet/'+rowId+'/link';
+  document.getElementById('modal-fleet-link').style.display='flex';
+}
+</script>
+{% endblock %}

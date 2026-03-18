@@ -1,0 +1,288 @@
+{% extends "layouts/base.html" %}
+{% block title %}Fleet Board{% endblock %}
+
+{% block breadcrumb %}Fleet Board{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div class="container-xl">
+    <div class="d-flex align-items-center justify-content-between">
+      <div>
+        <div class="page-pretitle">Operace</div>
+        <h2 class="page-title">Fleet Board</h2>
+      </div>
+      {% if current_user and current_user.has_role('owner','admin','fleet_manager') %}
+      <div class="d-flex gap-2">
+        <a href="/fleet/import" class="btn btn-outline-secondary btn-sm">↑ Import PHM</a>
+        <a href="/fleet/new" class="btn btn-primary btn-sm">+ Přidat vozidlo</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# TOP PHM VEHICLES #}
+  {% if phm_top_vehicles %}
+  <div class="card mt-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <div class="fw-medium">Top vozidla — PHM tento měsíc</div>
+    </div>
+    <div class="table-responsive">
+      <table class="table">
+        <thead><tr><th>Vozidlo</th><th>SPZ</th><th>Kč s DPH</th><th>Litry</th><th>Txn</th></tr></thead>
+        <tbody>
+          {% for item in phm_top_vehicles %}
+          {% set v = item.vehicle %}
+          <tr onclick="location.href='/fleet/{{ v.id if v else "" }}'" style="cursor:pointer">
+            <td class="fw-medium">{{ v.make ~ ' ' ~ v.model if v else '—' }}</td>
+            <td><span class="nx-badge nx-badge-neutral">{{ v.spz if v else '—' }}</span></td>
+            <td><strong>{{ "{:,.0f}".format(item.total_kc).replace(",", " ") }} Kč</strong></td>
+            <td>{{ "{:.1f}".format(item.total_litres) }} L</td>
+            <td class="text-muted">{{ item.tx_count }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-xl">
+
+  {# STK ALERT #}
+  {% if stk_alert_count > 0 %}
+  <div class="nx-alert nx-alert-danger">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div>
+      <div class="nx-alert-title">Prošlá STK — {{ stk_alert_count }} vozidel</div>
+      <div>Vozidla nejsou způsobilá k provozu. Okamžitě objednejte STK.</div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# STAT ROW #}
+  <div class="row row-deck g-3 mb-4">
+    <div class="col-6 col-lg-3">
+      <div class="card">
+        <div class="nx-stat">
+          <div class="nx-stat-label">Aktivních vozidel</div>
+          <div class="nx-stat-value">{{ vehicles | selectattr('status','equalto','aktivní') | list | length }}</div>
+          <div class="nx-stat-sub">z {{ vehicles | length }} celkem</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card card-accent-danger">
+        <div class="nx-stat nx-stat-danger">
+          <div class="nx-stat-label">STK prošlá</div>
+          <div class="nx-stat-value">{{ stk_alert_count }}</div>
+          <div class="nx-stat-sub">okamžitá akce</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card">
+        <div class="nx-stat">
+          <div class="nx-stat-label">PHM {{ phm_period }} (legacy)</div>
+          <div class="nx-stat-value">{{ "{:,.0f}".format(phm_total_kc).replace(",", " ") }} Kč</div>
+          <div class="nx-stat-sub">{{ "{:.1f}".format(phm_total_litres) }} litrů</div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+        <div class="nx-stat nx-stat-success">
+          <div class="nx-stat-label">PHM tento měsíc</div>
+          <div class="nx-stat-value">{{ "{:,.0f}".format(phm_canonical.total_kc).replace(",", " ") }} Kč</div>
+          <div class="nx-stat-sub">{{ "{:.1f}".format(phm_canonical.total_litres) }} L · {{ phm_canonical.count }} txn</div>
+        </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+        <div class="nx-stat">
+          <div class="nx-stat-label">PHM min. měsíc</div>
+          <div class="nx-stat-value">{{ "{:,.0f}".format(phm_canonical_prev.total_kc).replace(",", " ") }} Kč</div>
+          <div class="nx-stat-sub">{{ "{:.1f}".format(phm_canonical_prev.total_litres) }} L</div>
+        </div>
+        </div>
+        {% if phm_unresolved_count > 0 %}
+        <div class="col-sm-6 col-xl-3">
+        <div class="nx-stat nx-stat-warning">
+          <div class="nx-stat-label">PHM nevyřešeno</div>
+          <div class="nx-stat-value">{{ phm_unresolved_count }}</div>
+          <div class="nx-stat-sub"><a href="/import" style="color:inherit">→ Import Center</a></div>
+        </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card">
+        <div class="nx-stat">
+          <div class="nx-stat-label">Bez Axigon karty</div>
+          <div class="nx-stat-value">
+            {{ vehicles | selectattr('status','equalto','aktivní') | rejectattr('fuel_cards') | list | length }}
+          </div>
+          <div class="nx-stat-sub">aktivní vozidla</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# FILTERS #}
+  <div class="d-flex gap-2 mb-3 align-items-center flex-wrap">
+    <input type="text" id="nx-search" class="form-control" style="max-width:240px"
+           placeholder="Hledat SPZ, řidiče, model…">
+    <select id="f-provoz" class="form-select" style="max-width:160px">
+      <option value="">Provozovatel</option>
+      <option>VZC</option><option>LOGPACK</option><option>KERA-DENS</option><option>Vlastní</option>
+    </select>
+    <select id="f-status" class="form-select" style="max-width:140px">
+      <option value="">Stav</option>
+      <option>aktivní</option><option>rezervní</option><option>vyřazeno</option>
+    </select>
+    <select id="f-stk" class="form-select" style="max-width:140px">
+      <option value="">STK</option>
+      <option value="expired">Prošlá</option>
+      <option value="warn">Brzy</option>
+      <option value="ok">OK</option>
+    </select>
+    <span id="nx-count" class="text-muted ms-auto" style="font-size:12px;white-space:nowrap">
+      {{ vehicles | length }} vozidel
+    </span>
+  </div>
+
+  {# TABLE #}
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table" id="fleet-table">
+        <thead>
+          <tr>
+            <th>Vozidlo</th>
+            <th>SPZ</th>
+            <th>Řidič</th>
+            <th>Provoz.</th>
+            <th>Palivo</th>
+            <th>Axigon</th>
+            <th>STK do</th>
+            <th>PHM {{ phm_period }}</th>
+            <th>Stav</th>
+            <th style="width:40px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in vehicles %}
+          {% set drv = v.current_driver %}
+          {% set phm_kc = namespace(val=0) %}
+          {% for t in v.fuel_transactions %}{% if t.period == phm_period %}{% set phm_kc.val = phm_kc.val + (t.price_inc_vat or 0) %}{% endif %}{% endfor %}
+          <tr class="nx-row"
+              data-q="{{ v.make }} {{ v.model }} {{ v.spz or '' }} {{ drv.person.full_name if drv and drv.person else '' }}"
+              data-provoz="{{ v.provoz or '' }}"
+              data-status="{{ v.status }}"
+              data-stk="{{ v.stk_status }}"
+              onclick="location.href='/fleet/{{ v.id }}'">
+            <td>
+              <div class="fw-medium">{{ v.make }} {{ v.model }}</div>
+              {% if v.year %}<div class="text-muted fs-small">{{ v.year }}</div>{% endif %}
+            </td>
+            <td>
+              {% if v.spz %}<code class="spz">{{ v.spz }}</code>
+              {% else %}<span class="nx-badge nx-badge-err">chybí</span>{% endif %}
+            </td>
+            <td>
+              {% if drv and drv.person %}
+              <a href="/people/{{ drv.person_id }}" class="text-reset" onclick="event.stopPropagation()">
+                {{ drv.person.full_name }}
+              </a>
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td>
+              {% if v.provoz == 'VZC' %}<span class="nx-badge nx-badge-vzc">VZC</span>
+              {% elif v.provoz == 'LOGPACK' %}<span class="nx-badge nx-badge-logpack">LOGPACK</span>
+              {% elif v.provoz == 'KERA-DENS' %}<span class="nx-badge nx-badge-kera">KERA</span>
+              {% else %}<span class="nx-badge nx-badge-neutral">{{ v.provoz or '—' }}</span>{% endif %}
+            </td>
+            <td>
+              <span class="text-muted">{{ v.fuel_type or '—' }}</span>
+              {% if v.engine %}<div class="text-muted fs-small">{{ v.engine }}</div>{% endif %}
+            </td>
+            <td>
+              {% set cards = v.fuel_cards | selectattr('is_active') | list %}
+              {% if cards %}
+                {% for c in cards %}<code class="spz">…{{ c.card_last4 }}</code> {% endfor %}
+              {% else %}<span class="nx-badge nx-badge-err">chybí</span>{% endif %}
+            </td>
+            <td>
+              {% if v.stk_valid_to %}
+                {% if v.stk_status == 'expired' %}<span class="stk-expired">{{ v.stk_valid_to }} ✗</span>
+                {% elif v.stk_status == 'warn' %}<span class="stk-warn">{{ v.stk_valid_to }} !</span>
+                {% else %}<span class="stk-ok">{{ v.stk_valid_to }}</span>{% endif %}
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td>
+              {% if phm_kc.val > 0 %}
+                <span class="fw-medium">{{ "{:,.0f}".format(phm_kc.val).replace(",", " ") }} Kč</span>
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td>
+              {% if v.status == 'aktivní' %}<span class="nx-badge nx-badge-ok">aktivní</span>
+              {% elif v.status == 'rezervní' %}<span class="nx-badge nx-badge-info">rezervní</span>
+              {% elif v.status == 'vyřazeno' %}<span class="nx-badge nx-badge-neutral">vyřazeno</span>
+              {% else %}<span class="nx-badge nx-badge-warn">{{ v.status }}</span>{% endif %}
+            </td>
+            <td onclick="event.stopPropagation()">
+              <div class="dropdown">
+                <button class="btn btn-ghost btn-sm" data-bs-toggle="dropdown">⋯</button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <li><a class="dropdown-item" href="/fleet/{{ v.id }}">Detail</a></li>
+                  <li><a class="dropdown-item" href="/fleet/{{ v.id }}/edit">Upravit</a></li>
+                  <li><a class="dropdown-item" href="/fleet/{{ v.id }}#driver">Změnit řidiče</a></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li><a class="dropdown-item" href="/fleet/{{ v.id }}#phm">PHM přehled</a></li>
+                </ul>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="10">
+            <div class="nx-empty">
+              <div class="nx-empty-title">Žádná vozidla</div>
+              <div class="nx-empty-sub">Přidejte první vozidlo nebo importujte data.</div>
+            </div>
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  const rows   = document.querySelectorAll('.nx-row');
+  const search = document.getElementById('nx-search');
+  const fP     = document.getElementById('f-provoz');
+  const fS     = document.getElementById('f-status');
+  const fK     = document.getElementById('f-stk');
+  const count  = document.getElementById('nx-count');
+
+  function filter(){
+    const q = search.value.toLowerCase();
+    let visible = 0;
+    rows.forEach(r => {
+      const ok = (!q || r.dataset.q.toLowerCase().includes(q))
+              && (!fP.value || r.dataset.provoz === fP.value)
+              && (!fS.value || r.dataset.status === fS.value)
+              && (!fK.value || r.dataset.stk === fK.value);
+      r.style.display = ok ? '' : 'none';
+      if(ok) visible++;
+    });
+    count.textContent = visible + ' vozidel';
+  }
+
+  [search, fP, fS, fK].forEach(el => el.addEventListener('input', filter));
+  rows.forEach(r => r.style.cursor = 'pointer');
+})();
+</script>
+{% endblock %}
