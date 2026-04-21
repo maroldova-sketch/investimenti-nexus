@@ -110,11 +110,41 @@ def download_message(message_id: int, db: Session = Depends(get_db)):
 
 @router.post("/api/poll")
 def trigger_poll(db: Session = Depends(get_db)):
-    """Manually trigger a poll of all active schránky."""
+    """Manually trigger a poll of all active schránky.
+    Also dispatches Teams+Planner notification for each new message.
+    """
     import sys
+    from datetime import datetime, timezone, timedelta
     sys.path.insert(0, str(__import__("pathlib").Path.home() / "andrew" / "elias" / "gov"))
     from isds_poller import run_once
+
+    pre_poll_ts = datetime.now(timezone.utc) - timedelta(seconds=5)
     results = run_once()
+
+    # Dispatch Teams+Planner pro každou novou zprávu
+    try:
+        from backend.core.dispatcher import dispatch_gov_message_safe
+        new_msgs = (
+            db.query(GovMessage)
+            .filter(GovMessage.created_at >= pre_poll_ts)
+            .all()
+        )
+        for msg in new_msgs:
+            schranka = db.query(GovSchranka).filter_by(id=msg.schranka_id).first()
+            dispatch_gov_message_safe(
+                schranka_name=schranka.name if schranka else msg.ds_id,
+                subject=msg.subject or "(bez předmětu)",
+                sender=msg.sender_name or "",
+                received_at=msg.delivered_at.strftime("%Y-%m-%d %H:%M") if msg.delivered_at else "",
+                is_urgent=bool(getattr(msg, "is_urgent", False)),
+                deadline=msg.detected_deadline.isoformat() if getattr(msg, "detected_deadline", None) else None,
+                nexus_ref=f"gov_message/{msg.id}",
+                nexus_link=f"http://192.168.1.43:8000/gov",
+            )
+    except Exception as e:
+        import logging
+        logging.getLogger("gov.poll").warning(f"dispatcher failed: {e}")
+
     return {
         "status": "ok",
         "schranky_polled": len(results),

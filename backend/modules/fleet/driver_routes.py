@@ -321,6 +321,26 @@ def approve_deduction(deduction_id: str, db: Session = Depends(get_db),
                   detail=f"FORTIS bridge error: {_e}")
     # ─────────────────────────────────────────────────────────────────────
 
+    # ── Teams + Planner dispatcher (neblokujicí fire-and-forget) ─────────
+    try:
+        from backend.core.dispatcher import dispatch_approval_case_safe
+        _person_name = None
+        if person:
+            _fn = getattr(person, "first_name", "") or ""
+            _ln = getattr(person, "last_name", "") or ""
+            _person_name = f"{_fn} {_ln}".strip() or None
+        dispatch_approval_case_safe(
+            case_type=d.case_type or "srazka",
+            title=f"Srážka {d.case_type or ''}: {d.description or ''}".strip(),
+            amount=float(d.amount) if d.amount else None,
+            person_name=_person_name,
+            description=d.description,
+            nexus_link=f"http://192.168.1.43:8000/fleet/driver/{d.person_id}",
+        )
+    except Exception as _de:
+        import logging
+        logging.getLogger("fleet.approve_deduction").warning(f"dispatcher: {_de}")
+
     return RedirectResponse(f"/fleet/driver/{d.person_id}", status_code=303)
 
 
