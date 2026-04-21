@@ -1,3 +1,4 @@
+import urllib.request, urllib.error, json as _json
 """Fleet Driver Ops routes — Wave 2.3"""
 import os
 from datetime import datetime, date, timedelta
@@ -288,6 +289,38 @@ def approve_deduction(deduction_id: str, db: Session = Depends(get_db),
     db.commit()
     audit(db, "APPROVE", "deduction_case", d.id, cu.id, cu.email,
           detail=f"amount={d.amount}")
+
+    # ── FORTIS bridge: push srážka ────────────────────────────────────────
+    # Zjistíme NEXUS person_id a osobu
+    person = db.query(__import__("backend.core.models.kernel", fromlist=["Person"]).Person).filter_by(id=d.person_id).first()
+    if person and d.amount and d.payroll_period_target:
+        try:
+            # payroll_period_target = "2026-03" nebo "03/2026"
+            pt = str(d.payroll_period_target).replace("/", "-")
+            parts = pt.split("-")
+            if len(parts) == 2:
+                y, m = (int(parts[0]), int(parts[1])) if len(parts[0]) == 4 else (int(parts[1]), int(parts[0]))
+                payload = _json.dumps({
+                    "nexus_person_id": str(d.person_id),
+                    "year": y, "month": m,
+                    "srazka_type": "korekce",
+                    "amount": float(d.amount),
+                    "description": d.description or d.case_type or "Srážka z NEXUS",
+                    "nexus_ref_id": str(d.id),
+                    "source": "nexus_request",
+                }).encode()
+                req = urllib.request.Request(
+                    "http://127.0.0.1:8050/api/srazka/import",
+                    data=payload, method="POST",
+                    headers={"Content-Type": "application/json"}
+                )
+                urllib.request.urlopen(req, timeout=3)
+        except Exception as _e:
+            # Bridge selhání neblokuje NEXUS workflow
+            audit(db, "WARN", "deduction_case", d.id, cu.id, cu.email,
+                  detail=f"FORTIS bridge error: {_e}")
+    # ─────────────────────────────────────────────────────────────────────
+
     return RedirectResponse(f"/fleet/driver/{d.person_id}", status_code=303)
 
 

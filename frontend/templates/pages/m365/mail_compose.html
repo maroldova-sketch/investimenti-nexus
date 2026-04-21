@@ -1,0 +1,38 @@
+{% extends "layouts/base.html" %}
+{% block title %}Nový mail{% endblock %}
+{% block breadcrumb %}<a href="/m365/mail" style="color:inherit;text-decoration:none;">M365 / Pošta</a> / Nový{% endblock %}
+
+{% block page_header %}
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <h2 class="page-title">Nový mail</h2>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-xl">
+  <div class="card">
+    <form method="post" action="/m365/mail/send">
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label">Komu (oddělte čárkou)</label>
+          <input type="text" name="to" class="form-control" required placeholder="jan@firma.cz, anna@firma.cz">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Předmět</label>
+          <input type="text" name="subject" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Tělo (HTML)</label>
+          <textarea name="body" class="form-control" rows="12" required></textarea>
+        </div>
+      </div>
+      <div class="card-footer text-end">
+        <a href="/m365/mail" class="btn btn-outline-secondary me-2">Zrušit</a>
+        <button type="submit" class="btn btn-primary">Odeslat</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

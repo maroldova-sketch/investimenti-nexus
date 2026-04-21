@@ -8,7 +8,18 @@
   <link rel="stylesheet" href="/static/css/nexus.css">
 </head>
 <body class="antialiased">
-<div class="wrapper">
+  <!-- ELIAS Hub bar -->
+  <div style="position:fixed;top:0;left:0;right:0;height:28px;background:#1a1a2e;z-index:9999;display:flex;align-items:center;padding:0 12px;gap:20px;font-size:11px;font-family:sans-serif;">
+    <span style="color:#6c7293;font-weight:700;letter-spacing:.1em;">ELIAS</span>
+    <span style="color:#2d2d4e;">|</span>
+    <a href="http://192.168.1.43:8060" style="color:#6c7293;text-decoration:none;font-weight:500;opacity:.9;" title="Analytika · Shadow Zone">ATLAS</a>
+    <a href="http://192.168.1.43:8050" style="color:#6c7293;text-decoration:none;font-weight:500;opacity:.9;" title="Ekonomika · Bonusy · Srážky">FORTIS</a>
+    <a href="http://192.168.1.43:8000" style="color:#4da6ff;text-decoration:none;font-weight:500;opacity:.9;" title="Operace · HR · Fleet">NEXUS</a>
+    <span style="margin-left:auto;color:#3d3d5e;font-size:10px;">mac · 192.168.1.43</span>
+  </div>
+  <div style="height:28px;"></div>
+
+<div class="wrapper" style="padding-top:28px;">
 
   {# ── SIDEBAR ── #}
   <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
@@ -108,6 +119,33 @@
             <a class="nav-link{% if active_section == 'approvals' %} active{% endif %}" href="/approvals">
               <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
               <span class="nav-link-title">Schvalování</span>
+            </a>
+          </li>
+
+          <div class="nav-section-label">Microsoft 365</div>
+
+          <li class="nav-item">
+            <a class="nav-link{% if active_section == 'm365' %} active{% endif %}" href="/m365/mail">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+              <span class="nav-link-title">Pošta</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link{% if active_section == 'm365-calendar' %} active{% endif %}" href="/m365/calendar">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+              <span class="nav-link-title">Kalendář</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link{% if active_section == 'm365-contacts' %} active{% endif %}" href="/m365/contacts">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+              <span class="nav-link-title">Kontakty</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link{% if active_section == 'm365-files' %} active{% endif %}" href="/m365/files">
+              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+              <span class="nav-link-title">OneDrive</span>
             </a>
           </li>
 

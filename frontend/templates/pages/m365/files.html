@@ -1,0 +1,61 @@
+{% extends "layouts/base.html" %}
+{% block title %}Soubory{% endblock %}
+{% block breadcrumb %}M365 / OneDrive{% endblock %}
+
+{% block page_header %}
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <h2 class="page-title">OneDrive</h2>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-xl">
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Název</th>
+            <th>Velikost</th>
+            <th>Změněno</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in items %}
+          <tr>
+            <td style="width:1%">
+              {% if f.get('folder') %}
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e6a817" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              {% else %}
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              {% endif %}
+            </td>
+            <td>
+              {% if f.get('webUrl') %}
+                <a href="{{ f.webUrl }}" target="_blank">{{ f.get('name', '?') }}</a>
+              {% else %}
+                {{ f.get('name', '?') }}
+              {% endif %}
+              {% if f.get('folder') %}<span class="text-muted small ms-1">({{ f.folder.get('childCount', 0) }} položek)</span>{% endif %}
+            </td>
+            <td class="text-muted">
+              {% if f.get('size') %}
+                {% if f.size > 1048576 %}{{ "%.1f"|format(f.size / 1048576) }} MB
+                {% elif f.size > 1024 %}{{ "%.0f"|format(f.size / 1024) }} KB
+                {% else %}{{ f.size }} B{% endif %}
+              {% endif %}
+            </td>
+            <td class="text-muted">{{ f.get('lastModifiedDateTime', '')[:16].replace('T', ' ') }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="text-center text-muted py-4">Žádné soubory</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
