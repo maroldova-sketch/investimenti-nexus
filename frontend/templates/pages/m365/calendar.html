@@ -1,0 +1,58 @@
+{% extends "layouts/base.html" %}
+{% block title %}Kalendář{% endblock %}
+{% block breadcrumb %}M365 / Kalendář{% endblock %}
+
+{% block page_header %}
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <div class="row align-items-center">
+      <div class="col-auto">
+        <h2 class="page-title">Outlook Kalendář</h2>
+      </div>
+      <div class="col-auto ms-auto">
+        <form class="d-flex gap-2" method="get">
+          <input type="date" name="start" class="form-control form-control-sm" value="{{ start }}">
+          <input type="date" name="end" class="form-control form-control-sm" value="{{ end }}">
+          <button class="btn btn-sm btn-outline-primary" type="submit">Zobrazit</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-xl">
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>Předmět</th>
+            <th>Začátek</th>
+            <th>Konec</th>
+            <th>Místo</th>
+            <th>Organizátor</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in events %}
+          <tr{% if e.get('isCancelled') %} class="text-muted" style="text-decoration:line-through;"{% endif %}>
+            <td>
+              {{ e.get('subject', '?') }}
+              {% if e.get('isAllDay') %}<span class="badge bg-blue-lt ms-1">celý den</span>{% endif %}
+            </td>
+            <td>{{ e.get('start', {}).get('dateTime', '')[:16].replace('T', ' ') }}</td>
+            <td>{{ e.get('end', {}).get('dateTime', '')[:16].replace('T', ' ') }}</td>
+            <td class="text-muted">{{ e.get('location', {}).get('displayName', '') }}</td>
+            <td class="text-muted">{{ e.get('organizer', {}).get('emailAddress', {}).get('name', '') }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-center text-muted py-4">Žádné události v tomto období</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "layouts/base.html" %}
+{% block title %}Mail{% endblock %}
+{% block breadcrumb %}M365 / Pošta{% endblock %}
+
+{% block page_header %}
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <div class="row align-items-center">
+      <div class="col-auto">
+        <h2 class="page-title">Pošta</h2>
+      </div>
+      <div class="col-auto ms-auto">
+        <form class="d-flex gap-2" action="/m365/mail/search" method="get">
+          <input type="text" name="q" class="form-control form-control-sm" placeholder="Hledat..." value="{{ search_query|default('') }}" style="width:200px;">
+          <button class="btn btn-sm btn-outline-primary" type="submit">Hledat</button>
+        </form>
+      </div>
+      <div class="col-auto">
+        <a href="/m365/mail/compose" class="btn btn-sm btn-primary">Nový mail</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-xl">
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table table-hover">
+        <thead>
+          <tr>
+            <th style="width:1%"></th>
+            <th>Od</th>
+            <th>Předmět</th>
+            <th style="width:15%">Datum</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in messages %}
+          <tr style="cursor:pointer;{% if not m.get('isRead') %}font-weight:600;{% endif %}" onclick="window.location='/m365/mail/{{ m.id }}'">
+            <td>
+              {% if m.get('hasAttachments') %}
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              {% endif %}
+            </td>
+            <td>{{ m.get('from', {}).get('emailAddress', {}).get('name', m.get('from', {}).get('emailAddress', {}).get('address', '?')) }}</td>
+            <td>
+              <span>{{ m.get('subject', '(bez předmětu)') }}</span>
+              <div class="text-muted small" style="max-width:500px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ m.get('bodyPreview', '')[:100] }}</div>
+            </td>
+            <td class="text-muted">{{ m.get('receivedDateTime', '')[:16].replace('T', ' ') }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="text-center text-muted py-4">Žádné zprávy</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if messages %}
+    <div class="card-footer d-flex justify-content-between">
+      {% if page > 0 %}
+        <a href="/m365/mail?page={{ page - 1 }}" class="btn btn-sm btn-outline-secondary">Předchozí</a>
+      {% else %}
+        <span></span>
+      {% endif %}
+      {% if has_next %}
+        <a href="/m365/mail?page={{ page + 1 }}" class="btn btn-sm btn-outline-secondary">Další</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

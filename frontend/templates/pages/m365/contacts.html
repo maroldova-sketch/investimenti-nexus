@@ -1,0 +1,48 @@
+{% extends "layouts/base.html" %}
+{% block title %}Kontakty{% endblock %}
+{% block breadcrumb %}M365 / Kontakty{% endblock %}
+
+{% block page_header %}
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <h2 class="page-title">Outlook Kontakty</h2>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-xl">
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>Jméno</th>
+            <th>Email</th>
+            <th>Telefon</th>
+            <th>Firma</th>
+            <th>Pozice</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in contacts %}
+          <tr>
+            <td><strong>{{ c.get('displayName', '?') }}</strong></td>
+            <td>
+              {% for e in c.get('emailAddresses', []) %}
+                {{ e.get('address', '') }}{% if not loop.last %}<br>{% endif %}
+              {% endfor %}
+            </td>
+            <td>{{ c.get('businessPhones', [])|join(', ') }}</td>
+            <td class="text-muted">{{ c.get('companyName', '') }}</td>
+            <td class="text-muted">{{ c.get('jobTitle', '') }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-center text-muted py-4">Žádné kontakty</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
