@@ -12,6 +12,13 @@ class Settings(BaseSettings):
     nexus_env: str = "development"
     nexus_data_dir: str = str(pathlib.Path.home() / "Projects" / "nexus-data")
 
+    # Microsoft 365
+    m365_tenant_id: str = ""
+    m365_client_id: str = ""
+    m365_client_secret: str = ""
+    m365_refresh_token: str = ""
+    m365_scopes: str = "User.Read Mail.Read Mail.Send Calendars.Read Contacts.Read Files.Read.All"
+
     class Config:
         env_file = ".env"
         extra = "ignore"
