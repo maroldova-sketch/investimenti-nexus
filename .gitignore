@@ -1,7 +1,52 @@
+# ── Python ──────────────────────────────
 .venv/
-nexus.db
-*.log
-exports/
-.env
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# ── Local state ─────────────────────────
+nexus.db
+nexus.db.backup
+*.db.backup
+*.log
+*.bak
+*.bak.*
+*.tmp
+exports/
+
+# ── Secrets ─────────────────────────────
+.env
+.env.bak
+.env.bak.*
+.env.local
+secrets.json
+**/secrets/*.json
+**/secrets.yaml
+
+# ── CITLIVÁ DATA (GDPR, mzdy, osobní) ───
+data/mzdy/
+data/vyplatnice/
+data/osobni/
+data/*.xlsx
+data/*.pdf
+data/*.zip
+!data/.gitkeep
+
+# ── Velké / dočasné ─────────────────────
+.claude/
+.DS_Store
+Thumbs.db
+node_modules/
+dist/
+build/
+
+# ── IDE ─────────────────────────────────
+.vscode/
+.idea/
+*.sublime-*
+
+# ── Macy / OS ───────────────────────────
+*.swp
+*.swo
