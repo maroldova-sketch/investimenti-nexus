@@ -1,3 +1,33 @@
+
+# ── FORTIS push helper ────────────────────────────────────────────────────
+import urllib.request, json as _json
+FORTIS_URL = "http://localhost:8050"
+
+def push_advance_to_fortis(case, person, year: int, month: int) -> dict:
+    """Odešle schválenou zálohu/srážku do FORTIS. Vrátí výsledek API."""
+    if not getattr(person, "fortis_doctor_uuid", None) and not getattr(person, "external_id", None):
+        return {"status": "skip", "reason": "no fortis mapping"}
+
+    payload = {
+        "nexus_ref_id":       str(case.id),
+        "doctor_nexus_uuid":  str(person.id),
+        "year":               year,
+        "month":              month,
+        "amount":             float(abs(case.amount or 0)),
+        "description":        case.description or f"Záloha NEXUS #{case.id[:8]}",
+        "advance_type":       "záloha" if case.case_type == "advance" else "korekce",
+    }
+    req = urllib.request.Request(
+        f"{FORTIS_URL}/api/inbound/nexus-advance",
+        data=_json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        resp = urllib.request.urlopen(req, timeout=5)
+        return _json.loads(resp.read())
+    except Exception as e:
+        return {"status": "error", "reason": str(e)}
 """Wave 2.4 — Deduction → Payroll Staging routes"""
 import os, io, csv
 from datetime import datetime, date
