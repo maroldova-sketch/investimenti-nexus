@@ -35,6 +35,14 @@ body{background:#0f1117;display:flex;align-items:center;justify-content:center;m
 </style>
 </head>
 <body>
+<div style="position:fixed;top:0;left:0;right:0;height:28px;background:#1a1a2e;z-index:9999;display:flex;align-items:center;padding:0 14px;gap:20px;font-size:11px;font-family:sans-serif;">
+<span style="color:#6c7293;font-weight:700;letter-spacing:.1em;">ELIAS</span>
+<span style="color:#2d2d4e;">|</span>
+<a href="http://192.168.1.43:8000" style="color:#4da6ff;text-decoration:none;font-weight:500;">NEXUS</a>
+<a href="http://192.168.1.43:8050" style="color:#6c7293;text-decoration:none;font-weight:500;">FORTIS</a>
+<a href="http://192.168.1.43:8060" style="color:#6c7293;text-decoration:none;font-weight:500;">ATLAS</a>
+<span style="margin-left:auto;color:#3d3d5e;font-size:10px;">mac · 192.168.1.43</span>
+</div>
 <div class="login-box">
   <div class="login-logo">NEXUS</div>
   <div class="login-sub">Holding Operations Console</div>
