@@ -16,10 +16,15 @@
         </h2>
       </div>
       <div class="d-flex gap-2">
-        {% if period.status in ('open','submitted') %}<form method="post" action="/attendance/{{ period.id }}/approve"><button class="btn btn-outline-secondary btn-sm">✓ Schválit</button></form>{% endif %}
-        {% if period.status == 'approved' %}<form method="post" action="/attendance/{{ period.id }}/lock"><button class="btn btn-outline-secondary btn-sm">🔒 Uzavřít</button></form>{% endif %}
-        {% if period.status == 'locked' %}<form method="post" action="/attendance/{{ period.id }}/export"><button class="btn btn-primary btn-sm">⬇ Export CSV</button></form>{% endif %}
-        {% if period.status != 'locked' %}<button class="btn btn-primary btn-sm" onclick="openModal('modal-add')">+ Přidat záznam</button>{% endif %}
+        {% set is_admin = current_user.has_role('owner','admin','manager','hr') %}
+        {% if is_admin %}
+          {% if period.status in ('open','submitted') %}<form method="post" action="/attendance/{{ period.id }}/approve"><button class="btn btn-outline-secondary btn-sm">✓ Schválit</button></form>{% endif %}
+          {% if period.status == 'approved' %}<form method="post" action="/attendance/{{ period.id }}/lock"><button class="btn btn-outline-secondary btn-sm">🔒 Uzavřít</button></form>{% endif %}
+          {% if period.status == 'locked' %}<form method="post" action="/attendance/{{ period.id }}/export"><button class="btn btn-primary btn-sm">⬇ Export CSV</button></form>{% endif %}
+          {% if period.status != 'locked' %}<button class="btn btn-primary btn-sm" onclick="openModal('modal-add')">+ Přidat záznam</button>{% endif %}
+        {% else %}
+          <span class="text-muted small">Můžeš upravit pouze svou docházku (hodiny a poznámku).</span>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -37,19 +42,39 @@
   <div class="card">
     <div class="card-header">Docházkové záznamy</div>
     {% if period.submissions %}
-    <div class="table-responsive"><table class="table"><thead><tr><th>Zaměstnanec</th><th>Dny odprac.</th><th>Hod. základ</th><th>Hod. přesčas</th><th>Dovolená</th><th>Nemoc</th><th>Hrubá mzda</th><th>Poznámka</th></tr></thead>
+    <div class="table-responsive"><table class="table"><thead><tr><th>Zaměstnanec</th><th>Dny odprac.</th><th>Hodiny</th><th>Dovolená</th><th>Nemoc</th><th>Hrubá mzda</th><th>Poznámka</th></tr></thead>
     <tbody>
+      {% set my_pid = current_user.person_id %}
+      {% set can_self_edit = (not is_admin) and period.status in ('open','submitted') %}
       {% for s in period.submissions %}
-      <tr>
-        <td class="fw-medium">{{ s.person.full_name if s.person else '?' }}</td>
+      {% set is_mine = s.person_id == my_pid %}
+      {% set show_inline_form = can_self_edit and is_mine %}
+      {% if show_inline_form %}
+      <tr style="background:rgba(28,126,214,.05)">
+        <td class="fw-medium">{{ s.person.full_name if s.person else '?' }} <span class="badge bg-blue-lt ms-1">vy</span></td>
+        <td colspan="6">
+          <form method="post" action="/attendance/{{ period.id }}/save-row" class="d-flex align-items-center gap-2 flex-wrap">
+            <input type="hidden" name="person_id" value="{{ s.person_id }}">
+            <label class="form-label mb-0" style="font-size:11px">Hodiny:</label>
+            <input type="number" name="hours_worked" class="form-control form-control-sm" style="width:90px" step="0.5" value="{{ s.hours_worked or '' }}" placeholder="168">
+            <label class="form-label mb-0" style="font-size:11px">Poznámka:</label>
+            <input type="text" name="note" class="form-control form-control-sm" style="flex:1;min-width:200px" value="{{ s.note or '' }}" placeholder="cokoliv si chcete poznamenat">
+            <button type="submit" class="btn btn-primary btn-sm">Uložit</button>
+            <span class="text-muted small">— ostatní pole upravuje HR</span>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr{% if is_mine %} style="background:rgba(28,126,214,.03)"{% endif %}>
+        <td class="fw-medium">{{ s.person.full_name if s.person else '?' }}{% if is_mine %} <span class="badge bg-blue-lt ms-1">vy</span>{% endif %}</td>
         <td>{{ s.days_worked or '—' }}</td>
-        <td>{{ s.hours_regular or '—' }}</td>
-        <td>{{ s.hours_overtime or '—' }}</td>
+        <td>{{ s.hours_worked or '—' }}</td>
         <td>{{ s.days_vacation or '—' }}</td>
         <td>{{ s.days_sick or '—' }}</td>
         <td class="fw-medium">{% if s.gross_salary %}{{ "{:,.0f}".format(s.gross_salary).replace(",", " ") }} Kč{% else %}—{% endif %}</td>
-        <td class="text-muted" style="font-size:11.5px">{{ s.notes or '—' }}</td>
+        <td class="text-muted" style="font-size:11.5px">{{ s.note or '—' }}</td>
       </tr>
+      {% endif %}
       {% endfor %}
     </tbody></table></div>
     {% else %}<div class="card-body"><div class="nx-empty"><div class="nx-empty-title">Žádné záznamy</div><div class="nx-empty-sub">Přidejte docházkový záznam pro zaměstnance.</div></div></div>{% endif %}
@@ -61,9 +86,8 @@
     <form method="post" action="/attendance/{{ period.id }}/save-row">
       <div class="mb-3"><label class="form-label">Zaměstnanec *</label><select name="person_id" class="form-select" required>{% for per in people %}<option value="{{ per.id }}">{{ per.full_name }}</option>{% endfor %}</select></div>
       <div class="row g-2 mb-3">
-        <div class="col-4"><label class="form-label">Dny odprac.</label><input type="number" name="days_worked" class="form-control" placeholder="21"></div>
-        <div class="col-4"><label class="form-label">Hod. základ</label><input type="number" name="hours_worked" class="form-control" step="0.5" placeholder="168"></div>
-        <div class="col-4"><label class="form-label">Hod. přesčas</label><input type="number" name="hours_overtime_ignored" disabled class="form-control" step="0.5" placeholder="0"></div>
+        <div class="col-6"><label class="form-label">Dny odprac.</label><input type="number" name="days_worked" class="form-control" placeholder="21"></div>
+        <div class="col-6"><label class="form-label">Hodiny</label><input type="number" name="hours_worked" class="form-control" step="0.5" placeholder="168"></div>
         <div class="col-6"><label class="form-label">Dovolená (dny)</label><input type="number" name="days_vacation" class="form-control" placeholder="0"></div>
         <div class="col-6"><label class="form-label">Nemoc (dny)</label><input type="number" name="days_sick" class="form-control" placeholder="0"></div>
       </div>
