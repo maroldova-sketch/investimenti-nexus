@@ -11,6 +11,7 @@
 #   ./elias_mcp_heal.sh              # heal once (probe + restart lokálních + report)
 #   ./elias_mcp_heal.sh --report     # JEN probe, NIC nerestartuje (spusť poprvé!)
 #   ./elias_mcp_heal.sh --install-timer   # nainstaluje self-heal (systemd timer / LaunchAgent) a skončí
+#   ./elias_mcp_heal.sh --help       # nápověda
 #
 # Exit: 0 = lokální služby OK; !=0 = něco lokálního pořád DOWN/DEGRADED (pro alerting).
 # =====================================================================
@@ -47,8 +48,9 @@ IDOKLAD_ID_VAR="${IDOKLAD_ID_VAR:-IDOKLAD_CLIENT_ID}"
 IDOKLAD_SECRET_VAR="${IDOKLAD_SECRET_VAR:-IDOKLAD_CLIENT_SECRET}"
 IDOKLAD_SCOPE="${IDOKLAD_SCOPE:-idoklad_api}"
 
-# Telegram (z env: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID). Bez tokenu = ticho.
-TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-94445039}"
+# Telegram (z env: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID). Bez tokenu/chat_id = ticho.
+# Nedávej sem reálné chat_id natvrdo – nastav přes env / .env (ať neleží v gitu).
+TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
 ### ================================================================
 
 LOG_FILE="$LOG_DIR/mcp_heal.log"
@@ -76,7 +78,15 @@ load_env(){
   fi
 }
 
-http_code(){ curl -sS -k -L -o /dev/null -w '%{http_code}' --max-time 8 "$1" 2>/dev/null || echo 000; }
+# Vrátí přesně 3místný HTTP kód; selhání spojení / nedostupný curl → 000.
+# (curl při selhání spojení vytiskne "000" a zároveň skončí nenulově – proto
+#  nesmíme řetězit `|| echo 000`, jinak vznikne "000000" a classify ho vezme jako UP.)
+http_code(){
+  local code
+  code=$(curl -sS -k -L -o /dev/null -w '%{http_code}' --max-time 8 "$1" 2>/dev/null)
+  [[ "$code" =~ ^[0-9]{3}$ ]] || code=000
+  printf '%s' "$code"
+}
 
 # klasifikace: UP / AUTH / DEGRADED / DOWN
 classify(){
@@ -118,12 +128,12 @@ probe_all(){
 
 restart_systemd(){
   command -v systemctl >/dev/null 2>&1 || return 0
-  local units=("${SERVICES_SYSTEMD[@]}")
+  local units=(); units=(${SERVICES_SYSTEMD[@]+"${SERVICES_SYSTEMD[@]}"})
   if [[ ${#units[@]} -eq 0 && "$AUTO_DISCOVER" == "1" ]]; then
     mapfile -t units < <($SUDO systemctl list-unit-files --type=service --no-legend 2>/dev/null \
                           | awk '{print $1}' | grep -Ei "$SVC_PATTERNS")
   fi
-  for u in "${units[@]}"; do
+  for u in ${units[@]+"${units[@]}"}; do
     [[ -z "$u" ]] && continue
     local state; state=$($SUDO systemctl is-active "$u" 2>/dev/null || echo unknown)
     if [[ "$state" != "active" ]]; then
@@ -135,12 +145,12 @@ restart_systemd(){
 
 restart_docker(){
   command -v docker >/dev/null 2>&1 || return 0
-  local names=("${CONTAINERS_DOCKER[@]}")
+  local names=(); names=(${CONTAINERS_DOCKER[@]+"${CONTAINERS_DOCKER[@]}"})
   if [[ ${#names[@]} -eq 0 && "$AUTO_DISCOVER" == "1" ]]; then
     mapfile -t names < <($SUDO docker ps -a --format '{{.Names}} {{.Status}}' 2>/dev/null \
                           | grep -Ei "$SVC_PATTERNS" | grep -vi '^.* Up' | awk '{print $1}')
   fi
-  for c in "${names[@]}"; do
+  for c in ${names[@]+"${names[@]}"}; do
     [[ -z "$c" ]] && continue
     local status; status=$($SUDO docker inspect -f '{{.State.Status}}' "$c" 2>/dev/null || echo gone)
     if [[ "$status" != "running" ]]; then
@@ -152,11 +162,17 @@ restart_docker(){
 
 restart_launchd(){   # macOS (Mac .43)
   command -v launchctl >/dev/null 2>&1 || return 0
-  local labels=("${LABELS_LAUNCHD[@]}")
+  local labels=(); labels=(${LABELS_LAUNCHD[@]+"${LABELS_LAUNCHD[@]}"})
   if [[ ${#labels[@]} -eq 0 && "$AUTO_DISCOVER" == "1" ]]; then
-    mapfile -t labels < <(launchctl list 2>/dev/null | awk '{print $3}' | grep -Ei "$SVC_PATTERNS")
+    # macOS ships bash 3.2 bez `mapfile` → fallback na read-loop
+    if command -v mapfile >/dev/null 2>&1; then
+      mapfile -t labels < <(launchctl list 2>/dev/null | awk '{print $3}' | grep -Ei "$SVC_PATTERNS")
+    else
+      while IFS= read -r _l; do [[ -n "$_l" ]] && labels+=("$_l"); done \
+        < <(launchctl list 2>/dev/null | awk '{print $3}' | grep -Ei "$SVC_PATTERNS")
+    fi
   fi
-  for l in "${labels[@]}"; do
+  for l in ${labels[@]+"${labels[@]}"}; do
     [[ -z "$l" ]] && continue
     log "  ${C_YEL}↻ launchd $l → kickstart -k${C_RST}"
     if launchctl kickstart -k "gui/$(id -u)/$l" 2>>"$LOG_FILE"; then act "kickstart OK: $l"; else act "kickstart SELHAL: $l"; fi
@@ -266,17 +282,25 @@ EOF
   fi
 }
 
+usage(){
+  sed -n '3,16p' "$SCRIPT_PATH" | sed 's/^# \{0,1\}//'
+}
+
 main(){
   local mode="${1:-heal}"
+  case "$mode" in
+    -h|--help|help) usage; exit 0 ;;
+  esac
   log "════════ Elias MCP heal | host=$(hostname 2>/dev/null) | mode=$mode ════════"
   load_env
   case "$mode" in
     --install-timer) install_timer; exit 0 ;;
     --report) probe_all; check_idoklad ;;
-    *) probe_all
+    heal|"") probe_all
        if [[ -n "$ACTIONS" ]]; then heal_local; fi
        check_idoklad
        notify_telegram ;;
+    *) log "${C_RED}✗ Neznámý argument: $mode${C_RST}"; usage; exit 2 ;;
   esac
   log "── SHRNUTÍ ───────────────────────────────────────"
   printf '%s' "$SUMMARY" | tee -a "$LOG_FILE"
