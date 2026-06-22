@@ -8,9 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.core.models.base import get_db
+from backend.core.security.service_auth import require_human_or_service
 from backend.modules.gov.models import GovSchranka, GovMessage, GovAttachment
 
-router = APIRouter(prefix="/gov", tags=["gov"])
+# GAP 0 fix: ISDS data jsou citlivá → celý router za auth (uživatel NEBO API-key)
+router = APIRouter(prefix="/gov", tags=["gov"],
+                   dependencies=[Depends(require_human_or_service)])
 
 
 @router.get("/api/schranky")
