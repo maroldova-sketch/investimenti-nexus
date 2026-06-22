@@ -51,6 +51,14 @@ IDOKLAD_SCOPE="${IDOKLAD_SCOPE:-idoklad_api}"
 # Telegram (z env: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID). Bez tokenu/chat_id = ticho.
 # Nedávej sem reálné chat_id natvrdo – nastav přes env / .env (ať neleží v gitu).
 TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
+
+# Registry: volitelný JSON katalog endpointů (přepíše/rozšíří ENDPOINTS výše).
+# Formát: [{"name":"x","url":"https://...","type":"local|cloud"}, ...]
+ELIAS_REGISTRY_FILE="${ELIAS_REGISTRY_FILE:-$HOME/elias/registry.json}"
+
+# Nexus API: zápis výpadků do Nexus notifikací (potřebuje token se scope notify:write).
+NEXUS_API_BASE="${NEXUS_API_BASE:-}"            # např. https://nexus.investimenti.cz
+NEXUS_API_KEY="${NEXUS_API_KEY:-}"              # nxs_... (scripts/nexus_token.py)
 ### ================================================================
 
 LOG_FILE="$LOG_DIR/mcp_heal.log"
@@ -224,6 +232,54 @@ check_idoklad(){
   fi
 }
 
+# Načti endpointy z registry JSON (pokud existuje) a přidej je k ENDPOINTS.
+load_registry(){
+  [[ -f "$ELIAS_REGISTRY_FILE" ]] || return 0
+  command -v python3 >/dev/null 2>&1 || { log "${C_YEL}! registry: python3 chybí, přeskakuji${C_RST}"; return 0; }
+  local lines added=0
+  lines=$(python3 - "$ELIAS_REGISTRY_FILE" <<'PY' 2>/dev/null || true
+import json, sys
+try:
+    data = json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(0)
+items = data.get("endpoints", data) if isinstance(data, dict) else data
+for it in items or []:
+    n = (it.get("name") or "").strip()
+    u = (it.get("url") or "").strip()
+    t = (it.get("type") or "local").strip()
+    if n and u:
+        print(f"{n}|{u}|{t}")
+PY
+)
+  while IFS= read -r row; do
+    [[ -z "$row" ]] && continue
+    local rname="${row%%|*}" dup=0 e
+    for e in "${ENDPOINTS[@]}"; do [[ "${e%%|*}" == "$rname" ]] && { dup=1; break; }; done
+    [[ "$dup" == "0" ]] && { ENDPOINTS+=("$row"); added=$((added+1)); }
+  done <<<"$lines"
+  [[ "$added" -gt 0 ]] && log "✓ registry: přidáno $added endpointů z $ELIAS_REGISTRY_FILE"
+}
+
+# Zapiš výpadek do Nexus notifikací (in-app), když je co hlásit.
+notify_nexus(){
+  [[ -z "$NEXUS_API_BASE" || -z "$NEXUS_API_KEY" ]] && return 0
+  [[ -z "$ACTIONS" ]] && return 0
+  local sev="warn"; [[ "$FAIL_LOCAL" -ne 0 ]] && sev="error"
+  local host; host=$(hostname 2>/dev/null || echo node)
+  local body; body="MCP heal @ $host"$'\n'"$ACTIONS"
+  local code
+  code=$(curl -sS -k -o /dev/null -w '%{http_code}' --max-time 10 \
+    -X POST "${NEXUS_API_BASE%/}/api/v1/notifications" \
+    -H "X-API-Key: $NEXUS_API_KEY" -H 'Content-Type: application/json' \
+    --data "$(printf '{"title":%s,"body":%s,"severity":%s,"related_type":"general"}' \
+              "\"🩺 Elias MCP heal: zásah ($host)\"" \
+              "$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$body" 2>/dev/null || echo "\"$host\"")" \
+              "\"$sev\"")" 2>/dev/null || echo 000)
+  if [[ "$code" =~ ^2 ]]; then log "✓ Nexus notifikace zapsána (HTTP $code)"
+  else log "${C_YEL}! Nexus notifikace selhala (HTTP $code)${C_RST}"; fi
+}
+
 notify_telegram(){
   local tok="${TELEGRAM_BOT_TOKEN:-}"
   [[ -z "$tok" || -z "$TELEGRAM_CHAT_ID" ]] && return 0
@@ -293,12 +349,14 @@ main(){
   esac
   log "════════ Elias MCP heal | host=$(hostname 2>/dev/null) | mode=$mode ════════"
   load_env
+  load_registry
   case "$mode" in
     --install-timer) install_timer; exit 0 ;;
     --report) probe_all; check_idoklad ;;
     heal|"") probe_all
        if [[ -n "$ACTIONS" ]]; then heal_local; fi
        check_idoklad
+       notify_nexus
        notify_telegram ;;
     *) log "${C_RED}✗ Neznámý argument: $mode${C_RST}"; usage; exit 2 ;;
   esac

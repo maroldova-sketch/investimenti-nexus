@@ -26,6 +26,8 @@ from backend.modules.webhooks.routes import router as webhook_router
 from backend.modules.atlas.routes import router as atlas_router
 from backend.modules.gov.routes import router as gov_router
 from backend.modules.m365.routes import router as m365_router
+from backend.modules.mcp_api.routes import router as api_router
+from backend.modules.idoklad.routes import router as idoklad_router
 
 app = FastAPI(title="NEXUS", redirect_slashes=False, docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
@@ -49,6 +51,8 @@ app.include_router(atlas_router)
 app.include_router(phm2_router)
 app.include_router(gov_router)
 app.include_router(m365_router)
+app.include_router(api_router)
+app.include_router(idoklad_router)
 
 @app.get("/")
 def root(): return RedirectResponse("/fleet")

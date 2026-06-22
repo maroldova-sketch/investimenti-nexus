@@ -31,8 +31,10 @@ from backend.core.models.kernel import AuditLog
 from backend.modules.notifications.models import IntakeRecord
 from .resolver import resolve_driver, normalize_phone
 from .models import migrate
+from backend.core.security.service_auth import verify_webhook_signature
 
-router = APIRouter(prefix="/webhooks", tags=["webhooks"])
+router = APIRouter(prefix="/webhooks", tags=["webhooks"],
+                   dependencies=[Depends(verify_webhook_signature)])
 
 
 # ── SHARED PAYLOAD BASE ───────────────────────────────────────────────
