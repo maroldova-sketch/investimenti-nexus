@@ -57,8 +57,17 @@ hlavičky.** Důsledky:
 | Bearer `authorization_token` | ✅ jen pro programové/Agent-SDK volání, ne UI |
 
 **Doporučení:** brána pro mobil → buď MCP server s **OAuth**, nebo **secret-in-URL**
-gateway (terminovaný na bráně). CF Access service token použij jen pro
-server-to-server (Agent SDK), ne pro mobilní connector.
+gateway. CF Access service token použij jen pro server-to-server (Agent SDK),
+ne pro mobilní connector.
+
+**Rozhodnutí (2026-06-22): připravit OBOJÍ, finální výběr po živém testu connectoru.**
+- **secret-in-URL** musí terminovat **na Mac MCP serveru** (`nexus_mcp.py`), NE na
+  VPS proxy — jinak by VPS držel tajemství (porušení Zákona 9). VPS jen prošle
+  pevnou URL i s tajným segmentem dál po Tailscale.
+- **OAuth** je čistší upgrade (revokovatelné, per-user); implementace až bude
+  jasné, co connector na účtu reálně akceptuje.
+- Implementaci nedělám naslepo ze sandboxu (balík `mcp` + connector se odsud
+  netestují) — nasadí se na nodu, kde to půjde ověřit `verify_external.sh`.
 
 Zdroj: [Claude — custom connectors / remote MCP](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp),
 [MCP connector docs](https://docs.claude.com/en/docs/agents-and-tools/mcp-connector).
