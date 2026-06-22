@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     m365_client_secret: str = ""
     m365_refresh_token: str = ""
     m365_scopes: str = "User.Read Mail.Read Mail.Send Calendars.Read Contacts.Read Files.Read.All"
+    # Režim: "delegated" = /me přes refresh token | "app" = /users/{mailbox} přes client_credentials
+    m365_auth_mode: str = "delegated"
+    m365_mailbox: str = ""            # cílová schránka pro app režim, např. produkce@zamek-citoliby.cz
 
     # Machine / agent access (Elias, MCP, n8n)
     webhook_secret: str = ""          # HMAC sdílený tajný klíč pro /webhooks/* (prázdné = HMAC vypnuté)

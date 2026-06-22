@@ -48,16 +48,24 @@ def main():
 
     print(f"════ M365 self-test @ {datetime.now():%F %T} ════\n")
 
-    # 0) konfigurace
+    # 0) konfigurace (mode-aware)
     from backend.config import get_settings
     s = get_settings()
-    missing = [v for v in ("m365_tenant_id", "m365_client_id", "m365_client_secret", "m365_refresh_token")
-               if not getattr(s, v, "")]
+    app_mode = s.m365_auth_mode.lower() == "app"
+    required = ["m365_tenant_id", "m365_client_id", "m365_client_secret"]
+    required += ["m365_mailbox"] if app_mode else ["m365_refresh_token"]
+    missing = [v for v in required if not getattr(s, v, "")]
     if missing:
-        print(f"{RED}✗ Chybí konfigurace: {', '.join(m.upper() for m in missing)}{RST}")
+        print(f"{RED}✗ Chybí konfigurace ({'app' if app_mode else 'delegated'} režim): "
+              f"{', '.join(m.upper() for m in missing)}{RST}")
         print("  Nastav je v .env na tomto nodu a spusť znovu.")
         sys.exit(2)
-    print(f"{GRN}✓ M365 creds přítomné{RST} (tenant={s.m365_tenant_id[:8]}…)\n")
+    mb = s.m365_mailbox if app_mode else "(delegated /me)"
+    print(f"{GRN}✓ M365 creds přítomné{RST} (režim={s.m365_auth_mode}, tenant={s.m365_tenant_id[:8]}…, schránka={mb})")
+    # v app režimu má smysl --expect defaultně = M365_MAILBOX
+    if app_mode and not args.expect and s.m365_mailbox:
+        args.expect = s.m365_mailbox
+    print()
 
     from backend.integrations.m365 import client as m365
     from backend.integrations.m365.auth import get_access_token

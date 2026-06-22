@@ -37,3 +37,16 @@ def get_access_token() -> str:
     if "access_token" not in result:
         raise RuntimeError(f"M365 token refresh failed: {result.get('error_description', result)}")
     return result["access_token"]
+
+
+def get_app_token() -> str:
+    """App-only token (client_credentials) — pro režim /users/{mailbox}.
+
+    Vyžaduje na app registraci Application permissions (Mail.Send, Mail.Read,
+    Calendars.Read, Contacts.Read, Files.Read.All) + admin consent.
+    """
+    app = _get_msal_app()
+    result = app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
+    if "access_token" not in result:
+        raise RuntimeError(f"M365 app token failed: {result.get('error_description', result)}")
+    return result["access_token"]
