@@ -1,0 +1,4 @@
+# Závislosti jen pro Nexus MCP server (mcp/nexus_mcp.py).
+# Instaluj odděleně od hlavní app:  pip install -r mcp/requirements.txt
+mcp>=1.2.0
+httpx>=0.27.0
