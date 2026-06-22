@@ -123,3 +123,45 @@ async def verify_webhook_signature(request: Request) -> None:
     expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
     if not sig or not hmac.compare_digest(sig, expected):
         raise HTTPException(status_code=401, detail="Invalid webhook signature")
+
+
+# ── kombinovaná auth: přihlášený uživatel (cookie/JWT) NEBO service token ────
+def require_human_or_service(request: Request, db: Session = Depends(get_db)) -> dict:
+    """Projde, pokud je platná buď session cookie/Bearer JWT (člověk),
+    nebo API-key service token (stroj). Jinak 403.
+
+    Pro routy volané jak z UI (prohlížeč s cookie), tak strojově (n8n/Elias).
+    """
+    # 1) service token (X-API-Key / Bearer nxs_...)
+    raw = _extract_raw(request)
+    parsed = _parse_token(raw) if raw else None
+    if parsed:
+        key_id, secret = parsed
+        tok = db.query(ServiceToken).filter(
+            ServiceToken.key_id == key_id, ServiceToken.is_active == True  # noqa: E712
+        ).first()
+        if tok and verify_secret(secret, tok.hashed_secret):
+            if not (tok.expires_at and tok.expires_at < datetime.utcnow()):
+                tok.last_used_at = datetime.utcnow(); db.commit()
+                return {"kind": "service", "name": tok.name}
+
+    # 2) přihlášený uživatel (cookie nebo Bearer JWT)
+    from backend.core.security.auth import decode_token
+    from backend.core.models.kernel import UserAccount
+    token = request.cookies.get("nexus_token")
+    if not token:
+        auth = request.headers.get("Authorization", "")
+        if auth.startswith("Bearer ") and not auth[7:].startswith(KEY_PREFIX + "_"):
+            token = auth[7:]
+    if token:
+        try:
+            uid = decode_token(token).get("sub")
+            user = db.query(UserAccount).filter(
+                UserAccount.id == uid, UserAccount.is_active == True  # noqa: E712
+            ).first()
+            if user:
+                return {"kind": "user", "email": user.email}
+        except Exception:
+            pass
+
+    raise HTTPException(status_code=403, detail="Vyžaduje přihlášení nebo API klíč")

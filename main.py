@@ -73,14 +73,18 @@ def health_db():
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PYTHON = os.path.join(ROOT, ".venv", "bin", "python")
 
-@app.get("/import/run/fleet", response_class=PlainTextResponse)
-def run_fleet():
-    r = subprocess.run([PYTHON, "scripts/import_fleet.py"], cwd=ROOT,
-        env={**os.environ, "PYTHONPATH": ROOT}, capture_output=True, text=True, timeout=30)
-    return (r.stdout + r.stderr) + "\n\nDone. Go to /import"
+from fastapi import Depends, HTTPException
+from backend.core.security.service_auth import require_human_or_service
 
-@app.get("/import/run/fuel", response_class=PlainTextResponse)
-def run_fuel():
-    r = subprocess.run([PYTHON, "scripts/import_fuel.py"], cwd=ROOT,
-        env={**os.environ, "PYTHONPATH": ROOT}, capture_output=True, text=True, timeout=30)
+# GAP 0 fix: import trigger jako POST (ne CSRF-able GET) + auth (uživatel/API-key).
+# Distinct path /import/trigger/{name} — nešadowuje se staging routou /import/{batch_id}/...
+_IMPORT_SCRIPTS = {"fleet": "scripts/import_fleet.py", "fuel": "scripts/import_fuel.py"}
+
+@app.post("/import/trigger/{name}", response_class=PlainTextResponse)
+def import_trigger(name: str, _auth: dict = Depends(require_human_or_service)):
+    script = _IMPORT_SCRIPTS.get(name)
+    if not script:
+        raise HTTPException(status_code=404, detail=f"Neznámý import '{name}'")
+    r = subprocess.run([PYTHON, script], cwd=ROOT,
+        env={**os.environ, "PYTHONPATH": ROOT}, capture_output=True, text=True, timeout=60)
     return (r.stdout + r.stderr) + "\n\nDone. Go to /import"

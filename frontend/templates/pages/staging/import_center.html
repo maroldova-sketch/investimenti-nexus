@@ -7,8 +7,12 @@
     <div class="d-flex align-items-center justify-content-between">
       <div><div class="page-pretitle">Data / Staging</div><h2 class="page-title">Import Center</h2></div>
       <div class="d-flex gap-2">
-        <a href="/import/run/fleet" class="btn btn-outline-secondary btn-sm" onclick="return confirm('Spustit fleet import?')">▶ Import fleet</a>
-        <a href="/import/run/fuel"  class="btn btn-outline-secondary btn-sm" onclick="return confirm('Spustit PHM import?')">▶ Import PHM</a>
+        <form method="post" action="/import/trigger/fleet" class="d-inline" onsubmit="return confirm('Spustit fleet import?')">
+          <button type="submit" class="btn btn-outline-secondary btn-sm">▶ Import fleet</button>
+        </form>
+        <form method="post" action="/import/trigger/fuel" class="d-inline" onsubmit="return confirm('Spustit PHM import?')">
+          <button type="submit" class="btn btn-outline-secondary btn-sm">▶ Import PHM</button>
+        </form>
       </div>
     </div>
   </div>
