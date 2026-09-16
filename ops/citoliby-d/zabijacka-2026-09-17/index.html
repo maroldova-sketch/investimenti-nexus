@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zabijačka na zámku, výbava</title>
+<style>
+  :root{--green:#1F3A2C;--green-deep:#152A20;--gold:#B8963E;--gold-soft:#E4CF8C;--cream:#F3EBD9;--paper:#FBF7EE;--ink:#1E1B16;--muted:#6F6656;--line:#D9CCAA}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--cream);color:var(--ink);font:17px/1.45 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header{background:var(--green);color:var(--cream);padding:20px 18px 16px;position:sticky;top:0;z-index:5;box-shadow:0 2px 0 var(--gold)}
+  header h1{font:600 26px/1.15 Georgia,"Times New Roman",serif;margin:0 0 4px}
+  header p{margin:0;color:var(--gold-soft);font-size:15px}
+  .bar{height:6px;background:var(--green-deep);border-radius:3px;margin-top:12px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--gold);transition:width .25s}
+  .tools{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px 4px;max-width:680px;margin:0 auto}
+  .tools button{background:var(--paper);border:1px solid var(--line);color:var(--ink);padding:8px 12px;border-radius:6px;font-size:15px;cursor:pointer}
+  .tools button[aria-pressed="true"]{background:var(--green);color:var(--cream);border-color:var(--green)}
+  .tools button:focus-visible,.item input:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+  main{max-width:680px;margin:0 auto;padding:8px 16px 40px}
+  section{margin:18px 0 6px}
+  h2{font:600 21px/1.2 Georgia,"Times New Roman",serif;color:var(--green);margin:0 0 6px;padding-bottom:6px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:baseline}
+  h2 small{font:14px -apple-system,"Segoe UI",Roboto,sans-serif;color:var(--muted)}
+  .item{display:flex;align-items:flex-start;gap:12px;padding:10px 4px;border-bottom:1px solid #EAE0C6;cursor:pointer}
+  .item input{appearance:none;-webkit-appearance:none;flex:none;width:24px;height:24px;margin-top:1px;border:2px solid var(--green);border-radius:5px;background:var(--paper);position:relative}
+  .item input:checked{background:var(--green)}
+  .item input:checked::after{content:"";position:absolute;left:7px;top:2px;width:6px;height:12px;border:solid var(--gold-soft);border-width:0 3px 3px 0;transform:rotate(45deg)}
+  .item span{flex:1}
+  .item.done span{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--gold)}
+  .item em{display:block;font-style:normal;font-size:14px;color:var(--muted)}
+  body.only-missing .item.done{display:none}
+  body.readonly .item{cursor:default}
+  .note{background:var(--paper);border-left:4px solid var(--gold);padding:12px 14px;margin:26px 0 0;font-size:15px}
+  .note strong{color:var(--green)}
+  footer{color:var(--muted);font-size:13px;text-align:center;padding:10px 16px 30px}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--green);color:var(--cream);padding:10px 16px;border-radius:8px;font-size:15px;opacity:0;pointer-events:none;transition:opacity .2s}
+  .toast.show{opacity:1}
+  @media (prefers-reduced-motion:reduce){.bar i,.toast{transition:none}}
+</style>
+<script id="state" type="application/json">{"ticks":{},"updated":null}</script>
+</head>
+<body>
+<header>
+  <h1>Zabijačka na zámku</h1>
+  <p><span id="count">0 z 59</span> zaškrtnuto, <span id="saved">zatím nic nezaškrtnuto</span>. Kuchyňské věci (hrnce, prkénka, naběračky) tu nejsou, ty máte.</p>
+  <div class="bar"><i id="bar" style="width:0%"></i></div>
+</header>
+<div class="tools">
+  <button id="filter" aria-pressed="false">Ukázat jen to, co chybí</button>
+  <button id="copy">Zkopírovat chybějící</button>
+  <button id="reset">Vynulovat</button>
+</div>
+<main id="list"><section><h2><span>Porážka a paření</span><small>0/10</small></h2><label class="item" data-id="0-0"><input type="checkbox"><span>Vykrvovací nůž<em>dlouhý, úzký</em></span></label><label class="item" data-id="0-1"><input type="checkbox"><span>Nerez kbelík na krev + metla<em>míchat, aby se nesrazila</em></span></label><label class="item" data-id="0-2"><input type="checkbox"><span>Pařicí káď 200 l<em>dřevo nebo nerez</em></span></label><label class="item" data-id="0-3"><input type="checkbox"><span>Pařák / kotel na horkou vodu 100 l</span></label><label class="item" data-id="0-4"><input type="checkbox"><span>Zvony na štětiny<em>2 až 3 ks</em></span></label><label class="item" data-id="0-5"><input type="checkbox"><span>Řetězy na otáčení prasete v kádi</span></label><label class="item" data-id="0-6"><input type="checkbox"><span>Rozporka (jateční vidlice)</span></label><label class="item" data-id="0-7"><input type="checkbox"><span>Kladka nebo hák v trámu<em>nosnost 300 kg</em></span></label><label class="item" data-id="0-8"><input type="checkbox"><span>Řeznická sekera</span></label><label class="item" data-id="0-9"><input type="checkbox"><span>Omračovací přístroj<em>jen pro porážku pro vlastní spotřebu</em></span></label></section><section><h2><span>Bourání</span><small>0/8</small></h2><label class="item" data-id="1-0"><input type="checkbox"><span>Řeznický špalek<em>buk nebo akát, min. 80 cm</em></span></label><label class="item" data-id="1-1"><input type="checkbox"><span>Bourací nůž 25 cm</span></label><label class="item" data-id="1-2"><input type="checkbox"><span>Vykosťovací nůž 15 cm</span></label><label class="item" data-id="1-3"><input type="checkbox"><span>Stahovací nůž</span></label><label class="item" data-id="1-4"><input type="checkbox"><span>Sekáček</span></label><label class="item" data-id="1-5"><input type="checkbox"><span>Ocílka + brousek</span></label><label class="item" data-id="1-6"><input type="checkbox"><span>Rámová pila na kosti</span></label><label class="item" data-id="1-7"><input type="checkbox"><span>Řezuvzdorné rukavice</span></label></section><section><h2><span>Vaření a škvaření</span><small>0/8</small></h2><label class="item" data-id="2-0"><input type="checkbox"><span>Kotlina 100 až 150 l na dřevo<em>nebo nerez kotel + plynový hořák</em></span></label><label class="item" data-id="2-1"><input type="checkbox"><span>Druhý kotel 50 l na prdelačku</span></label><label class="item" data-id="2-2"><input type="checkbox"><span>Dřevěné hrablo / míchadlo</span></label><label class="item" data-id="2-3"><input type="checkbox"><span>Vidlice na vytahování masa</span></label><label class="item" data-id="2-4"><input type="checkbox"><span>Velký cedník / síto</span></label><label class="item" data-id="2-5"><input type="checkbox"><span>Dřevěné necky (troky) na vařené maso</span></label><label class="item" data-id="2-6"><input type="checkbox"><span>Škvařicí pánev nebo kotlík na sádlo</span></label><label class="item" data-id="2-7"><input type="checkbox"><span>Kameninové hrnce na sádlo</span></label></section><section><h2><span>Výroba</span><small>0/13</small></h2><label class="item" data-id="3-0"><input type="checkbox"><span>Profi elektrický mlýnek 2 až 3 kW</span></label><label class="item" data-id="3-1"><input type="checkbox"><span>Desky do mlýnku 3 / 5 / 8 / 10 mm</span></label><label class="item" data-id="3-2"><input type="checkbox"><span>Plnička jitrnic a klobás 10 až 15 l<em>pístová s klikou</em></span></label><label class="item" data-id="3-3"><input type="checkbox"><span>Kutr na prejt<em>volitelně, jinak jemná deska</em></span></label><label class="item" data-id="3-4"><input type="checkbox"><span>Formy na tlačenku</span></label><label class="item" data-id="3-5"><input type="checkbox"><span>Nálevka na jelita</span></label><label class="item" data-id="3-6"><input type="checkbox"><span>Špejle</span></label><label class="item" data-id="3-7"><input type="checkbox"><span>Řeznický provázek</span></label><label class="item" data-id="3-8"><input type="checkbox"><span>Vpichový teploměr<em>jitrnice a tlačenka 72 až 75 °C v jádru</em></span></label><label class="item" data-id="3-9"><input type="checkbox"><span>Střeva tenká vepřová<em>jitrnice, klobásy</em></span></label><label class="item" data-id="3-10"><input type="checkbox"><span>Střeva tlustá vepřová<em>jelita</em></span></label><label class="item" data-id="3-11"><input type="checkbox"><span>Žaludek nebo bachor<em>tlačenka</em></span></label><label class="item" data-id="3-12"><input type="checkbox"><span>Hovězí kroužky</span></label></section><section><h2><span>Suroviny mimo maso</span><small>0/4</small></h2><label class="item" data-id="4-0"><input type="checkbox"><span>Kroupy</span></label><label class="item" data-id="4-1"><input type="checkbox"><span>Žemle nebo rohlíky</span></label><label class="item" data-id="4-2"><input type="checkbox"><span>Majoránka, pepř, nové koření</span></label><label class="item" data-id="4-3"><input type="checkbox"><span>Česnek, cibule, sůl</span></label></section><section><h2><span>Uzení a chlazení</span><small>0/5</small></h2><label class="item" data-id="5-0"><input type="checkbox"><span>Udírna<em>zděná nebo nerez skříň</em></span></label><label class="item" data-id="5-1"><input type="checkbox"><span>Uzenářské háky + S háky</span></label><label class="item" data-id="5-2"><input type="checkbox"><span>Uzenářské tyče</span></label><label class="item" data-id="5-3"><input type="checkbox"><span>Chladicí box nebo chladírna<em>bez chlazení to nedělat</em></span></label><label class="item" data-id="5-4"><input type="checkbox"><span>Přepravky E2 + led</span></label></section><section><h2><span>Hygiena a provoz</span><small>0/7</small></h2><label class="item" data-id="6-0"><input type="checkbox"><span>Nerez pracovní stůl 200 cm<em>2 ks</em></span></label><label class="item" data-id="6-1"><input type="checkbox"><span>PVC zástěry</span></label><label class="item" data-id="6-2"><input type="checkbox"><span>Gumáky</span></label><label class="item" data-id="6-3"><input type="checkbox"><span>Síťky na vlasy</span></label><label class="item" data-id="6-4"><input type="checkbox"><span>Dezinfekce</span></label><label class="item" data-id="6-5"><input type="checkbox"><span>Tlaková myčka na úklid</span></label><label class="item" data-id="6-6"><input type="checkbox"><span>Uzavíratelné nádoby na odpad pro kafilerii</span></label></section><section><h2><span>Servis pro hody</span><small>0/4</small></h2><label class="item" data-id="7-0"><input type="checkbox"><span>Várnice 20 až 30 l</span></label><label class="item" data-id="7-1"><input type="checkbox"><span>Výdejní kotle</span></label><label class="item" data-id="7-2"><input type="checkbox"><span>Misky a naběračky</span></label><label class="item" data-id="7-3"><input type="checkbox"><span>Prkna na ovar</span></label></section>
+  <div class="note"><strong>Pozor, právně.</strong> Pro hosty nebo veřejnost musí být prase poražené na jatkách (koupit půlky nebo nechat porazit a zpracovat na zámku). Domácí porážka je jen pro vlastní spotřebu. Když se bude prodávat, ohlásit předem KVS.</div>
+</main>
+<footer id="foot">Zaškrtnutí je společné, uloží se pro každého, kdo má odkaz s právem úprav. Chybějící položky zkopíruj tlačítkem nahoře a pošli jako nákupní seznam. Verze 17. 9. 2026.</footer>
+<div class="toast" id="toast"></div>
+<script>(function(){
+const CODE = (typeof document!=="undefined" && document.currentScript) ? document.currentScript.textContent : (typeof __CODE__!=="undefined" ? __CODE__ : "");
+const DATA = [
+ ["Porážka a paření",[
+  ["Vykrvovací nůž","dlouhý, úzký"],
+  ["Nerez kbelík na krev + metla","míchat, aby se nesrazila"],
+  ["Pařicí káď 200 l","dřevo nebo nerez"],
+  ["Pařák / kotel na horkou vodu 100 l"],
+  ["Zvony na štětiny","2 až 3 ks"],
+  ["Řetězy na otáčení prasete v kádi"],
+  ["Rozporka (jateční vidlice)"],
+  ["Kladka nebo hák v trámu","nosnost 300 kg"],
+  ["Řeznická sekera"],
+  ["Omračovací přístroj","jen pro porážku pro vlastní spotřebu"]
+ ]],
+ ["Bourání",[
+  ["Řeznický špalek","buk nebo akát, min. 80 cm"],
+  ["Bourací nůž 25 cm"],
+  ["Vykosťovací nůž 15 cm"],
+  ["Stahovací nůž"],
+  ["Sekáček"],
+  ["Ocílka + brousek"],
+  ["Rámová pila na kosti"],
+  ["Řezuvzdorné rukavice"]
+ ]],
+ ["Vaření a škvaření",[
+  ["Kotlina 100 až 150 l na dřevo","nebo nerez kotel + plynový hořák"],
+  ["Druhý kotel 50 l na prdelačku"],
+  ["Dřevěné hrablo / míchadlo"],
+  ["Vidlice na vytahování masa"],
+  ["Velký cedník / síto"],
+  ["Dřevěné necky (troky) na vařené maso"],
+  ["Škvařicí pánev nebo kotlík na sádlo"],
+  ["Kameninové hrnce na sádlo"]
+ ]],
+ ["Výroba",[
+  ["Profi elektrický mlýnek 2 až 3 kW"],
+  ["Desky do mlýnku 3 / 5 / 8 / 10 mm"],
+  ["Plnička jitrnic a klobás 10 až 15 l","pístová s klikou"],
+  ["Kutr na prejt","volitelně, jinak jemná deska"],
+  ["Formy na tlačenku"],
+  ["Nálevka na jelita"],
+  ["Špejle"],
+  ["Řeznický provázek"],
+  ["Vpichový teploměr","jitrnice a tlačenka 72 až 75 °C v jádru"],
+  ["Střeva tenká vepřová","jitrnice, klobásy"],
+  ["Střeva tlustá vepřová","jelita"],
+  ["Žaludek nebo bachor","tlačenka"],
+  ["Hovězí kroužky"]
+ ]],
+ ["Suroviny mimo maso",[
+  ["Kroupy"],
+  ["Žemle nebo rohlíky"],
+  ["Majoránka, pepř, nové koření"],
+  ["Česnek, cibule, sůl"]
+ ]],
+ ["Uzení a chlazení",[
+  ["Udírna","zděná nebo nerez skříň"],
+  ["Uzenářské háky + S háky"],
+  ["Uzenářské tyče"],
+  ["Chladicí box nebo chladírna","bez chlazení to nedělat"],
+  ["Přepravky E2 + led"]
+ ]],
+ ["Hygiena a provoz",[
+  ["Nerez pracovní stůl 200 cm","2 ks"],
+  ["PVC zástěry"],
+  ["Gumáky"],
+  ["Síťky na vlasy"],
+  ["Dezinfekce"],
+  ["Tlaková myčka na úklid"],
+  ["Uzavíratelné nádoby na odpad pro kafilerii"]
+ ]],
+ ["Servis pro hody",[
+  ["Várnice 20 až 30 l"],
+  ["Výdejní kotle"],
+  ["Misky a naběračky"],
+  ["Prkna na ovar"]
+ ]]
+];
+const TOTAL = DATA.reduce((n,s)=>n+s[1].length,0);
+const CSS = `
+  :root{--green:#1F3A2C;--green-deep:#152A20;--gold:#B8963E;--gold-soft:#E4CF8C;--cream:#F3EBD9;--paper:#FBF7EE;--ink:#1E1B16;--muted:#6F6656;--line:#D9CCAA}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--cream);color:var(--ink);font:17px/1.45 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header{background:var(--green);color:var(--cream);padding:20px 18px 16px;position:sticky;top:0;z-index:5;box-shadow:0 2px 0 var(--gold)}
+  header h1{font:600 26px/1.15 Georgia,"Times New Roman",serif;margin:0 0 4px}
+  header p{margin:0;color:var(--gold-soft);font-size:15px}
+  .bar{height:6px;background:var(--green-deep);border-radius:3px;margin-top:12px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--gold);transition:width .25s}
+  .tools{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px 4px;max-width:680px;margin:0 auto}
+  .tools button{background:var(--paper);border:1px solid var(--line);color:var(--ink);padding:8px 12px;border-radius:6px;font-size:15px;cursor:pointer}
+  .tools button[aria-pressed="true"]{background:var(--green);color:var(--cream);border-color:var(--green)}
+  .tools button:focus-visible,.item input:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+  main{max-width:680px;margin:0 auto;padding:8px 16px 40px}
+  section{margin:18px 0 6px}
+  h2{font:600 21px/1.2 Georgia,"Times New Roman",serif;color:var(--green);margin:0 0 6px;padding-bottom:6px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:baseline}
+  h2 small{font:14px -apple-system,"Segoe UI",Roboto,sans-serif;color:var(--muted)}
+  .item{display:flex;align-items:flex-start;gap:12px;padding:10px 4px;border-bottom:1px solid #EAE0C6;cursor:pointer}
+  .item input{appearance:none;-webkit-appearance:none;flex:none;width:24px;height:24px;margin-top:1px;border:2px solid var(--green);border-radius:5px;background:var(--paper);position:relative}
+  .item input:checked{background:var(--green)}
+  .item input:checked::after{content:"";position:absolute;left:7px;top:2px;width:6px;height:12px;border:solid var(--gold-soft);border-width:0 3px 3px 0;transform:rotate(45deg)}
+  .item span{flex:1}
+  .item.done span{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--gold)}
+  .item em{display:block;font-style:normal;font-size:14px;color:var(--muted)}
+  body.only-missing .item.done{display:none}
+  body.readonly .item{cursor:default}
+  .note{background:var(--paper);border-left:4px solid var(--gold);padding:12px 14px;margin:26px 0 0;font-size:15px}
+  .note strong{color:var(--green)}
+  footer{color:var(--muted);font-size:13px;text-align:center;padding:10px 16px 30px}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--green);color:var(--cream);padding:10px 16px;border-radius:8px;font-size:15px;opacity:0;pointer-events:none;transition:opacity .2s}
+  .toast.show{opacity:1}
+  @media (prefers-reduced-motion:reduce){.bar i,.toast{transition:none}}
+`;
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+function fmt(iso){ if(!iso) return "zatím nic nezaškrtnuto"; try{const d=new Date(iso);return "naposledy uloženo "+d.toLocaleString("cs-CZ",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"})}catch(e){return ""} }
+function buildDoc(state){
+  const t=state.ticks||{}; let done=0;
+  const secs=DATA.map((sec,si)=>{
+    const rows=sec[1].map((it,ii)=>{
+      const id=si+"-"+ii; const on=!!t[id]; if(on) done++;
+      return `<label class="item${on?" done":""}" data-id="${id}"><input type="checkbox"${on?" checked":""}><span>${esc(it[0])}${it[1]?`<em>${esc(it[1])}</em>`:""}</span></label>`;
+    }).join("");
+    const n=sec[1].filter((_,ii)=>t[si+"-"+ii]).length;
+    return `<section><h2><span>${esc(sec[0])}</span><small>${n}/${sec[1].length}</small></h2>${rows}</section>`;
+  }).join("");
+  const json=JSON.stringify(state).replace(/</g,"\\u003c");
+  return `<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zabijačka na zámku, výbava</title>
+<style>${CSS}</style>
+<script id="state" type="application/json">${json}<\/script>
+</head>
+<body>
+<header>
+  <h1>Zabijačka na zámku</h1>
+  <p><span id="count">${done} z ${TOTAL}</span> zaškrtnuto, <span id="saved">${esc(fmt(state.updated))}</span>. Kuchyňské věci (hrnce, prkénka, naběračky) tu nejsou, ty máte.</p>
+  <div class="bar"><i id="bar" style="width:${TOTAL?Math.round(done/TOTAL*100):0}%"></i></div>
+</header>
+<div class="tools">
+  <button id="filter" aria-pressed="false">Ukázat jen to, co chybí</button>
+  <button id="copy">Zkopírovat chybějící</button>
+  <button id="reset">Vynulovat</button>
+</div>
+<main id="list">${secs}
+  <div class="note"><strong>Pozor, právně.</strong> Pro hosty nebo veřejnost musí být prase poražené na jatkách (koupit půlky nebo nechat porazit a zpracovat na zámku). Domácí porážka je jen pro vlastní spotřebu. Když se bude prodávat, ohlásit předem KVS.</div>
+</main>
+<footer id="foot">Zaškrtnutí je společné, uloží se pro každého, kdo má odkaz s právem úprav. Chybějící položky zkopíruj tlačítkem nahoře a pošli jako nákupní seznam. Verze 17. 9. 2026.</footer>
+<div class="toast" id="toast"></div>
+<script>${CODE}<\/script>
+</body>
+</html>`;
+}
+if (typeof module!=="undefined" && module.exports){ module.exports={buildDoc}; return; }
+
+/* ---------- browser runtime ---------- */
+let state; try{state=JSON.parse(document.getElementById("state").textContent)}catch(e){state={ticks:{},updated:null}}
+if(!state.ticks) state.ticks={};
+let mode="wait";          // wait | artifact | local | readonly
+let artifactNS=null, timer=null, inflight=false, pending={};
+const PKEY="zabijacka-pending", LKEY="zabijacka-local";
+const toast=document.getElementById("toast");
+function say(m){toast.textContent=m;toast.classList.add("show");clearTimeout(say.t);say.t=setTimeout(()=>toast.classList.remove("show"),1800)}
+
+function render(){
+  let done=0;
+  document.querySelectorAll(".item").forEach(l=>{const on=!!state.ticks[l.dataset.id];l.classList.toggle("done",on);l.querySelector("input").checked=on;if(on)done++;});
+  DATA.forEach((sec,si)=>{const n=sec[1].filter((_,ii)=>state.ticks[si+"-"+ii]).length;document.querySelectorAll("h2 small")[si].textContent=n+"/"+sec[1].length});
+  document.getElementById("count").textContent=done+" z "+TOTAL;
+  document.getElementById("bar").style.width=(TOTAL?done/TOTAL*100:0)+"%";
+}
+function setTick(id,on){ if(on) state.ticks[id]=true; else delete state.ticks[id]; pending[id]=on; render(); schedule(); }
+function schedule(){
+  if(mode==="local"||mode==="readonly"){ try{localStorage.setItem(LKEY,JSON.stringify(state.ticks))}catch(e){} return; }
+  if(mode==="server"){ clearTimeout(timer); timer=setTimeout(serverSave,700); return; }
+  clearTimeout(timer); timer=setTimeout(publish,900);
+}
+/* server mode: a sibling state.json endpoint (GET/POST) next to this page */
+async function serverLoad(){
+  try{
+    const r=await fetch("state.json",{cache:"no-store",credentials:"same-origin"});
+    if(!r.ok) return false;
+    const s=await r.json();
+    if(s&&typeof s==="object"){ if(s.ticks&&typeof s.ticks==="object"){state.ticks=s.ticks;} state.updated=s.updated||state.updated; render(); document.getElementById("saved").textContent=fmt(state.updated); }
+    return true;
+  }catch(e){ return false; }
+}
+async function serverSave(){
+  state.updated=new Date().toISOString();
+  document.getElementById("saved").textContent="ukládám";
+  try{
+    const r=await fetch("state.json",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({ticks:state.ticks,updated:state.updated})});
+    if(!r.ok) throw new Error(String(r.status));
+    document.getElementById("saved").textContent=fmt(state.updated); timer=null; say("Uloženo");
+  }catch(e){ document.getElementById("saved").textContent="uložení selhalo"; say("Uložení selhalo, zkusím znovu"); clearTimeout(timer); timer=setTimeout(serverSave,3000); }
+}
+async function publish(){
+  if(mode!=="artifact"||!artifactNS){ return; }
+  if(inflight){ clearTimeout(timer); timer=setTimeout(publish,900); return; }
+  inflight=true;
+  try{ sessionStorage.setItem(PKEY,JSON.stringify(pending)); }catch(e){}
+  const snap=Object.assign({},pending); pending={};
+  state.updated=new Date().toISOString();
+  document.getElementById("saved").textContent="ukládám";
+  try{
+    await artifactNS.publish(buildDoc(state));
+    try{ sessionStorage.removeItem(PKEY); }catch(e){}
+    // the view reloads to the new version now
+  }catch(err){
+    inflight=false;
+    const code=err&&err.code;
+    if(code==="conflict"){ /* reload is coming; pending stays in sessionStorage and is re-applied after reload */ return; }
+    Object.assign(pending,snap);
+    if(code==="not_writer"||code==="not_granted"||code==="not_declared"||code==="consent_required"||code==="capability_disabled"||code==="capability_removed"){
+      mode="readonly"; document.body.classList.add("readonly");
+      document.getElementById("foot").textContent="Tenhle pohled je jen pro čtení, zaškrtnutí zůstává jen v tomhle prohlížeči.";
+      try{localStorage.setItem(LKEY,JSON.stringify(state.ticks))}catch(e){}
+      say("Jen pro čtení"); return;
+    }
+    if(code==="rate_limited"){ clearTimeout(timer); timer=setTimeout(publish,4000); say("Ukládám za chvíli"); return; }
+    if(code==="upstream_error"){ clearTimeout(timer); timer=setTimeout(publish,1500+Math.random()*1500); return; }
+    document.getElementById("saved").textContent="uložení selhalo";
+    say("Uložení selhalo");
+  }
+}
+
+document.getElementById("list").addEventListener("change",e=>{
+  const l=e.target.closest(".item"); if(!l) return;
+  if(mode==="readonly"){ /* still allow local ticking */ }
+  setTick(l.dataset.id,e.target.checked);
+});
+const f=document.getElementById("filter");
+f.addEventListener("click",()=>{const on=f.getAttribute("aria-pressed")!=="true";f.setAttribute("aria-pressed",on);document.body.classList.toggle("only-missing",on);f.textContent=on?"Ukázat všechno":"Ukázat jen to, co chybí";});
+document.getElementById("copy").addEventListener("click",async()=>{
+  const out=[];
+  DATA.forEach((sec,si)=>{const m=sec[1].filter((_,ii)=>!state.ticks[si+"-"+ii]).map(i=>"- "+i[0]+(i[1]?" ("+i[1]+")":""));if(m.length)out.push(sec[0]+"\n"+m.join("\n"));});
+  const txt=out.length?"Zabijačka, chybí:\n\n"+out.join("\n\n"):"Nic nechybí.";
+  try{await navigator.clipboard.writeText(txt);say("Zkopírováno")}
+  catch(e){const ta=document.createElement("textarea");ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove();say("Zkopírováno")}
+});
+document.getElementById("reset").addEventListener("click",()=>{
+  if(!confirm("Odškrtnout všechno pro všechny?")) return;
+  Object.keys(state.ticks).forEach(id=>pending[id]=false); state.ticks={}; render(); schedule(); say("Vynulováno");
+});
+
+(async()=>{
+  const ns = (window.claude && typeof window.claude.use==="function") ? await window.claude.use("artifact") : null;
+  if(ns){
+    artifactNS=ns; mode="artifact";
+    let p=null; try{p=JSON.parse(sessionStorage.getItem(PKEY)||"null")}catch(e){}
+    if(p && Object.keys(p).length){
+      let changed=false;
+      for(const id in p){ const on=p[id]; if(!!state.ticks[id]!==on){ if(on) state.ticks[id]=true; else delete state.ticks[id]; pending[id]=on; changed=true; } }
+      try{sessionStorage.removeItem(PKEY)}catch(e){}
+      if(changed){ render(); schedule(); }
+    } else if(Object.keys(pending).length){ schedule(); }
+  } else if(await serverLoad()){
+    mode="server";
+    document.getElementById("foot").textContent="Zaškrtnutí je společné pro všechny, kdo mají odkaz. Chybějící položky zkopíruj tlačítkem nahoře a pošli jako nákupní seznam. Verze 17. 9. 2026.";
+    setInterval(()=>{ if(document.visibilityState==="visible"&&!timer) serverLoad(); },15000);
+    document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") serverLoad(); });
+  } else {
+    mode="local";
+    let l=null; try{l=JSON.parse(localStorage.getItem(LKEY)||"null")}catch(e){}
+    if(l){ state.ticks=Object.assign({},state.ticks,l); render(); }
+    document.getElementById("foot").textContent="Zaškrtnutí se tu ukládá jen v tomhle prohlížeči. Chybějící položky zkopíruj tlačítkem nahoře. Verze 17. 9. 2026.";
+    document.getElementById("saved").textContent="uloženo jen tady";
+  }
+})();
+})();
+</script>
+</body>
+</html>
