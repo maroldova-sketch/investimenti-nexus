@@ -1,0 +1,94 @@
+  <!-- TAB: PROGRAM (data: dashboard/data/program.json) -->
+  <div class="castello-section d-none" id="tab-program">
+    <style>
+      .prog-ev { display:block; padding:2px 6px; margin:2px 0; border-radius:4px; font-size:0.78rem; line-height:1.25; border-left:3px solid #9ca3af; background:#f9fafb; }
+      .prog-ev.divadlo { border-left-color: var(--castello-navy); background:#e8ecf3; }
+      .prog-ev.gastro  { border-left-color: var(--castello-blood); background:#f7e9e9; }
+      .prog-ev.koncert { border-left-color: #5b21b6; background:#ede9fe; }
+      .prog-ev.tradice { border-left-color: var(--castello-gold); background:#f6f1e4; }
+      .prog-ev.svatba  { border-left-color: #be185d; background:#fce7f3; }
+      .prog-ev.tentpole { font-weight:700; box-shadow: 0 0 0 1px var(--castello-gold) inset; }
+      .prog-ev .prog-date { color:#6b7280; font-weight:400; }
+      .prog-legend span { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.75rem; margin-right:4px; }
+      .prog-kpi { border-top:3px solid var(--castello-gold); }
+      .prog-kpi .h3 { margin-bottom:0; }
+      .prog-neg { color: var(--castello-blood); font-weight:700; }
+      .prog-pos { color: #065f46; font-weight:700; }
+    </style>
+    <h2 class="navy-text mb-1">🗓️ Program, ceník a kalkulace večera</h2>
+    <p class="text-muted mb-3">Zdroj pravdy: <code id="prog-zdroj">dashboard/data/program.json</code> · <span id="prog-meta" class="small"></span></p>
+    <div id="prog-status" class="alert alert-info">Načítám program.json…</div>
+    <div id="prog-body" class="d-none">
+
+      <!-- BLOK 1: KALENDÁŘ -->
+      <h3 class="navy-text mt-2 mb-2">📅 Kalendář akcí (12 měsíců)</h3>
+      <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+        <select id="prog-f-typ" class="form-select form-select-sm w-auto"><option value="">Všechny typy</option></select>
+        <select id="prog-f-stav" class="form-select form-select-sm w-auto"><option value="">Všechny stavy</option></select>
+        <label class="form-check form-check-inline mb-0"><input class="form-check-input" type="checkbox" id="prog-f-tent"><span class="form-check-label">jen tentpole ★</span></label>
+        <span id="prog-f-count" class="small text-muted"></span>
+        <span class="prog-legend ms-auto">
+          <span class="prog-ev divadlo">divadlo</span><span class="prog-ev gastro">gastro</span><span class="prog-ev koncert">koncert</span><span class="prog-ev tradice">tradice</span><span class="prog-ev svatba">svatba</span><span class="prog-ev tentpole">★ tentpole</span>
+        </span>
+      </div>
+      <div class="row row-cards mb-5" id="prog-kalendar"></div>
+
+      <!-- BLOK 2: CENÍK A KAPACITA -->
+      <h3 class="navy-text mt-4 mb-2">🎟️ Ceník a kapacita</h3>
+      <div class="row row-cards mb-5">
+        <div class="col-lg-8">
+          <div class="card"><div class="card-body p-2">
+            <div class="table-responsive"><table class="table castello-table table-vcenter table-sm mb-0" id="prog-cenik">
+              <thead><tr><th>Sektor</th><th class="text-end">Cena</th><th class="text-end">Míst</th><th class="text-end">Plná tržba</th></tr></thead>
+              <tbody></tbody>
+            </table></div>
+            <div class="small text-muted mt-2" id="prog-cenik-pozn"></div>
+          </div></div>
+        </div>
+        <div class="col-lg-4">
+          <div class="card prog-kpi mb-3"><div class="card-body">
+            <div class="small text-muted text-uppercase">Benchmark Tvrz Divice</div>
+            <div id="prog-divice"></div>
+          </div></div>
+          <div class="card prog-kpi"><div class="card-body">
+            <div class="small text-muted text-uppercase">Venue</div>
+            <div id="prog-venue" class="small"></div>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- BLOK 3: KALKULACE VEČERA -->
+      <h3 class="navy-text mt-4 mb-2">🧮 Kalkulace večera</h3>
+      <div class="row row-cards mb-4">
+        <div class="col-lg-4">
+          <div class="card"><div class="card-body">
+            <div class="mb-2"><label class="form-label small mb-1">Titul (katalog)</label><select id="prog-k-titul" class="form-select form-select-sm"></select></div>
+            <div class="row g-2">
+              <div class="col-6"><label class="form-label small mb-1">Km (jedna cesta)</label><input id="prog-k-km" type="number" class="form-control form-control-sm" value="60" min="0"></div>
+              <div class="col-6"><label class="form-label small mb-1">Čekačka (h / vozidlo)</label><input id="prog-k-cek" type="number" class="form-control form-control-sm" value="5" min="0"></div>
+              <div class="col-6"><label class="form-label small mb-1">Obsazenost parteru %</label><input id="prog-k-obs" type="number" class="form-control form-control-sm" value="75" min="0" max="100"></div>
+              <div class="col-6"><label class="form-label small mb-1">Obsazenost lóží %</label><input id="prog-k-obsl" type="number" class="form-control form-control-sm" value="75" min="0" max="100"></div>
+              <div class="col-6"><label class="form-label small mb-1">Přirážka ke vstupnému</label><select id="prog-k-prir" class="form-select form-select-sm"><option value="0">žádná</option><option value="premiovy_vecer">prémiový večer</option><option value="koncert">koncert</option></select></div>
+              <div class="col-6"><label class="form-label small mb-1">Provoz večera (Kč)</label><input id="prog-k-prov" type="number" class="form-control form-control-sm" value="0" min="0"></div>
+            </div>
+            <div class="small text-muted mt-2" id="prog-k-hint"></div>
+            <div class="small text-muted mt-1" id="prog-k-titul-info"></div>
+          </div></div>
+        </div>
+        <div class="col-lg-8">
+          <div class="card"><div class="card-body p-2">
+            <div class="table-responsive"><table class="table castello-table table-vcenter table-sm mb-0" id="prog-kalk">
+              <thead><tr><th>Položka</th><th class="text-end">Kč</th><th>Poznámka</th></tr></thead>
+              <tbody></tbody>
+            </table></div>
+          </div></div>
+          <div class="row row-cards mt-3">
+            <div class="col-sm-4"><div class="card prog-kpi"><div class="card-body"><div class="small text-muted text-uppercase">Výsledek večera</div><div class="h3" id="prog-r-vysl">–</div></div></div></div>
+            <div class="col-sm-4"><div class="card prog-kpi"><div class="card-body"><div class="small text-muted text-uppercase">Bod zvratu</div><div class="h3" id="prog-r-be">–</div><div class="small text-muted" id="prog-r-be2"></div></div></div></div>
+            <div class="col-sm-4"><div class="card prog-kpi"><div class="card-body"><div class="small text-muted text-uppercase">vs CFO model</div><div class="h3" id="prog-r-cfo">–</div><div class="small text-muted" id="prog-r-cfo2"></div></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
