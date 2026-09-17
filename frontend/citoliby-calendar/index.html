@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#171411">
+<title>Cítoliby 2027 · živý kalendář</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner">
+ <div class="brand">CASTELLO · CÍTOLIBY · ŽIVÝ KALENDÁŘ</div>
+ <button class="btn dark" id="exportBtn">Export JSON</button>
+ <label class="btn dark" for="importFile">Import JSON</label><input id="importFile" type="file" accept=".json,application/json" hidden>
+ <button class="btn gold" id="newBtn">+ Přidat akci</button>
+</div></div>
+<div class="wrap">
+<header class="hero">
+ <div class="kicker">Master 2027 · každý den je plánovací jednotka</div>
+ <h1>Cítoliby 2027</h1>
+ <p>Historické srážky, stmívání, průběžný forecast a editovatelný program v jedné denní mřížce. Forecast se objeví automaticky, jakmile se konkrétní den dostane do dosahu modelu.</p>
+</header>
+
+<div id="weatherStatus" class="loading">Načítám klimatická data a forecast…</div>
+
+<div class="summary">
+ <article><b id="sumEvents">—</b><span>akcí v měsíci</span></article>
+ <article><b id="sumBooked">—</b><span>obsazených dnů</span></article>
+ <article><b id="sumSunset">—</b><span>západ uprostřed měsíce</span></article>
+ <article><b id="sumDusk">—</b><span>stmívání do</span></article>
+ <article><b id="sumRain">—</b><span>hist. déšť ≥0,1 mm</span></article>
+</div>
+
+<div class="toolbar">
+ <button class="btn" id="prevBtn">←</button>
+ <div class="monthtitle" id="monthTitle"></div>
+ <button class="btn" id="nextBtn">→</button>
+ <select id="categoryFilter"><option value="">Všechny rubriky</option><option>Divadlo</option><option>Koncert</option><option>Svatba</option><option>Gastro</option><option>Event</option></select>
+ <select id="placeFilter"><option value="">Všechna místa</option><option>Zahrada</option><option>Sala Terrena</option><option>Nádvoří</option></select>
+</div>
+<div class="legend"><span class="c-Divadlo">Divadlo</span><span class="c-Koncert">Koncert</span><span class="c-Svatba">Svatba</span><span class="c-Gastro">Gastro</span><span class="c-Event">Event</span></div>
+
+<div class="week" id="weekHeader"></div>
+<div class="week" id="calendar"></div>
+
+<div class="sources">
+ <strong>Zdroje:</strong> historické srážky primárně ČHMÚ, stanice Smolnice (SRA; WIGOS 0-203-0-11465), fallback NASA POWER; krátkodobý forecast MET Norway Locationforecast; astronomické časy vypočtené pro Cítoliby (50.33139 N, 13.81194 E). Historický normál se počítá z let 1991 až posledního kompletního roku. Editace se ukládají do tohoto prohlížeče; export/import JSON slouží jako přenos a záloha.
+</div>
+</div>
+
+<dialog id="eventDialog">
+ <div class="modal-head"><h2 id="modalTitle">Akce</h2><button class="close" id="closeDialog">×</button></div>
+ <form class="form" id="eventForm">
+  <input type="hidden" id="eventId">
+  <label class="full">Název<input id="eventTitle" required placeholder="Název akce"></label>
+  <label>Od<input id="startDate" type="date" required></label>
+  <label>Do<input id="endDate" type="date" required></label>
+  <label>Rubrika<select id="category" required><option>Divadlo</option><option>Koncert</option><option>Svatba</option><option>Gastro</option><option>Event</option></select></label>
+  <label>Místo<select id="place" required><option>Zahrada</option><option>Sala Terrena</option><option>Nádvoří</option></select></label>
+  <label>Začátek<input id="startTime" type="time"></label>
+  <label>Konec<input id="endTime" type="time"></label>
+  <label>Status<select id="status"><option>Návrh</option><option>Hold</option><option>Potvrzeno</option><option>Zrušeno</option></select></label>
+  <label class="full">Poznámka<textarea id="notes" placeholder="Produkce, kapacita, technika, catering…"></textarea></label>
+  <div class="modal-actions"><button type="button" class="btn danger hidden" id="deleteBtn">Smazat</button><button type="button" class="btn" id="cancelBtn">Zrušit</button><button class="btn gold" type="submit">Uložit</button></div>
+ </form>
+</dialog>
+
+<script src="data.js"></script>
+<script src="forecast.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>
