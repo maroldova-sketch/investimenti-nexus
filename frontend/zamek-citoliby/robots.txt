@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://zamek-citoliby.cz/sitemap.xml

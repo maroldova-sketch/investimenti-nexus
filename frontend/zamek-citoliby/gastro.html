@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gastro rok · Zámek Cítoliby</title>
+<meta name="description" content="Sezónní slavnosti na zámku Cítoliby: zabijačka, masopust, chřest, růže, chmel a pivo, burčák, husa, advent. Vlastní zámecká kuchyně a výrobna.">
+<link rel="canonical" href="https://zamek-citoliby.cz/gastro.html">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Gastro rok · Zámek Cítoliby">
+<meta property="og:description" content="Sezónní slavnosti na zámku Cítoliby: zabijačka, masopust, chřest, růže, chmel a pivo, burčák, husa, advent. Vlastní zámecká kuchyně a výrobna.">
+<meta property="og:url" content="https://zamek-citoliby.cz/gastro.html">
+<meta property="og:image" content="https://zamek-citoliby.cz/assets/og.png">
+<meta property="og:locale" content="cs_CZ">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/assets/style.css">
+
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29" fill="none" stroke="#C9A24A" stroke-width="2.5"/><text x="32" y="43" text-anchor="middle" font-family="Georgia,serif" font-size="34" font-weight="600" fill="#C9A24A">C</text></svg><span>Zámek Cítoliby</span></a>
+    <button class="menu-btn" aria-expanded="false" aria-controls="nav">Menu</button>
+    <nav class="nav" id="nav" aria-label="Hlavní"><a href="/program.html">Program</a><a href="/resonance.html">Resonance</a><a href="/koncerty.html">Koncerty</a><a href="/gastro.html" aria-current="page">Gastro</a><a href="/svatby.html">Svatby a eventy</a><a href="/pribeh.html">Příběh</a><a href="/navsteva.html">Návštěva</a><a href="/kontakt.html">Kontakt</a></nav>
+    <a class="btn cta" href="/#newsletter">Chci vědět první</a>
+  </div>
+</header>
+<main>
+
+<section class="hero" style="padding-block:44px">
+  <div class="wrap">
+    <div>
+      <div class="eyebrow">Zámecká kuchyně a výrobna · celý rok</div>
+      <h1>Gastro rok</h1>
+      <p class="lead">Každý měsíc jiná polévka, jiný kus. Zabijačka na nádvoří v lednu, chřest v květnu, růže a rosé v červnu, chmel a pivo v srpnu, burčák v září, husa v listopadu, advent v prosinci. Italská duše, lounský chleba, žatecký chmel, mostecké víno.</p>
+      <div class="actions"><a class="btn" href="/program.html">Kalendář slavností</a></div>
+    </div>
+    <div class="ph tall">foto: ruce, jitrnice, chléb, sklenice</div>
+  </div>
+</section>
+<section>
+  <div class="wrap">
+    <div class="eyebrow">Čtyři pilíře</div>
+    <h2>Květiny, slavnosti, gastronomie, tradice</h2>
+    <div class="grid c4" style="margin-top:18px">
+      <div class="tile"><h3>Květiny</h3><p>Slavnost růží v červnu, levandulové dny v červenci, jarní květiny v květnu.</p></div>
+      <div class="tile"><h3>Slavnosti</h3><p>Velikonoce, Čarodějnice, Svatojánská noc, Svatojakubská pouť, advent.</p></div>
+      <div class="tile"><h3>Gastro</h3><p>Sezónní kuchyně, vlastní výrobna, zabijačky, pivovary, vinaři z regionu.</p></div>
+      <div class="tile"><h3>Tradice</h3><p>Masopust, pálení čarodějnic, svatomartinská husa, Mikuláš, Silvestr na zámku.</p></div>
+    </div>
+  </div>
+</section>
+<section class="alt">
+  <div class="wrap">
+    <div class="eyebrow">Kalendář 2027</div>
+    <h2>Slavnosti a gastro víkendy</h2>
+    <div class="events" id="gastro-list"></div>
+    <p class="notice" style="margin-top:18px">Termíny upřesníme průběžně. K divadelním večerům bude možné předobjednat večeři ze zámecké kuchyně.</p>
+  </div>
+</section>
+
+<section class="dark" id="newsletter">
+  <div class="wrap grid c2">
+    <div>
+      <div class="eyebrow">Předprodej od 24. 11. 2026</div>
+      <h2>Chcete vědět o předprodeji jako první?</h2>
+      <p>Dáme vám vědět, až spustíme prodej vstupenek a odhalíme program Zámecké Resonance. Kdo je v seznamu, kupuje dřív a za lepší cenu. Nic víc, žádný spam.</p>
+    </div>
+    <form class="f" action="/api/subscribe" method="post" data-source="web-newsletter" data-ok="Děkujeme, jste v seznamu. Ozveme se, jakmile bude co oznámit.">
+      <label>Jméno<input name="name" autocomplete="name" required></label>
+      <label>E-mail<input name="email" type="email" autocomplete="email" required></label>
+      <label class="hp" aria-hidden="true">Web<input name="web" tabindex="-1" autocomplete="off"></label>
+      <label class="consent"><input type="checkbox" name="consent" value="ano" required><span>Souhlasím se zasíláním informací o programu a předprodeji Zámku Cítoliby (Castello Cítoliby s.r.o.). Odhlásit se mohu kdykoli. <a href="/soukromi.html">Jak s údaji nakládáme</a>.</span></label>
+      <div><button class="btn" type="submit">Zapsat do seznamu</button></div>
+      <div class="msg" aria-live="polite"></div>
+    </form>
+  </div>
+</section>
+
+
+</main>
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand">Zámek Cítoliby</div>
+      <p>Barokní zámek z roku 1665. Tyršovo náměstí, 439 02 Cítoliby u Loun.<br>Provozuje Castello Cítoliby s.r.o.</p>
+      <p><a href="mailto:info@zamek-citoliby.cz">info@zamek-citoliby.cz</a></p>
+    </div>
+    <div>
+      <p><a href="/program.html">Program</a><br><a href="/resonance.html">Zámecká Resonance</a><br><a href="/koncerty.html">Koncerty v zahradě</a><br><a href="/gastro.html">Gastro rok</a><br><a href="/svatby.html">Svatby a eventy</a></p>
+    </div>
+    <div>
+      <p><a href="/pribeh.html">Příběh a obnova</a><br><a href="/navsteva.html">Návštěvní informace</a><br><a href="/kontakt.html">Kontakt a média</a><br><a href="/soukromi.html">Ochrana osobních údajů</a></p>
+      <p><a data-ig href="#" rel="me">Instagram</a> · <a data-fb href="#" rel="me">Facebook</a></p>
+      <p>© 2026 Castello Cítoliby s.r.o.</p>
+    </div>
+  </div>
+</footer>
+<script src="/assets/config.js"></script>
+<script src="/assets/site.js" defer></script>
+</body>
+</html>
