@@ -1,0 +1,58 @@
+{% extends "layouts/base.html" %}
+{% block title %}Castello Vendor Matrix{% endblock %}
+{% block breadcrumb %}Cítoliby / Ticketing & marketing / Vendor Matrix{% endblock %}
+{% block page_header %}
+<div class="page-header d-print-none"><div class="container-xl">
+  <div class="row g-2 align-items-center"><div class="col"><h2 class="page-title">Castello Vendor Matrix</h2>
+  <div class="text-muted mt-1">Evidence-based srovnání ticketingu, distribuce a navazujících vrstev · aktualizace {{ updated_at }}</div></div></div>
+</div></div>
+{% endblock %}
+{% block content %}
+<div class="container-xl">
+  <div class="alert alert-info"><strong>Metoda:</strong> {{ method }}</div>
+
+  <form class="card card-sm mb-3" method="get"><div class="card-body d-flex flex-wrap gap-3 align-items-end">
+    <div><label class="form-label">Vstupenek / rok</label><input class="form-control" name="tickets" type="number" value="{{ scenario.tickets }}"></div>
+    <div><label class="form-label">Průměrná cena vstupenky</label><input class="form-control" name="avg_ticket" type="number" value="{{ scenario.avg_ticket|int }}"></div>
+    <button class="btn btn-primary">Přepočítat</button>
+    <div class="ms-auto"><div class="text-muted">Modelový ticket turnover</div><div class="h2 mb-0">{{ "{:,.0f}".format(scenario.turnover).replace(",", " ") }} Kč</div></div>
+  </div></form>
+
+  <div class="row row-cards mb-3">
+  {% for v in vendors[:3] %}
+    <div class="col-md-4"><div class="card"><div class="card-body">
+      <div class="d-flex justify-content-between"><div><div class="text-muted">{{ v.role }}</div><h3>{{ v.name }}</h3></div><span class="badge bg-blue-lt">{{ v.score }} / 100</span></div>
+      <div class="progress progress-sm mb-3"><div class="progress-bar" style="width: {{ v.score }}%"></div></div>
+      <div><strong>Modelový náklad:</strong>
+        {% if v.scenario_cost is not none %}{{ "{:,.0f}".format(v.scenario_cost).replace(",", " ") }} Kč{% else %}<span class="text-muted">čekáme na cenu</span>{% endif %}
+      </div>
+      <div class="small text-muted mt-1">Confidence {{ (v.confidence*100)|int }} % · {{ v.evidence_date }}</div>
+    </div></div></div>
+  {% endfor %}
+  </div>
+
+  <div class="card mb-3"><div class="card-header"><h3 class="card-title">Srovnávací tabulka</h3></div>
+  <div class="table-responsive"><table class="table table-vcenter card-table table-sm">
+    <thead><tr><th>Dodavatel</th><th>Role</th><th>Fee</th><th>White-label</th><th>Data</th><th>Cash-flow</th><th>Distribuce</th><th>Score</th><th>Confidence</th></tr></thead>
+    <tbody>{% for v in vendors %}<tr>
+      <td><strong>{{ v.name }}</strong><div class="small text-muted">{{ v.source }}</div></td>
+      <td>{{ v.role }}</td><td>{{ v.fee.model }}</td>
+      <td>{{ v.scores.ownership }}/5</td><td>{{ v.scores.attribution }}/5</td><td>{{ v.scores.cashflow }}/5</td><td>{{ v.scores.distribution }}/5</td>
+      <td><strong>{{ v.score }}</strong></td><td>{{ (v.confidence*100)|int }}%</td>
+    </tr>{% endfor %}</tbody>
+  </table></div></div>
+
+  {% for v in vendors %}
+  <div class="card mb-3"><div class="card-header"><h3 class="card-title">{{ v.name }} — evidence & open questions</h3></div>
+    <div class="card-body"><div class="row">
+      <div class="col-md-7"><h4>Potvrzeno</h4><ul>{% for f in v.facts %}<li>{{ f }}</li>{% endfor %}</ul></div>
+      <div class="col-md-5"><h4>Neuzavřeno / ověřit</h4><ul>{% for u in v.unknowns %}<li>{{ u }}</li>{% endfor %}</ul></div>
+    </div></div>
+  </div>
+  {% endfor %}
+
+  <div class="card"><div class="card-header"><h3 class="card-title">Navazující vrstvy</h3></div>
+  <div class="table-responsive"><table class="table card-table"><thead><tr><th>Partner</th><th>Role</th><th>Stav</th><th>Fit</th><th>Poznámka</th></tr></thead>
+  <tbody>{% for c in companions %}<tr><td><strong>{{ c.name }}</strong></td><td>{{ c.role }}</td><td>{{ c.status }}</td><td>{{ c.fit }}</td><td>{{ c.note }}</td></tr>{% endfor %}</tbody></table></div></div>
+</div>
+{% endblock %}
