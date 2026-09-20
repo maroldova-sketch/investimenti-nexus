@@ -1,0 +1,184 @@
+{% extends "layouts/base.html" %}
+{% block title %}Cítoliby Commerce{% endblock %}
+{% block breadcrumb %}Cítoliby / Commerce Intelligence{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div class="container-xl">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div>
+        <div class="page-pretitle">ZÁMEK CÍTOLIBY</div>
+        <h2 class="page-title">Ticketing & Commerce Intelligence</h2>
+        <div class="text-muted mt-1">Fakta, TCO, evidence, swarm pohledy a rozhodovací brány.</div>
+      </div>
+      <div class="text-end">
+        <span class="badge bg-green-lt">v{{ module_version }}</span>
+        <div class="text-muted mt-1" style="font-size:11px">Data: {{ updated_at }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-xl">
+
+  <div class="alert alert-info">
+    <strong>Pracovní závěr:</strong> {{ recommendation.core }}
+    <br><span class="text-muted">{{ recommendation.distribution }}</span>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-lg-4">
+      <div class="card h-100">
+        <div class="card-header"><h3 class="card-title">Scénář</h3></div>
+        <div class="card-body">
+          <label class="form-label">Vstupenky / rok</label>
+          <input id="tickets" class="form-control mb-2" type="number" value="{{ scenario.tickets }}">
+          <label class="form-label">Ticket revenue / rok</label>
+          <input id="revenue" class="form-control mb-2" type="number" value="{{ scenario.ticket_revenue }}">
+          <label class="form-label">Online objednávky / rok</label>
+          <input id="orders" class="form-control mb-3" type="number" value="{{ scenario.orders }}">
+          <button class="btn btn-primary w-100" onclick="recalc()">Přepočítat</button>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-8">
+      <div class="card h-100">
+        <div class="card-header"><h3 class="card-title">Rozhodovací architektura</h3></div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6"><div class="subheader">Core ticketing</div><div class="h2 mb-1">BZUCO</div><div class="text-muted">conditional front-runner</div></div>
+            <div class="col-md-6"><div class="subheader">Distribuční booster</div><div class="h2 mb-1">PLG / xTicket</div><div class="text-muted">jen pokud přinesou prokazatelně nový prodej</div></div>
+            <div class="col-md-6"><div class="subheader">CRM / automation</div><div class="h2 mb-1">Ecomail</div><div class="text-muted">komunikační vrstva, ne nutně master CRM</div></div>
+            <div class="col-md-6"><div class="subheader">Performance</div><div class="h2 mb-1">HUBIO</div><div class="text-muted">shortlist, odložený call po výběru ticketingu</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header"><h3 class="card-title">Ticketing core — srovnání</h3></div>
+    <div class="table-responsive">
+      <table class="table table-vcenter table-sm">
+        <thead>
+          <tr>
+            <th>Partner</th>
+            <th>Stav</th>
+            <th class="text-end">DTC score</th>
+            <th class="text-end">Swarm consensus</th>
+            <th class="text-end">Confidence</th>
+            <th class="text-end">Známý roční fee</th>
+            <th>Cash-flow</th>
+          </tr>
+        </thead>
+        <tbody id="provider-table">
+        {% for p in providers %}
+          <tr>
+            <td><strong>{{ p.name }}</strong><div class="text-muted" style="font-size:11px">{{ p.role }}</div></td>
+            <td><span class="badge {% if p.status == 'front-runner' %}bg-green-lt{% elif p.status == 'waiting-offer' %}bg-yellow-lt{% else %}bg-blue-lt{% endif %}">{{ p.status }}</span></td>
+            <td class="text-end fw-bold">{{ p.swarm["CEO / DTC core"] }}</td>
+            <td class="text-end">{{ p.swarm["Consensus"] }}</td>
+            <td class="text-end">{{ p.confidence }} %</td>
+            <td class="text-end font-monospace" data-provider-cost="{{ p.id }}">
+              {% if p.cost.organizer_fee is not none %}{{ "{:,.0f}".format(p.cost.organizer_fee).replace(","," ") }} Kč{% else %}UNKNOWN{% endif %}
+            </td>
+            <td style="max-width:300px">{{ p.cashflow_note }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    {% for p in providers %}
+    <div class="col-12 col-xl-6">
+      <div class="card h-100">
+        <div class="card-header">
+          <h3 class="card-title">{{ p.name }}</h3>
+          <div class="card-actions"><span class="badge bg-secondary-lt">confidence {{ p.confidence }}%</span></div>
+        </div>
+        <div class="card-body">
+          <div class="row g-2 mb-3">
+            {% for lens, score in p.swarm.items() if lens != "Consensus" %}
+            <div class="col-6 col-md-4"><div class="border rounded p-2"><div class="text-muted" style="font-size:10px">{{ lens }}</div><div class="h3 mb-0">{{ score }}</div></div></div>
+            {% endfor %}
+          </div>
+          <div class="subheader">Ekonomika</div>
+          <div class="mb-3">
+            <div><strong>System:</strong> {{ p.commercial.system_fee }}</div>
+            <div><strong>Customer fee:</strong> {{ p.commercial.customer_fee }}</div>
+            <div><strong>Add-ons:</strong> {{ p.commercial.addons }}</div>
+            <div><strong>Settlement:</strong> {{ p.commercial.settlement }}</div>
+          </div>
+          <div class="subheader text-danger">Rizika / red team</div>
+          <ul class="mb-3">{% for x in p.risks %}<li>{{ x }}</li>{% endfor %}</ul>
+          <div class="subheader">UNKNOWN / ověřit</div>
+          <ul class="mb-3">{% for x in p.unknowns %}<li>{{ x }}</li>{% endfor %}</ul>
+          <div class="subheader">Evidence</div>
+          {% for e in p.evidence %}
+          <div class="border-start ps-2 mb-2">
+            <strong>{{ e.grade }}</strong> · {{ e.date }} · {{ e.source }}<br>
+            <span class="text-muted">{{ e.summary }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-lg-6">
+      <div class="card h-100">
+        <div class="card-header"><h3 class="card-title">Decision gates</h3></div>
+        <div class="card-body">
+          <ol class="mb-0">{% for x in recommendation.decision_gates %}<li class="mb-2">{{ x }}</li>{% endfor %}</ol>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="card h-100">
+        <div class="card-header"><h3 class="card-title">Adjacent partners</h3></div>
+        <div class="card-body">
+          {% for p in adjacent_partners %}
+          <div class="mb-3">
+            <div class="d-flex justify-content-between"><strong>{{ p.name }}</strong><span class="badge bg-purple-lt">{{ p.status }}</span></div>
+            <div class="text-muted" style="font-size:12px">{{ p.role }}</div>
+            <div class="mt-1">{{ p.impact }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">Metodika</h3></div>
+    <div class="card-body">
+      <p class="mb-1"><strong>Score:</strong> {{ methodology.score_scale }}</p>
+      <p class="mb-1"><strong>Confidence:</strong> {{ methodology.confidence }}</p>
+      <p class="mb-0"><strong>Rule:</strong> {{ methodology.rule }}</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function recalc(){
+  const tickets = document.getElementById('tickets').value || 1;
+  const revenue = document.getElementById('revenue').value || 0;
+  const orders = document.getElementById('orders').value || 1;
+  const r = await fetch('/citoliby/commerce/api/summary?tickets='+encodeURIComponent(tickets)+'&ticket_revenue='+encodeURIComponent(revenue)+'&orders='+encodeURIComponent(orders));
+  const d = await r.json();
+  d.providers.forEach(p => {
+    const el = document.querySelector('[data-provider-cost="'+p.id+'"]');
+    if(!el) return;
+    el.textContent = p.cost.organizer_fee === null ? 'UNKNOWN' : Math.round(p.cost.organizer_fee).toLocaleString('cs-CZ')+' Kč';
+  });
+}
+</script>
+{% endblock %}
