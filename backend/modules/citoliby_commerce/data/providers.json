@@ -1,0 +1,363 @@
+{
+  "module_version": "0.1.0",
+  "updated_at": "2026-09-20",
+  "project": {
+    "name": "Zámek Cítoliby / Zámecká Resonance",
+    "decision": "Ticketing, CRM, distribuce a performance",
+    "sale_launch_target": "2026-11-24",
+    "venue_seats": 902,
+    "annual_evenings": "20+",
+    "notes": "Default scénář je pracovní. Větší zahradní akce mohou objem významně zvýšit."
+  },
+  "default_scenario": {
+    "tickets": 18000,
+    "ticket_revenue": 18000000,
+    "orders": 9000
+  },
+  "methodology": {
+    "score_scale": "0-100, pracovní rozhodovací skóre; není to objektivní rating trhu",
+    "confidence": "0-100 podle kvality, aktuálnosti a přímého doložení zdroje",
+    "evidence_grades": {
+      "A": "aktuální přímá nabídka / email / příloha",
+      "B": "veřejná smlouva nebo oficiální dokument",
+      "C": "obecná webová informace",
+      "D": "pracovní odhad"
+    },
+    "rule": "Neznámé položky se nesmí automaticky dopočítat; zůstávají UNKNOWN."
+  },
+  "recommendation": {
+    "core": "BZUCO je pracovní front-runner pro DTC core, podmíněně po live demu a kontrole smlouvy.",
+    "distribution": "PLG/GoOut nebo xTicket držet jako externí distribuční booster podle skutečné nabídky a prokazatelného incremental reach.",
+    "crm": "Ecomail jako komunikační/automation vrstva; pokud BZUCO potvrdí sync, nemusí být master CRM.",
+    "performance": "HUBIO ponechat v shortlistu, call odložit do okamžiku, kdy bude vybraný ticketing a cenová architektura.",
+    "decision_gates": [
+      "live demo BZUCO na 902 místech",
+      "aktuální smlouva BZUCO: branding, kredit, SLA, API, export, ukončení",
+      "pevný roční poplatek BZUCO vs. 3,5 %",
+      "xTicket: API/webhook, export dat, přesná atribuce k objednávce",
+      "PLG/GoOut: konkrétní nabídka distribuce a marketingu",
+      "platební gateway TCO a refund fee"
+    ]
+  },
+  "providers": [
+    {
+      "id": "bzuco",
+      "name": "BZUCO",
+      "role": "ticketing_core",
+      "status": "front-runner",
+      "confidence": 88,
+      "scores": {
+        "ownership": 100,
+        "economics": 75,
+        "cashflow": 100,
+        "data": 95,
+        "features": 95,
+        "integrations": 90,
+        "distribution": 10,
+        "marketing": 70,
+        "addons": 100,
+        "ops": 85,
+        "contract": 95
+      },
+      "commercial": {
+        "system_fee": "3,5 % ze všech prodaných vstupenek; objemově vyjednatelné",
+        "fixed_fee": "ano, pevný roční poplatek u předvídatelných provozů",
+        "customer_fee": "nastavuje pořadatel; podle emailu celý zůstává pořadateli",
+        "gateway": "vlastní merchant/gateway pořadatele; náklad gateway navíc",
+        "addons": "0 % z F&B, parkingu, merche a hospitality",
+        "exclusivity": "nepožadována",
+        "settlement": "tržby jdou přímo na účet pořadatele"
+      },
+      "capabilities": [
+        "100% white-label dle 2026 emailu",
+        "vlastní CRM",
+        "Event Intelligence / Radar",
+        "Ecomail/SmartEmailing sync",
+        "order-level source attribution",
+        "seating",
+        "offline check-in",
+        "refundace",
+        "vouchery",
+        "vlny a dynamické ceny",
+        "self-service admin"
+      ],
+      "cashflow_note": "Peníze podle nabídky BZUCO nedrží; platební brána je pořadatele.",
+      "strengths": [
+        "nejvyšší kontrola nad značkou, penězi a daty",
+        "nejlepší nativní attribution z aktuálních odpovědí",
+        "0 % add-ons",
+        "možnost fixed annual pricing"
+      ],
+      "risks": [
+        "bez vlastního marketplace/distribučního publika",
+        "3,5 % se počítá ze všech ticket sales",
+        "aktuální claims je nutné ověřit demem a smlouvou",
+        "historická veřejná smlouva 2023 obsahovala kreditní model a povinnost zobrazovat logo BZUCO"
+      ],
+      "unknowns": [
+        "aktuální API/webhook rozsah",
+        "gateway sazba a refund poplatky",
+        "aktuální SLA a DPA",
+        "aktuální branding povinnosti vs. historická smlouva",
+        "konkrétní fixed annual nabídka"
+      ],
+      "evidence": [
+        {
+          "grade": "A",
+          "date": "2026-09-18",
+          "source": "Email Jiří Blafka / BZUCO",
+          "summary": "3,5 %, own gateway, own CRM, Radar, 0 % add-ons, fixed annual možnost, no exclusivity"
+        },
+        {
+          "grade": "B",
+          "date": "2023-05-10",
+          "source": "Registr smluv: Město Tábor SD/00491/2023",
+          "url": "https://smlouvy.gov.cz/smlouva/24427307",
+          "summary": "historický precedent 1 %, vlastní URL, ale starší kreditní/branding podmínky"
+        }
+      ]
+    },
+    {
+      "id": "xticket",
+      "name": "xTicket",
+      "role": "ticketing_plus_distribution",
+      "status": "shortlist",
+      "confidence": 84,
+      "scores": {
+        "ownership": 35,
+        "economics": 85,
+        "cashflow": 45,
+        "data": 65,
+        "features": 85,
+        "integrations": 45,
+        "distribution": 75,
+        "marketing": 80,
+        "addons": 85,
+        "ops": 85,
+        "contract": 80
+      },
+      "commercial": {
+        "system_fee": "4 %; lze přesunout celé na kupujícího nebo splitnout",
+        "fixed_fee": "neuveden",
+        "customer_fee": "0-4 % dle zvoleného rozdělení",
+        "gateway": "provozována xTicketem",
+        "addons": "ticketing fee pouze na vstupenky; jiné produkty na jiných platformách mohou mít vlastní fee",
+        "exclusivity": "neuvedena jako požadavek",
+        "settlement": "standardně do týdne po akci; nový pořadatel může žádat max. 50 % vybraných peněz předem"
+      },
+      "capabilities": [
+        "seating",
+        "offline scan",
+        "dashboard denních prodejů",
+        "referrer/visitor stats",
+        "denní email prodejů",
+        "vlny",
+        "promo kódy",
+        "rychlé nasazení akcí",
+        "free newsletter/invites",
+        "SMS pozvánky",
+        "sociální sítě a magazín"
+      ],
+      "cashflow_note": "Provider inkasuje a standardně vyplácí po akci.",
+      "strengths": [
+        "silná cenová flexibilita 4/0, 2/2 apod.",
+        "vlastní distribuční kanál a databáze",
+        "marketing management za 10 % mediálního rozpočtu",
+        "rychlé nasazení akce"
+      ],
+      "risks": [
+        "sami výslovně uvádějí, že nejde o white-label ticketing",
+        "cash-flow a counterparty risk proti own gateway modelu",
+        "API/webhooks a export dat zatím neprokázány",
+        "order-level attribution není z podkladů doložena"
+      ],
+      "unknowns": [
+        "API/webhooks",
+        "export zákaznických dat a role správce/zpracovatele",
+        "dynamické externí kvóty",
+        "přesné marketingové benchmarky",
+        "refund/chargeback ekonomika"
+      ],
+      "evidence": [
+        {
+          "grade": "A",
+          "date": "2026-09-18",
+          "source": "Email Matyáš Havelka / xTicket",
+          "summary": "4 %, customer-paid variant, settlement, marketing database"
+        },
+        {
+          "grade": "A",
+          "date": "2026-09-18",
+          "source": "Příloha O xticket.cz + Nabídka reklama soc",
+          "summary": "portal-not-white-label, seating, offline scan, stats, marketing 10 % of ad budget"
+        }
+      ]
+    },
+    {
+      "id": "smsticket",
+      "name": "smsticket",
+      "role": "ticketing_plus_distribution",
+      "status": "shortlist",
+      "confidence": 92,
+      "scores": {
+        "ownership": 45,
+        "economics": 60,
+        "cashflow": 45,
+        "data": 70,
+        "features": 90,
+        "integrations": 70,
+        "distribution": 70,
+        "marketing": 70,
+        "addons": 40,
+        "ops": 90,
+        "contract": 75
+      },
+      "commercial": {
+        "system_fee": "5 % online; pro větší pořadatele možná sleva v desetinách procenta",
+        "fixed_fee": "pokladna 3-5 Kč za ticket",
+        "customer_fee": "10 Kč za celý nákup dle aktuálního emailu",
+        "gateway": "provider model",
+        "addons": "F&B a alkohol nepodporuje; parking přes Parkum",
+        "exclusivity": "neuvedena",
+        "settlement": "ve veřejné smlouvě UTB 2025 do 20 dnů po akci"
+      },
+      "capabilities": [
+        "seating",
+        "vlastní návštěvnostní statistiky",
+        "UTM/referrer",
+        "GA4 kombinace pro purchase attribution",
+        "marketplace/partnerské weby",
+        "pokladna",
+        "marketingové kanály"
+      ],
+      "cashflow_note": "Provider inkasuje; veřejná smlouva UTB 2025 uvádí výplatu po akci.",
+      "strengths": [
+        "zralý provozní systém",
+        "velmi levná vlastní fyzická pokladna",
+        "dobré návštěvnostní statistiky",
+        "nízký fixní customer fee 10 Kč/order"
+      ],
+      "risks": [
+        "5 % ze všech online prodejů bez rozlišení acquisition source",
+        "nativní statistiky jsou anonymní a nespojují návštěvníka až k nákupu",
+        "F&B/alkohol mimo systém",
+        "incremental reach zatím nevyčíslen"
+      ],
+      "unknowns": [
+        "finální individuální provize",
+        "API/webhooks",
+        "export dat a real-time purchase events",
+        "konkrétní marketingový reach/benchmark"
+      ],
+      "evidence": [
+        {
+          "grade": "A",
+          "date": "2026-09-18",
+          "source": "Email Jan Barnet / smsticket",
+          "summary": "5 %, 10 Kč/order, tracking limity, pokladna 3-5 Kč"
+        },
+        {
+          "grade": "B",
+          "date": "2025-01-15",
+          "source": "Registr smluv: UTB 00136_2025",
+          "url": "https://smlouvy.gov.cz/smlouva/31887424",
+          "summary": "5 % online, provider inkasuje, settlement do 20 dnů, partnerské kanály"
+        }
+      ]
+    },
+    {
+      "id": "plg",
+      "name": "PLG / GoOut / Ticketportal",
+      "role": "distribution_booster",
+      "status": "waiting-offer",
+      "confidence": 55,
+      "scores": {
+        "ownership": 30,
+        "economics": 50,
+        "cashflow": 45,
+        "data": 75,
+        "features": 95,
+        "integrations": 80,
+        "distribution": 100,
+        "marketing": 95,
+        "addons": 50,
+        "ops": 95,
+        "contract": 45
+      },
+      "commercial": {
+        "system_fee": "aktuální individuální nabídka dosud nedoručena",
+        "fixed_fee": "UNKNOWN",
+        "customer_fee": "UNKNOWN pro Cítoliby",
+        "gateway": "provider model",
+        "addons": "UNKNOWN",
+        "exclusivity": "nutno vyjednat",
+        "settlement": "nutno vyjednat"
+      },
+      "capabilities": [
+        "silný marketplace",
+        "newsletter publikum",
+        "segmentace",
+        "rozsáhlá distribuční síť",
+        "seating a standardní ticketing"
+      ],
+      "cashflow_note": "Bez konkrétní nabídky pro Cítoliby nehodnotit jako core.",
+      "strengths": [
+        "nejsilnější kandidát na externí incremental reach",
+        "vhodný jako druhá distribuční vrstva"
+      ],
+      "risks": [
+        "zatím pouze výzva k registraci pořadatele, ne obchodní nabídka",
+        "potenciální cenová/paritní omezení je nutné smluvně ošetřit",
+        "bez benchmarku nelze oddělit skutečně nový prodej od kanibalizace direct sales"
+      ],
+      "unknowns": [
+        "provize",
+        "customer fee",
+        "kvóty",
+        "API/reporting",
+        "marketingové plnění",
+        "price parity / primary placement / exclusivity"
+      ],
+      "evidence": [
+        {
+          "grade": "A",
+          "date": "2026-09-16",
+          "source": "Email GoOut",
+          "summary": "pouze registrace pořadatele; konkrétní offer pending"
+        },
+        {
+          "grade": "B",
+          "date": "2025-09-23",
+          "source": "Registr smluv: Dům kultury Milevsko",
+          "url": "https://smlouvy.gov.cz/smlouva/35011945",
+          "summary": "veřejný precedent spolupráce; slouží jen jako benchmark, ne jako aktuální nabídka Cítolib"
+        }
+      ]
+    }
+  ],
+  "adjacent_partners": [
+    {
+      "id": "ecomail",
+      "name": "Ecomail",
+      "role": "CRM / automation",
+      "status": "call-ready",
+      "facts": [
+        "nabídnut technický + obchodní call",
+        "požadujeme custom fields, consent version, DOI, purchase sync, SMS"
+      ],
+      "impact": "Pokud BZUCO potvrdí nativní CRM + sync, Ecomail může zůstat čistě komunikační vrstva místo master CRM."
+    },
+    {
+      "id": "hubio",
+      "name": "HUBIO",
+      "role": "performance marketing",
+      "status": "deferred-shortlist",
+      "facts": [
+        "setup 20 000 Kč bez DPH",
+        "management per wave cca 25/35/40 tis. Kč pro media 50/100/200 tis. Kč",
+        "GTM/CAPI/holdout/CAC/ROAS přístup"
+      ],
+      "impact": "Silný specialista, ale není kritická cesta před výběrem ticketingu. Call odložit a vrátit se s cenami a prodejní architekturou."
+    }
+  ]
+}
