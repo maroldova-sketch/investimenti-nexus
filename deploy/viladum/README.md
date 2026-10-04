@@ -1,53 +1,31 @@
-# viladum.investimenti.cz – deploy kit
+# Viladům v zahradách - balíček pro Claude Code
 
-Statický web projektu **Viladům v zahradách** (byty Louny, Osvoboditelů 497) + brožura PDF.
+**Projekt:** Osvoboditelů 497, Louny. **Cílový web:** https://viladum.investimenti.cz/.
+**Veřejné PDF:** https://viladum.investimenti.cz/brozura.pdf.
 
-## Stav (4. 10. 2026)
+Rozbal ZIP na Macu, otevři tuto složku v Claude Code a zadej:
 
-- DNS: `viladum.investimenti.cz` → wildcard `*.investimenti.cz` → Cloudflare tunnel → fortress. HTTPS funguje, bez Access.
-- Dnes vrací 404 ze stránky „Neexistuje · INVESTIMENTI“ = catch-all kontejner `alias-redirects` (:8120). Chybí ingress pravidlo + obsah.
-- Fortress konvence pro statické weby: `nginx:alpine` kontejner, ro bind z `/home/ubuntu/sites/<name>`, port `81xx` na `127.0.0.1`
-  (`investimenti-root` :8110, `pilot-interiors-web` :8100, `alias-redirects` :8120). Tenhle web = **`viladum-web` :8130**.
+> Přečti CLAUDE.md a proveď TASK-T-20261004-VILADUM-WEB.md. Nasaď přiložený web a PDF na fortress přes existující SSH přístup. DNS je hotové. Ověř veřejný web, stažení PDF a QR a vrať jeden report na konci.
 
-## Obsah
+## Co je připravené
 
-| cesta | co to je |
-|---|---|
-| `site/index.html` | landing page (3 byty 3+kk, odkaz na brožuru, QR, kontakt) |
-| `site/qr.png`, `site/qr.svg` | QR s `https://viladum.investimenti.cz/` |
-| `qr-tisk-1200px.png` | QR pro tisk (stejná adresa) |
-| `nginx/default.conf` | konfigurace nginx v kontejneru (`/brozura.pdf` jako attachment, Range, cache) |
-| `deploy.sh` | nasazení z Macu: najde brožuru, nahraje, spustí kontejner, přidá ingress, ověří |
-| `TASK-T-20261004-VILADUM-WEB.md` | pracovní blok pro Claude Code session na Macu |
+- `public/`: kompletní hotový statický web, všechny obrázky a půdorysy, `brozura.pdf`, CSS/JS, projektová data, zdroje a veřejný ZIP technických podkladů. Nasazuje se pouze tato složka.
+- `source/`: zdrojové texty a generátory webu/PDF, nezměněná data šesti bytů, původní fotografie, přibalená písma a interní ověřovací poznámky. Tato složka se nezveřejňuje.
+- `nginx/`: šablona vhostu pro přesný hostname; skutečný listener, mounty a TLS doplní Claude podle konfigurace serveru.
+- `deploy.sh`: nasazení přímo přes SSH, ověření hashů, samostatné releasy, zálohy a návrat při chybě nginx testu nebo reloadu.
+- `verify.sh`: kontrola veřejného webu, pravého PDF, assetů a skutečné dekódování QR ze staženého PDF.
+- `rebuild.sh`: volitelná pozdější obnova webu a PDF z přiložených zdrojů a assetů, bez dohledávání obrázků. Python knihovny se instalují do místního venv; produkční web je nepotřebuje.
 
-Brožura **není v repu** (58 MB). Zdroj: Google Drive `Viladům v zahradách brožura.pdf`
-(https://drive.google.com/file/d/1YXugxeR8_1Knl3h18dG_-_bFIcDH2t6p/view). Nikdy nepublikovat variantu `ROZPOČET …` (interní).
+PDF má samostatnou 27stránkovou sazbu. Adresa je doplněna na webu i v brožuře; QR, canonical, sociální odkazy a technické odkazy používají finální doménu. Dispozice, místnosti a výměry všech šesti bytů se neměnily. Neověřené dokončení rekonstrukce, rozsah zahrady, ceny a dostupnost zůstávají k potvrzení kontaktem projektu.
 
-## Nasazení (Mac)
+DNS a veřejné HTTPS již fungují podle potvrzení uživatele. Tento ZIP sám nic na serveru nenasazuje. Veřejná kontrola před nasazením 4. 10. 2026: kořen i PDF vracely 404. Lokální ověřený výsledek je zaznamenán v `LOCAL-VALIDATION.json`; veřejný výsledek musí ověřit Claude po nasazení.
+
+Pro místní rebuild a dekódování QR použij Python 3.12 nebo novější. Jiný příkaz Pythonu lze zvolit například `VILADUM_PYTHON=python3.13 bash verify.sh --live`. Na fortress pro kopírování a kontrolu hashů stačí jeho existující Python 3; nic se na něj neinstaluje.
+
+Základní kontrola integrity bez instalace balíčků:
 
 ```bash
-git clone --depth 1 -b ccr-0c2e43d7-ig8ual https://github.com/maroldova-sketch/investimenti-nexus /tmp/viladum-deploy
-cd /tmp/viladum-deploy/deploy/viladum
-BROZURA="$HOME/Downloads/Viladům v zahradách brožura.pdf" ./deploy.sh
+python3 scripts/verify.py --bundle
 ```
 
-`deploy.sh` je idempotentní. Předpoklad: na Macu funguje `ssh fortress` (uživatel `ubuntu`, sudo pro cloudflared).
-
-## Ingress
-
-- **Lokálně spravovaný tunel** (`/etc/cloudflared/config.yml` obsahuje `ingress:`): skript vloží
-  `hostname: viladum.investimenti.cz → http://127.0.0.1:8130` před catch-all, zvaliduje a restartuje `cloudflared`.
-- **Tunel spravovaný z dashboardu (token)**: skript to pozná a vypíše. Pravidlo pak přidej přes API
-  (`PUT /accounts/{account}/cfd_tunnel/{tunnel}/configurations`, do `config.ingress` před položku bez `hostname`)
-  nebo v Zero Trust → Networks → Tunnels → Public hostname. Token/ID tunelu jsou v `~/andrew_core` (viz
-  `audits/DOMAIN_AUDIT_20260925.md`), nikdy je nevypisuj.
-- Nouzová varianta bez zásahu do tunelu: přidat `server { server_name viladum.investimenti.cz; … }` do nginx
-  v `alias-redirects` (`/home/ubuntu/sites/alias-redirects`) s mountem `/home/ubuntu/sites/viladum-web/html`.
-
-## Kontrola po nasazení
-
-1. `https://viladum.investimenti.cz/` → HTTP 200, stránka „Viladům v zahradách“.
-2. `https://viladum.investimenti.cz/brozura.pdf` → `application/pdf`, stažení (Content-Disposition attachment).
-3. QR (`site/qr.png`, `qr-tisk-1200px.png`) → `https://viladum.investimenti.cz/` — sken telefonem. Tisková brožura musí používat **tenhle** QR,
-   aby tisk seděl s webem.
-4. Kontaktní e-mail na webu je `j.caka@vzc.cz` – potvrdit nebo změnit v `site/index.html`.
+Zdroje nasazení: oficiální dokumentace nginx https://nginx.org/en/docs/http/server_names.html a https://nginx.org/en/docs/beginners_guide.html.

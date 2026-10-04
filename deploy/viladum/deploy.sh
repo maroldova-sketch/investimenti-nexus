@@ -1,168 +1,195 @@
 #!/usr/bin/env bash
-# Nasazení viladum.investimenti.cz na fortress.
-# Spouštět z Macu (má SSH na fortress). Idempotentní – lze pouštět opakovaně.
-#
-#   ./deploy.sh                 # plné nasazení (web + brožura + kontejner + ověření)
-#   BROZURA=/cesta/k/brozura.pdf ./deploy.sh
-#   ./deploy.sh --dry-run       # jen ukáže, co by udělal
-#
-# Konvence fortress (viz audits/APP_REGISTRY.yaml): každý statický web = nginx:alpine
-# kontejner s read-only bind mountem z /home/ubuntu/sites/<name>, port 81xx na 127.0.0.1,
-# Cloudflare tunnel směruje hostname na ten port. Catch-all *.investimenti.cz jde dnes
-# na alias-redirects (:8120) – proto web vrací 404, dokud není ingress pravidlo.
 set -euo pipefail
+BUNDLE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FORTRESS_HOST="${FORTRESS_HOST:-fortress}"          # SSH alias na Macu
-REMOTE_USER="${REMOTE_USER:-ubuntu}"
-SITE_NAME="viladum-web"
-REMOTE_DIR="/home/${REMOTE_USER}/sites/${SITE_NAME}"
-PORT="${PORT:-8130}"
-HOSTNAME_PUBLIC="viladum.investimenti.cz"
-IMAGE="nginx:alpine"
-DRY=0
-[[ "${1:-}" == "--dry-run" ]] && DRY=1
+usage() {
+  cat <<'HELP'
+Deploy only public/ to a dedicated Viladum release directory.
 
-log(){ printf '\033[1;34m[viladum]\033[0m %s\n' "$*"; }
-warn(){ printf '\033[1;33m[viladum] VAROVÁNÍ:\033[0m %s\n' "$*"; }
-die(){ printf '\033[1;31m[viladum] CHYBA:\033[0m %s\n' "$*" >&2; exit 1; }
-run(){ if [[ $DRY -eq 1 ]]; then echo "+ $*"; else "$@"; fi; }
-rssh(){ if [[ $DRY -eq 1 ]]; then echo "+ ssh ${FORTRESS_HOST} $*"; else ssh -o BatchMode=yes "${FORTRESS_HOST}" "$@"; fi; }
+deploy.sh [--ssh fortress] [--sudo] --root /host/dedicated/viladum \
+  --mode files|host|container [--nginx-conf /host/included/viladum.conf] \
+  [--nginx-root /container/mapped/viladum] [--container investimenti-root] \
+  [--listen 80|443|127.0.0.1:8080] [--tls-cert /existing/cert] \
+  [--tls-key /existing/key] [--dry-run]
 
-# ---------- 0. předpoklady ----------
-command -v rsync >/dev/null || die "chybí rsync"
-ssh -o BatchMode=yes -o ConnectTimeout=10 "${FORTRESS_HOST}" true 2>/dev/null \
-  || die "SSH na '${FORTRESS_HOST}' nefunguje (zkontroluj ~/.ssh/config na Macu)"
-log "SSH na ${FORTRESS_HOST} OK"
-
-# ---------- 1. brožura ----------
-STAGE="$(mktemp -d)"
-trap 'rm -rf "$STAGE"' EXIT
-cp -R "${HERE}/site/." "${STAGE}/"
-
-find_brozura(){
-  if [[ -n "${BROZURA:-}" && -f "${BROZURA}" ]]; then echo "${BROZURA}"; return; fi
-  local c
-  for c in "${HERE}/brozura.pdf" "${HERE}/site/brozura.pdf" \
-           "$HOME/Downloads/Viladům v zahradách brožura.pdf" \
-           "$HOME/Downloads/brozura.pdf"; do
-    [[ -f "$c" ]] && { echo "$c"; return; }
-  done
-  # Google Drive for Desktop / Spotlight
-  local gd
-  for gd in "$HOME"/Library/CloudStorage/GoogleDrive-*/; do
-    [[ -d "$gd" ]] || continue
-    c="$(find "$gd" -maxdepth 6 -iname 'Viladům v zahradách brožura*.pdf' ! -iname 'ROZPOČET*' 2>/dev/null | head -1 || true)"
-    [[ -n "$c" ]] && { echo "$c"; return; }
-  done
-  if command -v mdfind >/dev/null; then
-    c="$(mdfind -name 'Viladům v zahradách brožura' 2>/dev/null | grep -i '\.pdf$' | grep -vi 'ROZPO' | head -1 || true)"
-    [[ -n "$c" ]] && { echo "$c"; return; }
-  fi
-  echo ""
+All paths and the origin listener must come from actual server inspection.
+files: stage content only; existing vhost must already point to ROOT/current.
+host: run host nginx -t, then nginx -s reload.
+container: run docker exec CONTAINER nginx -t, then nginx -s reload.
+For a container, mount the ENTIRE dedicated root, not just its current symlink.
+--ssh transfers directly over SSH; no temporary file-hosting service is used.
+--sudo uses non-interactive sudo on the SSH target.
+HELP
 }
 
-BROZURA_SRC="$(find_brozura)"
-if [[ -z "$BROZURA_SRC" ]]; then
-  warn "brožura nenalezena. Web se nasadí bez /brozura.pdf (odkaz bude 404)."
-  warn "Zdroj: Google Drive 'Viladům v zahradách brožura.pdf' (58 MB). Stáhni ji a spusť: BROZURA=/cesta/soubor.pdf $0"
-else
-  log "brožura: ${BROZURA_SRC}"
-  case "$(basename "$BROZURA_SRC")" in
-    *ROZPO*|*rozpo*) die "Tohle je rozpočtová verze brožury (interní). Nepublikovat." ;;
+die() { printf '%s\n' "$*" >&2; exit 1; }
+SSH_HOST=; USE_SUDO=0; FORWARD=()
+while (($#)); do
+  case "$1" in
+    --ssh) (($# >= 2)) || die 'Missing SSH host'; SSH_HOST=$2; shift 2 ;;
+    --sudo) USE_SUDO=1; shift ;;
+    --help|-h) usage; exit 0 ;;
+    *) FORWARD+=("$1"); shift ;;
   esac
-  cp "$BROZURA_SRC" "${STAGE}/brozura-tisk.pdf"
-  # volitelná web komprese (ghostscript), originál zůstane jako brozura-tisk.pdf
-  if command -v gs >/dev/null; then
-    log "komprimuji PDF pro web (gs /ebook)…"
-    if gs -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dPDFSETTINGS=/ebook -dCompatibilityLevel=1.5 \
-         -sOutputFile="${STAGE}/brozura.pdf" "${STAGE}/brozura-tisk.pdf" 2>/dev/null \
-       && [[ -s "${STAGE}/brozura.pdf" ]]; then
-      log "web PDF: $(du -h "${STAGE}/brozura.pdf" | cut -f1) (originál $(du -h "${STAGE}/brozura-tisk.pdf" | cut -f1))"
-    else
-      warn "komprese selhala, použiji originál"; cp "${STAGE}/brozura-tisk.pdf" "${STAGE}/brozura.pdf"
-    fi
-  else
-    cp "${STAGE}/brozura-tisk.pdf" "${STAGE}/brozura.pdf"
+done
+if [[ -n "$SSH_HOST" ]]; then
+  [[ "$SSH_HOST" =~ ^[A-Za-z0-9_][A-Za-z0-9_.@-]*$ ]] || die 'Invalid SSH alias'
+  command -v ssh >/dev/null; command -v tar >/dev/null
+  REMOTE_DIR=$(ssh -o BatchMode=yes "$SSH_HOST" 'umask 077; mktemp -d /tmp/viladum.XXXXXXXX')
+  [[ "$REMOTE_DIR" =~ ^/tmp/viladum\.[A-Za-z0-9]+$ ]] || die 'Unexpected SSH staging path'
+  tar --exclude=.venv --exclude=__pycache__ --exclude=.git --exclude=.DS_Store \
+    -C "$BUNDLE" -cf - . | ssh -o BatchMode=yes "$SSH_HOST" "tar -xf - -C '$REMOTE_DIR'"
+  REMOTE_COMMAND=()
+  ((USE_SUDO == 0)) || REMOTE_COMMAND+=(sudo -n)
+  REMOTE_COMMAND+=(bash "$REMOTE_DIR/deploy.sh" "${FORWARD[@]}")
+  printf -v REMOTE_TEXT '%q ' "${REMOTE_COMMAND[@]}"
+  ssh -o BatchMode=yes "$SSH_HOST" "$REMOTE_TEXT"
+  printf 'SSH staging retained at %s for diagnosis. Run verification on the Mac.\n' "$REMOTE_DIR"
+  exit 0
+fi
+((USE_SUDO == 0)) || die '--sudo is only valid together with --ssh'
+set -- "${FORWARD[@]}"
+PROJECT_ROOT=; MODE=; NGINX_CONF=; NGINX_ROOT=; CONTAINER=; LISTEN=80
+TLS_CERT=; TLS_KEY=; DRY_RUN=0
+while (($#)); do
+  case "$1" in
+    --root|--mode|--nginx-conf|--nginx-root|--container|--listen|--tls-cert|--tls-key)
+      (($# >= 2)) || die "Missing value for $1"
+      case "$1" in
+        --root) PROJECT_ROOT=$2 ;; --mode) MODE=$2 ;; --nginx-conf) NGINX_CONF=$2 ;;
+        --nginx-root) NGINX_ROOT=$2 ;; --container) CONTAINER=$2 ;;
+        --listen) LISTEN=$2 ;; --tls-cert) TLS_CERT=$2 ;; --tls-key) TLS_KEY=$2 ;;
+      esac
+      shift 2 ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    *) die "Unknown argument: $1" ;;
+  esac
+done
+[[ -n "$PROJECT_ROOT" && -n "$MODE" ]] || { usage; die '--root and --mode are required'; }
+[[ "$MODE" == files || "$MODE" == host || "$MODE" == container ]] || die 'Invalid mode'
+safe_path() { [[ "$1" =~ ^/[A-Za-z0-9_./-]+$ && "$1" != *'/../'* && "$1" != */.. ]]; }
+safe_path "$PROJECT_ROOT" || die 'Use an absolute, simple dedicated root path'
+[[ "$PROJECT_ROOT" != / && "$PROJECT_ROOT" != /var/www && "$PROJECT_ROOT" != /srv && "$PROJECT_ROOT" != /etc ]] || die 'Root must be dedicated to this project'
+[[ "$PROJECT_ROOT" == *viladum* ]] || die 'Dedicated root path must contain viladum'
+[[ -z "$NGINX_ROOT" ]] && NGINX_ROOT=$PROJECT_ROOT
+safe_path "$NGINX_ROOT" || die 'Invalid mapped nginx root'
+[[ "$LISTEN" =~ ^([0-9]{1,5}|[0-9.]+:[0-9]{1,5})$ ]] || die 'Use the observed numeric origin listener'
+[[ -z "$TLS_CERT" || -n "$TLS_KEY" ]] || die 'TLS requires both existing certificate and key paths'
+[[ -z "$TLS_KEY" || -n "$TLS_CERT" ]] || die 'TLS requires both existing certificate and key paths'
+if [[ -n "$TLS_CERT" ]]; then safe_path "$TLS_CERT" && safe_path "$TLS_KEY" || die 'Invalid TLS paths'; fi
+if [[ "$MODE" != files ]]; then
+  safe_path "$NGINX_CONF" || die '--nginx-conf must be the observed included host config path'
+  [[ "$NGINX_CONF" == *viladum* ]] || die 'Only the dedicated Viladum vhost file may be changed'
+  [[ -d "$(dirname "$NGINX_CONF")" ]] || die 'Config directory does not exist'
+  if [[ "$LISTEN" == 443 || "$LISTEN" == *:443 ]]; then
+    [[ -n "$TLS_CERT" ]] || die 'Origin port 443 requires the existing TLS paths'
   fi
 fi
-printf 'User-agent: *\nAllow: /\nSitemap: https://%s/sitemap.xml\n' "$HOSTNAME_PUBLIC" > "${STAGE}/robots.txt"
-printf '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://%s/</loc></url></urlset>\n' "$HOSTNAME_PUBLIC" > "${STAGE}/sitemap.xml"
-
-# ---------- 2. upload na fortress ----------
-log "upload do ${FORTRESS_HOST}:${REMOTE_DIR}"
-rssh "mkdir -p '${REMOTE_DIR}/html' '${REMOTE_DIR}/nginx' && \
-      if [ -d '${REMOTE_DIR}/html' ] && [ -n \"\$(ls -A '${REMOTE_DIR}/html' 2>/dev/null)\" ]; then \
-        tar -C '${REMOTE_DIR}' -czf \"${REMOTE_DIR}/backup-\$(date +%Y%m%d-%H%M%S).tgz\" html nginx; fi"
-run rsync -az --delete --exclude 'backup-*.tgz' "${STAGE}/" "${FORTRESS_HOST}:${REMOTE_DIR}/html/"
-run rsync -az "${HERE}/nginx/default.conf" "${FORTRESS_HOST}:${REMOTE_DIR}/nginx/default.conf"
-
-# ---------- 3. kontejner ----------
-log "kontejner ${SITE_NAME} na 127.0.0.1:${PORT}"
-rssh "set -e
-  if docker ps -a --format '{{.Names}}' | grep -qx '${SITE_NAME}'; then
-    docker rm -f '${SITE_NAME}' >/dev/null
-  fi
-  if ss -ltn 2>/dev/null | awk '{print \$4}' | grep -q ':${PORT}\$'; then
-    echo 'port ${PORT} je obsazený jiným procesem' >&2; exit 2
-  fi
-  docker run -d --name '${SITE_NAME}' --restart unless-stopped \
-    -p 127.0.0.1:${PORT}:80 \
-    -v '${REMOTE_DIR}/html:/usr/share/nginx/html:ro' \
-    -v '${REMOTE_DIR}/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro' \
-    '${IMAGE}' >/dev/null
-  sleep 1
-  docker exec '${SITE_NAME}' nginx -t
-  curl -fsS -o /dev/null -w 'lokálně: HTTP %{http_code}\n' -H 'Host: ${HOSTNAME_PUBLIC}' http://127.0.0.1:${PORT}/"
-
-# ---------- 4. ingress v Cloudflare tunelu ----------
-# Varianta A: lokálně spravovaný tunel (/etc/cloudflared/config.yml s 'ingress:')
-# Varianta B: tunel spravovaný z dashboardu (token) -> pravidlo přes Cloudflare API / dashboard.
-log "ingress pro ${HOSTNAME_PUBLIC} -> http://127.0.0.1:${PORT}"
-rssh "set -e
-  CFG=''
-  for f in /etc/cloudflared/config.yml /etc/cloudflared/config.yaml /home/${REMOTE_USER}/.cloudflared/config.yml; do
-    [ -f \"\$f\" ] && grep -q '^ingress:' \"\$f\" && CFG=\"\$f\" && break
-  done
-  if [ -z \"\$CFG\" ]; then
-    echo 'INGRESS: lokální config s ingress nenalezen -> tunel je spravovaný z Cloudflare (token).'
-    echo 'INGRESS: přidej public hostname ${HOSTNAME_PUBLIC} -> http://127.0.0.1:${PORT} (Zero Trust > Networks > Tunnels),'
-    echo 'INGRESS: nebo přes API (viz README.md, sekce Ingress). Pravidlo musí být PŘED catch-all *.investimenti.cz.'
-    exit 0
-  fi
-  if grep -q 'hostname: *${HOSTNAME_PUBLIC}' \"\$CFG\"; then
-    echo \"INGRESS: pravidlo už existuje v \$CFG\"; exit 0
-  fi
-  sudo cp \"\$CFG\" \"\$CFG.bak-\$(date +%Y%m%d-%H%M%S)\"
-  # vložit před první catch-all položku (- service: ... bez hostname) nebo před wildcard *.investimenti.cz
-  sudo python3 - \"\$CFG\" <<'PY'
-import re,sys
-p=sys.argv[1]; s=open(p).read().splitlines(keepends=True)
-out=[]; done=False
-for i,l in enumerate(s):
-    if not done and re.match(r'^\s*-\s*(service:|hostname:\s*\*\.investimenti\.cz)', l):
-        ind=re.match(r'^(\s*)-', l).group(1)
-        out.append(f'{ind}- hostname: ${HOSTNAME_PUBLIC}\n{ind}  service: http://127.0.0.1:${PORT}\n')
-        done=True
-    out.append(l)
-if not done: sys.exit('nenašel jsem místo pro vložení pravidla')
-open(p,'w').write(''.join(out))
+if [[ "$MODE" == container ]]; then
+  [[ "$CONTAINER" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]] || die 'Specify the observed nginx container'
+  command -v docker >/dev/null
+  docker inspect "$CONTAINER" >/dev/null
+fi
+if [[ "$MODE" == host ]]; then command -v nginx >/dev/null; fi
+command -v python3 >/dev/null
+python3 "$BUNDLE/scripts/verify.py" --bundle
+nginx_command() {
+  if [[ "$MODE" == container ]]; then docker exec "$CONTAINER" nginx "$@"; else nginx "$@"; fi
+}
+if [[ "$MODE" != files ]]; then nginx_command -t; fi
+if ((DRY_RUN)); then
+  printf 'Validated bundle. No files changed.\nmode=%s\nhost_root=%s\nnginx_root=%s\nconfig=%s\nlisten=%s\n' "$MODE" "$PROJECT_ROOT" "$NGINX_ROOT" "$NGINX_CONF" "$LISTEN"
+  exit 0
+fi
+[[ $(uname -s) == Linux ]] || die 'Run deployment on fortress Linux, or use --ssh fortress'
+command -v flock >/dev/null || die 'Linux flock is required'
+if [[ -e "$PROJECT_ROOT" && ! -f "$PROJECT_ROOT/.viladum-managed" ]]; then
+  [[ -d "$PROJECT_ROOT" && ! -L "$PROJECT_ROOT" ]] || die 'Dedicated root must be an ordinary directory'
+  [[ -z "$(find "$PROJECT_ROOT" -mindepth 1 -maxdepth 1 -print -quit)" ]] || die 'Existing nonempty root is unmanaged; choose an isolated project directory'
+fi
+mkdir -p "$PROJECT_ROOT"
+exec 9>"$PROJECT_ROOT/.deploy.lock"
+flock -n 9 || die 'Another Viladum deployment is running'
+touch "$PROJECT_ROOT/.viladum-managed"
+mkdir -p "$PROJECT_ROOT/releases" "$PROJECT_ROOT/backups"
+chmod 755 "$PROJECT_ROOT" "$PROJECT_ROOT/releases"
+NEEDED=$(python3 - "$BUNDLE/public" <<'PY'
+from pathlib import Path
+import sys
+print(sum(p.stat().st_size for p in Path(sys.argv[1]).rglob('*') if p.is_file()) * 3 + 50_000_000)
 PY
-  sudo cloudflared tunnel ingress validate --config \"\$CFG\" || { echo 'validate selhal, vracím zálohu'; sudo cp \"\$CFG.bak-\"* \"\$CFG\"; exit 3; }
-  sudo systemctl restart cloudflared 2>/dev/null || sudo systemctl restart 'cloudflared*' || true
-  echo \"INGRESS: přidáno do \$CFG a cloudflared restartován\""
-
-# ---------- 5. ověření zvenku ----------
-log "ověření https://${HOSTNAME_PUBLIC}/"
-sleep 3
-code="$(curl -sS -o /dev/null -w '%{http_code}' "https://${HOSTNAME_PUBLIC}/" || true)"
-echo "GET /            -> HTTP ${code}"
-if [[ "$code" == "200" ]]; then
-  curl -sS "https://${HOSTNAME_PUBLIC}/" | grep -q 'Viladům v' && echo "obsah: OK (stránka Viladům)"
-  pdf="$(curl -sS -o /dev/null -w '%{http_code} %{content_type} %{size_download}' -r 0-1023 "https://${HOSTNAME_PUBLIC}/brozura.pdf" || true)"
-  echo "GET /brozura.pdf -> ${pdf}"
-  echo "QR: /qr.png kóduje https://${HOSTNAME_PUBLIC}/ (ověř skenem telefonem)"
-else
-  warn "web zvenku ještě nevrací 200 – obvykle chybí ingress pravidlo v tunelu (viz výstup INGRESS výše)."
+)
+AVAILABLE=$(df -Pk "$PROJECT_ROOT" | awk 'NR==2 {print $4 * 1024}')
+python3 - "$AVAILABLE" "$NEEDED" <<'PY'
+import sys
+if float(sys.argv[1]) < int(sys.argv[2]): raise SystemExit('Insufficient free space for this deployment')
+PY
+RELEASE_ID=$(date -u +%Y%m%dT%H%M%SZ)-$$
+RELEASE="$PROJECT_ROOT/releases/$RELEASE_ID"
+mkdir "$RELEASE"
+cp -R "$BUNDLE/public/." "$RELEASE/"
+find "$RELEASE" -type d -exec chmod 755 {} +
+find "$RELEASE" -type f -exec chmod 644 {} +
+python3 "$BUNDLE/scripts/verify.py" --release "$RELEASE"
+OLD_LINK=
+if [[ -L "$PROJECT_ROOT/current" ]]; then
+  OLD_LINK=$(readlink "$PROJECT_ROOT/current")
+  [[ "$OLD_LINK" =~ ^releases/[A-Za-z0-9_.-]+$ ]] || die 'Unexpected current symlink; inspect manually'
+elif [[ -e "$PROJECT_ROOT/current" ]]; then die 'current exists but is not a managed symlink'; fi
+BACKUP="$PROJECT_ROOT/backups/$RELEASE_ID"
+mkdir "$BACKUP"
+printf '%s\n' "$OLD_LINK" > "$BACKUP/previous-current.txt"
+printf '%s\n' "$MODE" > "$BACKUP/mode.txt"
+printf '%s\n' "$NGINX_CONF" > "$BACKUP/nginx-conf-path.txt"
+printf '%s\n' "$CONTAINER" > "$BACKUP/container.txt"
+CONFIG_EXISTED=0; CONFIG_TOUCHED=0; LINK_TOUCHED=0; COMPLETED=0
+if [[ "$MODE" != files && -f "$NGINX_CONF" ]]; then
+  cp -L -p "$NGINX_CONF" "$BACKUP/previous-nginx.conf"
+  CONFIG_EXISTED=1
 fi
-log "hotovo"
+recover() {
+  local result=$?
+  if ((COMPLETED == 0)); then
+    set +e
+    if ((CONFIG_TOUCHED)); then
+      if ((CONFIG_EXISTED)); then cp -p "$BACKUP/previous-nginx.conf" "$NGINX_CONF"; else rm -f "$NGINX_CONF"; fi
+    fi
+    if ((LINK_TOUCHED)); then
+      if [[ -n "$OLD_LINK" ]]; then
+        ln -s "$OLD_LINK" "$PROJECT_ROOT/.restore-$$"
+        mv -Tf "$PROJECT_ROOT/.restore-$$" "$PROJECT_ROOT/current"
+      else rm -f "$PROJECT_ROOT/current"; fi
+    fi
+    if [[ "$MODE" != files ]]; then nginx_command -t && nginx_command -s reload; fi
+    printf 'Deployment failed; previous vhost and current release restored. Backup: %s\n' "$BACKUP" >&2
+  fi
+  exit "$result"
+}
+trap recover EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+if [[ "$MODE" != files ]]; then
+  python3 - "$BUNDLE/nginx/viladum.conf.tpl" "$BACKUP/new-nginx.conf" "$NGINX_ROOT" "$LISTEN" "$TLS_CERT" "$TLS_KEY" <<'PY'
+from pathlib import Path
+import sys
+src,out,root,listen,cert,key=sys.argv[1:]
+tls=f'ssl_certificate {cert};\n    ssl_certificate_key {key};' if cert else ''
+text=Path(src).read_text().replace('@LISTEN@',listen + (' ssl' if cert else '')).replace('@TLS@',tls).replace('@NGINX_ROOT@',root)
+Path(out).write_text(text)
+PY
+  CONFIG_TOUCHED=1
+  cp "$BACKUP/new-nginx.conf" "$NGINX_CONF"
+fi
+ln -s "releases/$RELEASE_ID" "$PROJECT_ROOT/.next-$$"
+LINK_TOUCHED=1
+mv -Tf "$PROJECT_ROOT/.next-$$" "$PROJECT_ROOT/current"
+if [[ "$MODE" != files ]]; then
+  CHECK_OUTPUT=$(nginx_command -t 2>&1) || { printf '%s\n' "$CHECK_OUTPUT" >&2; exit 1; }
+  printf '%s\n' "$CHECK_OUTPUT"
+  if [[ "$CHECK_OUTPUT" == *'conflicting server name "viladum.investimenti.cz"'* ]]; then die 'Duplicate Viladum vhost; restore and inspect the existing exact host'; fi
+  nginx_command -s reload
+fi
+COMPLETED=1
+trap - EXIT INT TERM
+printf 'Content installed: %s\nRollback state: %s\n' "$RELEASE" "$BACKUP"
+printf 'Verify publicly on the Mac: ./verify.sh --live\n'

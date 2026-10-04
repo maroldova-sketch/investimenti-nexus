@@ -1,36 +1,82 @@
-# TASK T-20261004-VILADUM-WEB — nasadit viladum.investimenti.cz na fortress
+# T-20261004-VILADUM-WEB
 
-Pro Claude Code session na Macu (má `ssh fortress`). Jeden report na konci. Nic jiného na fortressu neměnit.
+Cíl: nasadit přiložený web a PDF na fortress. Autorizace: Honza výslovně požádal o ZIP pro Claude Code, aby jej nasadil. DNS je již hotové. Před nasazením dne 4. 10. 2026 vracely kořen i `/brozura.pdf` HTTP 404.
 
-## Kontext
-- DNS + HTTPS hotové (wildcard `*.investimenti.cz` → tunnel → fortress). Web vrací 404 z catch-all `alias-redirects` (:8120).
-- Deploy kit: repo `maroldova-sketch/investimenti-nexus`, větev `ccr-0c2e43d7-ig8ual`, složka `deploy/viladum/`.
-- Brožura (58 MB) není v repu. Zdroj Google Drive: `Viladům v zahradách brožura.pdf` (ID `1YXugxeR8_1Knl3h18dG_-_bFIcDH2t6p`).
-  **Ne** variantu `ROZPOČET …` (interní).
+## 1. Ověř balíček a přístup z Macu
 
-## Kroky
-1. **Stáhnout kit** (ne do kanonických adresářů):
-   `git clone --depth 1 -b ccr-0c2e43d7-ig8ual https://github.com/maroldova-sketch/investimenti-nexus /tmp/viladum-deploy`
-   Kontrola: `ls /tmp/viladum-deploy/deploy/viladum/site/index.html`
-2. **Najít brožuru na Macu**: `mdfind -name "Viladům v zahradách brožura" | grep -vi rozpo`, případně
-   `~/Library/CloudStorage/GoogleDrive-*/` nebo `~/Downloads`. Když není lokálně, stáhnout z Drive
-   (Drive for Desktop / `gdown 1YXugxeR8_1Knl3h18dG_-_bFIcDH2t6p` / prohlížeč). Kontrola: `file` říká PDF, velikost ≈ 58 MB.
-3. **Dry-run**: `cd /tmp/viladum-deploy/deploy/viladum && BROZURA="<cesta>" ./deploy.sh --dry-run`
-   Kontrola: skript vidí SSH na fortress a brožuru.
-4. **Nasadit**: `BROZURA="<cesta>" ./deploy.sh`
-   Kontrola: `docker ps | grep viladum-web`, `curl -H 'Host: viladum.investimenti.cz' http://127.0.0.1:8130/` na fortressu vrací 200.
-5. **Ingress**: pokud skript vypíše `INGRESS: lokální config … nenalezen`, je tunel spravovaný z Cloudflare.
-   Přidat public hostname `viladum.investimenti.cz → http://127.0.0.1:8130` před catch-all `*.investimenti.cz`
-   (API `cfd_tunnel/{id}/configurations` nebo dashboard). Údaje k tunelu jsou v `~/andrew_core/audits/DOMAIN_AUDIT_20260925.md`;
-   tokeny nevypisovat. Záloha stávající konfigurace před změnou.
-   Kontrola: `curl -sI https://viladum.investimenti.cz/ | head -1` → `200`.
-6. **Ověřit zvenku**:
-   - `https://viladum.investimenti.cz/` → 200 + stránka „Viladům v zahradách“
-   - `https://viladum.investimenti.cz/brozura.pdf` → `application/pdf`, stažení
-   - `https://viladum.investimenti.cz/qr.png` → QR vede na `https://viladum.investimenti.cz/`
+Rozbal ZIP do samostatného místního adresáře, přečti `CLAUDE.md` a spusť:
 
-## Report (jeden, na konci)
-- co je nasazeno (kontejner, port, cesta na fortressu, velikost brožury web/tisk)
-- jak byl vyřešen ingress (lokální config / API / dashboard / nouzová varianta)
-- výsledky 3 kontrol zvenku (HTTP kódy)
-- co zbývá pro Honzu (např. potvrdit kontaktní e-mail `j.caka@vzc.cz` na webu)
+```bash
+python3 scripts/verify.py --bundle
+ssh -o BatchMode=yes fortress 'hostname; df -h; docker ps --format "{{.Names}} {{.Ports}}"'
+```
+
+Hotové soubory v `public/` použij přímo. Neinstaluj build prostředí na produkční server. SSH přístup řeš běžnou existující konfigurací na Macu; žádné tokeny ani hesla v tomto balíčku nejsou.
+
+Kontrolní bod: platné hashe a dostupný správný fortress. Balíček zabere méně než 100 MB po rozbalení; skutečnou volnou kapacitu přesto zkontroluj.
+
+## 2. Najdi skutečný origin a vhost
+
+Přes SSH zjisti image, porty a mounty kontejneru `investimenti-root` (jen vybraná pole `docker inspect`, nevypisuj environment s tajemstvími). Pokud je nginx jinde, použij skutečnou službu. Přečti aktivní nginx konfiguraci a zjisti:
+
+- která služba a listener obsluhují wildcard `*.investimenti.cz`;
+- kde je zahrnutá konfigurace vhostů a její hostitelský bind mount;
+- který existující mount dovoluje vytvořit oddělený adresář `viladum` viditelný nginxu;
+- zda je Cloudflare origin přes HTTP nebo HTTPS a jaké existující certifikáty používá.
+
+Pokud už existuje přesný vhost pro `viladum.investimenti.cz`, aktualizuj jeho konkrétní konfiguraci a nevytvářej druhý se stejným názvem. Cizí routy, přístupové politiky a ostatní služby neměň. DNS se nemění.
+
+Kontrolní bod: znáš skutečné hostitelské a kontejnerové cesty, origin port a TLS. Žádné cesty v příkladech nepřebírej bez ověření.
+
+## 3. Připrav izolované nasazení
+
+Zvol prázdný vlastní podadresář `viladum` v existujícím statickém mountu. Nginx musí vidět celý adresář se strukturou `releases/` a relativním symlinkem `current`; nemountuj samotný `current`.
+
+Použij `deploy.sh --dry-run` se skutečnými parametry. Příklad syntaxe (hodnoty nahraď zjištěnými cestami):
+
+```bash
+bash deploy.sh --ssh fortress --sudo \
+  --root /OVERENY_HOST_MOUNT/viladum \
+  --nginx-root /OVERENY_CONTAINER_MOUNT/viladum \
+  --mode container --container investimenti-root \
+  --nginx-conf /OVERENY_HOST_CONF_MOUNT/viladum.conf \
+  --listen 80 --dry-run
+```
+
+Při origin HTTPS přidej například `--listen 443 --tls-cert /SKUTECNA_CESTA_CERTIFIKATU --tls-key /SKUTECNA_CESTA_KLICE`; použij cestu viditelnou procesem nginx a zachovej další potřebné TLS nastavení ze stávající konfigurace. Při jiném listeneru použij skutečný port. Pokud origin vyžaduje oboustranné TLS nebo další existující pravidla, přenes je pouze do tohoto vhostu před regenerací manifestu. Návratové skripty neřeší odlišný globální TLS setup automaticky.
+
+`--mode host` používá hostitelský nginx. `--mode files` kopíruje pouze veřejný obsah a vhost neupravuje; použij ho, pokud doménový blok přizpůsobíš ručně konkrétní infrastruktuře. V tomto režimu si sám zazálohuj původní vhost a ověř test/reload.
+
+Kontrolní bod: přesný hostname, správný webroot, žádný login. Zachovej připravené MIME typy a URL `/brozura.pdf`. Ulož stav dotčené konfigurace pro rollback.
+
+## 4. Nasaď
+
+Spusť ověřený příkaz bez `--dry-run`. Skript přenese balíček přímo přes SSH, ověří hashe, zkopíruje jen `public/`, vytvoří nový release, přepne `current`, otestuje nginx a provede reload. Při chybě testu/reloadu obnoví předchozí vhost a symlink. Zálohy i předchozí releasy ponechá.
+
+Pokud provozní konfigurace vyžaduje jiné začlenění vhostu, proveď odpovídající úpravu pouze pro Viladům a zachovej stejný postup testu a návratu. Nespouštěj žádný celoplošný restart ostatních kontejnerů. Nevydávej úspěšný reload za hotové veřejné nasazení.
+
+Kontrolní bod: obsah v přesném webrootu, platný nginx, běžící správná služba.
+
+## 5. Ověř veřejný výsledek a tisk
+
+Na Macu z adresáře balíčku spusť:
+
+```bash
+bash verify.sh --live
+```
+
+Skript neobchází TLS a nepřijímá přesměrování. Kontroluje veřejné 200, obsah stránky a všech šest bytových sekcí, PDF podle hashe, dostupnost použitých místních assetů, adresu, 27 stran PDF, aktivní odkazy a QR skutečně dekódovaný z kontaktní strany právě stažené brožury. Případnou změnu bytů HTML při doručení přes CDN uvede v reportu; nerozhoduje o funkčnosti stránky jen podle jejího hashe.
+
+Prohlédni desktop a mobil v běžném anonymním prohlížeči: titulní skutečnou fotografii, filtr bytů, všech šest půdorysů, zvětšení výkresu, kontakty a stažení PDF. QR musí vést na `https://viladum.investimenti.cz/` (bez koncového lomítka je stejná adresa). PDF tiskni až po této kontrole. Neprohlašuj QR za ověřený jen podle textového odkazu nebo zdrojového skriptu.
+
+Při selhání oprav příčinu v rámci této domény a kontrolu zopakuj. Při poškození služby obnov poslední známý dobrý vhost a `current` ze zaznamenané zálohy; potom test a reload. Zálohy nepromazávej.
+
+## 6. Jeden report
+
+Na závěr vrať pouze:
+
+1. Web: URL, HTTP status, veřejný přístup bez přihlášení.
+2. PDF: URL, HTTP status, 27 stran a skutečná velikost.
+3. QR: skutečně dekódovaná adresa, shoda s webem.
+4. Provedené změny: host/container, doménový vhost, webroot a umístění zálohy.
+5. Případný konkrétní blokátor. Při neověřené kontrole nesděluj, že je hotovo nebo připraveno k tisku.
