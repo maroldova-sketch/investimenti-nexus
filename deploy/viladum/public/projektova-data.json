@@ -1,0 +1,338 @@
+{
+  "adresa_projektu": "Osvoboditelů 497, Louny",
+  "adresa_potvrzena_investorem": "4. 10. 2026",
+  "overeno": "4. 10. 2026",
+  "poznamka": "Výměry jsou uvedeny celkem dle původní projektové brožury. Materiálové půdorysy a interiéry představují návrh vybavení.",
+  "byty": [
+    {
+      "byt": "A",
+      "podlazi": "2. nadzemní podlaží",
+      "dispozice": "3 + kk",
+      "celkem_dle_projektu_m2": "82,25",
+      "mistnosti": [
+        [
+          "2.02",
+          "Předsíň",
+          "3,00"
+        ],
+        [
+          "2.03",
+          "WC",
+          "2,75"
+        ],
+        [
+          "2.04",
+          "Šatna",
+          "2,70"
+        ],
+        [
+          "2.05",
+          "Obytný prostor",
+          "36,30"
+        ],
+        [
+          "2.06",
+          "Ložnice",
+          "16,40"
+        ],
+        [
+          "2.07",
+          "Koupelna",
+          "4,30"
+        ],
+        [
+          "2.08",
+          "Pokoj",
+          "16,80"
+        ]
+      ]
+    },
+    {
+      "byt": "B",
+      "podlazi": "2. nadzemní podlaží",
+      "dispozice": "4 + kk",
+      "celkem_dle_projektu_m2": "89,35",
+      "mistnosti": [
+        [
+          "2.09",
+          "Chodba",
+          "12,10"
+        ],
+        [
+          "2.10",
+          "Šatna",
+          "2,80"
+        ],
+        [
+          "2.11",
+          "Obývací prostor",
+          "34,40"
+        ],
+        [
+          "2.12",
+          "Pokoj",
+          "10,50"
+        ],
+        [
+          "2.13",
+          "Pokoj",
+          "10,70"
+        ],
+        [
+          "2.14",
+          "Ložnice",
+          "11,90"
+        ],
+        [
+          "2.15",
+          "Koupelna",
+          "5,30"
+        ],
+        [
+          "2.16",
+          "WC",
+          "1,65"
+        ]
+      ]
+    },
+    {
+      "byt": "C",
+      "podlazi": "2. nadzemní podlaží",
+      "dispozice": "3 + kk",
+      "celkem_dle_projektu_m2": "92,15",
+      "mistnosti": [
+        [
+          "2.17",
+          "Předsíň",
+          "13,00"
+        ],
+        [
+          "2.18",
+          "Šatna",
+          "2,95"
+        ],
+        [
+          "2.19",
+          "WC",
+          "1,40"
+        ],
+        [
+          "2.20",
+          "Chodba",
+          "8,00"
+        ],
+        [
+          "2.21",
+          "Koupelna",
+          "5,50"
+        ],
+        [
+          "2.22",
+          "Pokoj",
+          "19,30"
+        ],
+        [
+          "2.23",
+          "Ložnice",
+          "12,60"
+        ],
+        [
+          "2.24",
+          "Obývací prostor",
+          "29,40"
+        ]
+      ]
+    },
+    {
+      "byt": "D",
+      "podlazi": "Podkroví",
+      "dispozice": "2 + kk + loft",
+      "celkem_dle_projektu_m2": "94,45",
+      "mistnosti": [
+        [
+          "3.15",
+          "Předsíň",
+          "3,10"
+        ],
+        [
+          "3.16",
+          "Šatna",
+          "2,60"
+        ],
+        [
+          "3.17",
+          "WC",
+          "2,40"
+        ],
+        [
+          "3.18",
+          "Obývací prostor",
+          "35,90"
+        ],
+        [
+          "3.19",
+          "Koupelna",
+          "4,80"
+        ],
+        [
+          "3.20",
+          "Ložnice",
+          "21,10"
+        ],
+        [
+          "3.21",
+          "Loft",
+          "24,55"
+        ]
+      ]
+    },
+    {
+      "byt": "E",
+      "podlazi": "Podkroví",
+      "dispozice": "2 + kk + loft",
+      "celkem_dle_projektu_m2": "116,45",
+      "mistnosti": [
+        [
+          "3.02",
+          "Předsíň",
+          "3,10"
+        ],
+        [
+          "3.03",
+          "Šatna",
+          "2,50"
+        ],
+        [
+          "3.04",
+          "WC",
+          "2,00"
+        ],
+        [
+          "3.05",
+          "Obývací prostor",
+          "57,25"
+        ],
+        [
+          "3.06",
+          "Koupelna",
+          "4,50"
+        ],
+        [
+          "3.07",
+          "Ložnice",
+          "26,80"
+        ],
+        [
+          "3.22",
+          "Loft",
+          "20,30"
+        ]
+      ]
+    },
+    {
+      "byt": "F",
+      "podlazi": "Podkroví",
+      "dispozice": "3 + kk",
+      "celkem_dle_projektu_m2": "99,65",
+      "mistnosti": [
+        [
+          "3.08",
+          "Chodba",
+          "3,10"
+        ],
+        [
+          "3.09",
+          "Šatna",
+          "2,50"
+        ],
+        [
+          "3.10",
+          "WC",
+          "1,60"
+        ],
+        [
+          "3.11",
+          "Koupelna",
+          "5,85"
+        ],
+        [
+          "3.12",
+          "Ložnice",
+          "24,10"
+        ],
+        [
+          "3.13",
+          "Pokoj",
+          "18,50"
+        ],
+        [
+          "3.14",
+          "Obývací prostor",
+          "44,00"
+        ]
+      ]
+    }
+  ],
+  "zdroje": [
+    [
+      "Původní projektová brožura",
+      "https://drive.google.com/file/d/1PJtWO6W6cxV1JT4M3v6-jz6TvyEq-I92/view"
+    ],
+    [
+      "Ateliér Jakub Jaroš / koncept domu",
+      "https://jjarch.cz/projects-files/vzahradach/vzahradach"
+    ],
+    [
+      "D7 / oficiální přehled úseků",
+      "https://www.dalnice-d7.cz/"
+    ],
+    [
+      "ŘSD / stav k 1. 9. 2026",
+      "https://kraje.rsd.cz/stredocesky/blog/2026/09/01/na-d7-u-knovize-se-zacina-jezdit-po-prvni-casti-nove-dalnice/"
+    ],
+    [
+      "PID / regionální linky",
+      "https://pid.cz/jizdni-rady-podle-linek/autobusy-primestske/"
+    ],
+    [
+      "Město Louny / investiční plán 2026",
+      "https://www.mulouny.cz/cs/mesto/vedeni/aktualni-informace/investice-pro-budoucnost-zastupitelstvo-mesta-louny-schvalilo-rozpocetpro-rok-2026-s-vysokymi-inves.html"
+    ],
+    [
+      "Městské informační centrum / město",
+      "https://www.louny.eu/"
+    ],
+    [
+      "MIC / památky a Masarykovy sady",
+      "https://www.louny.eu/cz/louny-pamatky/573/"
+    ],
+    [
+      "MIC / cykloturistika",
+      "https://www.louny.eu/cz/cykloturistika-v-okoli-mesta-louny/389/"
+    ],
+    [
+      "Městská plavecká hala",
+      "https://www.bazenlouny.cz/plavecka-hala-louny/"
+    ],
+    [
+      "Galerie Benedikta Rejta",
+      "https://www.gbr.cz/"
+    ],
+    [
+      "Vrchlického divadlo",
+      "https://www.divadlolouny.cz/?s=homepage"
+    ],
+    [
+      "Kino Svět",
+      "https://www.kinolouny.cz/"
+    ],
+    [
+      "Městská knihovna Louny",
+      "https://www.mkl.cz/knihovna"
+    ],
+    [
+      "Triangle / pracovní zázemí",
+      "https://www.industrialzonetriangle.com/cz/pro-investory/nejcasteji-kladene-otazky"
+    ]
+  ]
+}

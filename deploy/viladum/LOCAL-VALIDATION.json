@@ -1,0 +1,33 @@
+{
+  "bundle_hashes": "PASS; 79 files",
+  "html_local_links": "PASS",
+  "address": "PASS",
+  "apartments": "6; unchanged areas",
+  "pdf_pages": 27,
+  "pdf_bytes": 9144297,
+  "pdf_links": "PASS",
+  "pdf_address": "PASS",
+  "qr": "PASS",
+  "qr_decoded": [
+    "https://viladum.investimenti.cz"
+  ],
+  "pdf_sha256": "392bccde13be03d5023155d15ad11ed3ff4a64023e699bc547198af52390e2b3",
+  "validation_scope": "local bundle only; production deployment pending",
+  "changed_pdf_pages_visually_reviewed": [
+    1,
+    2,
+    27
+  ],
+  "original_unit_data": "byte-identical to source",
+  "shell_syntax": "PASS",
+  "js_syntax": "PASS",
+  "release_copy_and_second_deploy": "PASS; original release retained",
+  "unmanaged_directory_guard": "PASS",
+  "rollback_mock_nginx": {
+    "test": "PASS; prior vhost and current restored",
+    "reload": "PASS; prior vhost and current restored"
+  },
+  "real_production_nginx": "must inspect/test on fortress",
+  "public_bytes": 28906725,
+  "mac_arm64_dependency_wheels": "PASS; Python 3.12 wheels available"
+}
