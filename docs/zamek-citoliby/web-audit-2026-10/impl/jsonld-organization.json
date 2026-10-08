@@ -1,0 +1,49 @@
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://www.zamek-citoliby.cz/#organization",
+      "name": "Zámek Cítoliby",
+      "legalName": "CASTELLO CÍTOLIBY s.r.o.",
+      "url": "https://www.zamek-citoliby.cz/",
+      "logo": "https://www.zamek-citoliby.cz/images/erb-stred-transparentni.png",
+      "email": "info@zamek-citoliby.cz",
+      "telephone": "+420 DOPLNIT",
+      "vatID": "CZ DOPLNIT",
+      "address": { "@type": "PostalAddress", "streetAddress": "Zámecká DOPLNIT", "addressLocality": "Cítoliby", "postalCode": "439 02", "addressRegion": "Ústecký kraj", "addressCountry": "CZ" },
+      "sameAs": [
+        "https://www.facebook.com/DOPLNIT",
+        "https://www.instagram.com/zamekcitoliby/",
+        "https://cs.wikipedia.org/wiki/C%C3%ADtoliby_(z%C3%A1mek)",
+        "https://www.wikidata.org/wiki/DOPLNIT"
+      ],
+      "contactPoint": [
+        { "@type": "ContactPoint", "contactType": "customer service", "email": "info@zamek-citoliby.cz", "telephone": "+420 DOPLNIT", "availableLanguage": ["cs", "en"] }
+      ]
+    },
+    {
+      "@type": ["TouristAttraction", "EventVenue"],
+      "@id": "https://www.zamek-citoliby.cz/#place",
+      "name": "Zámek Cítoliby",
+      "description": "Barokní zámek u Loun. Letní divadlo Zámecká Resonance, svatby, firemní akce a zámecká gastronomie.",
+      "url": "https://www.zamek-citoliby.cz/",
+      "image": "https://www.zamek-citoliby.cz/og/zamek-citoliby.jpg",
+      "address": { "@type": "PostalAddress", "streetAddress": "Zámecká DOPLNIT", "addressLocality": "Cítoliby", "postalCode": "439 02", "addressCountry": "CZ" },
+      "geo": { "@type": "GeoCoordinates", "latitude": "DOPLNIT (ověřit v Mapy.cz)", "longitude": "DOPLNIT" },
+      "maximumAttendeeCapacity": 960,
+      "publicAccess": false,
+      "isAccessibleForFree": false,
+      "touristType": ["kultura", "svatby", "firemní akce"],
+      "containedInPlace": { "@type": "AdministrativeArea", "name": "Cítoliby, okres Louny" }
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://www.zamek-citoliby.cz/#website",
+      "url": "https://www.zamek-citoliby.cz/",
+      "name": "Zámek Cítoliby",
+      "inLanguage": "cs",
+      "publisher": { "@id": "https://www.zamek-citoliby.cz/#organization" }
+    }
+  ]
+}
