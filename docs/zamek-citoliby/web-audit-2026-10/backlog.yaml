@@ -1,0 +1,343 @@
+project: zamek-citoliby-web
+audit_date: '2026-10-08'
+items:
+- id: LOC-001
+  name: Google Business Profile
+  role: lokální SEO
+  priority: P0
+  effort: S
+  task: Nárokovat/založit, kategorie, NAP, fotografie 20+, popis, odkazy (web, vstupenky).
+  acceptance: Profil ověřen, všechna pole vyplněna, bez fiktivní otevírací doby.
+  test: screenshot + kontrola v Mapách.
+  status: todo
+  source: web-audit-2026-10
+- id: LOC-002
+  name: Firmy.cz, Mapy.cz, Kudyznudy, Dolní Poohří
+  role: lokální SEO
+  priority: P0
+  effort: S
+  task: Založit/aktualizovat profily s NAP a odkazem.
+  acceptance: 4 profily živé, shodné NAP.
+  test: odkazy v `NAP.md`.
+  status: todo
+  source: web-audit-2026-10
+- id: PR-001
+  name: Oprava zastaralých informací
+  role: PR
+  priority: P0
+  effort: M
+  task: hrady.cz (správce profilu), Wikipedia „Cítoliby (zámek)“ (neutrálně, s citacemi), turistika.cz, kultura.cz; tisková zpráva „Zámek ožívá“.
+  acceptance: Wikipedia odstavec „Současnost“ s citací na tisk; hrady.cz bez „nepřístupný/na prodej“; ≥ 2 mediální výstupy.
+  test: odkazy.
+  status: todo
+  source: web-audit-2026-10
+- id: UX-001
+  name: Cookie lišta nepřekrývá obsah
+  role: dev
+  priority: P0
+  effort: S
+  task: Lišta jako spodní pruh bez overlay; CTA klikatelné bez interakce s lištou; Consent Mode v2 beze změny.
+  acceptance: 'Playwright: klik na „Poptat svatbu“ bez zavření lišty otevře dialog.'
+  test: test v `data/` skriptu.
+  status: todo
+  source: web-audit-2026-10
+- id: WEB-001
+  name: robots.txt a sitemap.xml
+  role: dev
+  priority: P0
+  effort: S
+  task: Přidat `app/robots.ts` a `app/sitemap.ts` (impl/).
+  acceptance: '`GET /robots.txt` 200 s `Sitemap:` řádkem; `GET /sitemap.xml` 200, validní XML, obsahuje `/`.'
+  test: '`curl -I`, GSC'
+  status: todo
+  source: web-audit-2026-10
+- id: WEB-002
+  name: Canonical + metadataBase
+  role: dev
+  priority: P0
+  effort: S
+  task: '`metadata.metadataBase = new URL(''https://www.zamek-citoliby.cz'')`, `alternates.canonical: ''/''`.'
+  acceptance: HTML obsahuje `<link rel="canonical" href="https://www.zamek-citoliby.cz/">`.
+  test: grep v HTML.
+  status: todo
+  source: web-audit-2026-10
+- id: WEB-003
+  name: Title/description/H1 homepage
+  role: SEO+dev
+  priority: P0
+  effort: S
+  task: Nasadit texty z E1.
+  acceptance: title ≤ 60 znaků s „divadlo, svatby, gastronomie u Loun“; H1 obsahuje „Zámek Cítoliby“ + produkt.
+  test: Rich Results / Lighthouse SEO.
+  status: todo
+  source: web-audit-2026-10
+- id: WEB-004
+  name: JSON-LD Organization + Place
+  role: dev
+  priority: P0
+  effort: S
+  task: Vložit `impl/jsonld-organization.json` (doplnit telefon, adresu, IČO, sameAs).
+  acceptance: Schema validator bez chyb; GSC bez varování.
+  test: validator.schema.org.
+  status: todo
+  source: web-audit-2026-10
+- id: WEB-005
+  name: Kontaktní blok a patička s NAP
+  role: dev+obchod
+  priority: P0
+  effort: S
+  task: Telefon (tel:), adresa, mapa (odkaz, embed až po souhlasu), IČO, sídlo, odpovědní doba.
+  acceptance: Všechny údaje shodné s GBP a `marketing/NAP.md`.
+  test: vizuální kontrola + JSON-LD shoda.
+  status: todo
+  source: web-audit-2026-10
+- id: WEB-006
+  name: Skutečné fotografie místo ilustrace
+  role: marketing
+  priority: P0
+  effort: M
+  task: Focení (exteriér, nádvoří, arkády, sál, zahrada, obnova, tým) ≥ 40 snímků, výběr 20 na web; hero + sekce „Fotografie“ = galerie. OG image 1200×630 fotografie < 200 kB.
+  acceptance: hero `<img>` je fotografie s popisným alt; galerie ≥ 12 fotek; LCP obrázek preloaded.
+  test: Lighthouse, vizuálně.
+  status: todo
+  source: web-audit-2026-10
+- id: WEB-007
+  name: Měření konverzí v GTM/GA4
+  role: analytik
+  priority: P0
+  effort: M
+  task: 'Implementovat `impl/measurement-plan.md`: dataLayer push při úspěšném odeslání (server action'
+  acceptance: stav success
+  test: '`generate_lead`/`newsletter_signup`), `cta_click`, `contact_click`, `outbound_click`; GA4 key events; Meta standardní události s `event_id`.'
+  status: todo
+  source: web-audit-2026-10
+- id: WEB-008
+  name: CTA podle produktu + tag zájmu v Ecomailu
+  role: dev+CRM
+  priority: P0
+  effort: S
+  task: „Chci vědět víc“ u Divadlo/Hudba/Gastro
+  acceptance: formulář s předvyplněným `source` (divadlo/koncerty/gastro); Ecomail tag `zajem:*`.
+  test: Kontakt v Ecomailu má tag podle zdroje; DOI zachováno.
+  status: todo
+  source: web-audit-2026-10
+- id: ADS-001
+  name: Google Ads + Sklik + Meta účty, konverze, brand kampaň
+  role: PPC
+  priority: P1
+  effort: S
+  task: Založit/ověřit účty pod firmou, propojit GA4 konverze, Consent Mode, brand kampaň on.
+  acceptance: konverze importovány, brand kampaň aktivní s CTR > 20 %.
+  test: účty screenshot.
+  status: todo
+  source: web-audit-2026-10
+- id: ADS-002
+  name: Svatební kampaň Search (Google + Sklik)
+  role: PPC
+  priority: P1
+  effort: M
+  task: Spustit po WEB-011 (/svatby).
+  acceptance: CPL ≤ 1 200 Kč po 30 dnech nebo pauza a revize.
+  test: týdenní report.
+  status: todo
+  source: web-audit-2026-10
+- id: CNT-001
+  name: Obsah fáze 1
+  role: redakce
+  priority: P1
+  effort: L
+  task: Texty E1–E6 finalizovat (ceny od revenue managera), /historie kap. 1–2, /obnova-zamku timeline + 3 kapitoly, FAQ svatby/firemní.
+  acceptance: Všechny stránky fáze 1 bez placeholderů `[ ]`.
+  test: redakční kontrola.
+  status: todo
+  source: web-audit-2026-10
+- id: CRM-001
+  name: Welcome série + segmentace
+  role: CRM
+  priority: P1
+  effort: S
+  task: 3 e-maily, tagy zájmu, early-bird segment.
+  acceptance: Nový kontakt dostane D0/D3/D10; tag podle zdroje.
+  test: testovací kontakt.
+  status: todo
+  source: web-audit-2026-10
+- id: CRM-002
+  name: Svatební a firemní follow-up automatizace
+  role: CRM+obchod
+  priority: P1
+  effort: M
+  task: Dle F6; úkoly v interním systému (telefonát D1, nabídka 48 h).
+  acceptance: Každý lead má úkol s termínem; e-maily D3/D10.
+  test: test.
+  status: todo
+  source: web-audit-2026-10
+- id: SEO-001
+  name: Seznam Webmaster + GSC sitemap + monitoring
+  role: SEO
+  priority: P1
+  effort: S
+  task: ''
+  acceptance: Obě property s odeslanou sitemapou; týdenní export do dashboardu.
+  test: J.
+  status: todo
+  source: web-audit-2026-10
+- id: TIX-001
+  name: Výběr ticketingu
+  role: revenue+dev
+  priority: P1
+  effort: M
+  task: 'Kritéria: plán sálu (900 + 60 VIP), sektory, upsell položky, dárkové poukazy, provize, export dat (API/webhook), GA4/Meta měření s transaction_id, iframe/redirect UX, podpora Seznam/Google Event
+    „Vstupenky“. Kandidáti: GoOut, Enigoo, Colosseum, SmsTicket, Ticketportal.'
+  acceptance: Rozhodnutí + smlouva; testovací událost prodaná end-to-end s purchase událostí v GA4.
+  test: testovací nákup.
+  status: todo
+  source: web-audit-2026-10
+- id: WEB-010
+  name: Repo pod firmou + CI + preview
+  role: dev
+  priority: P1
+  effort: S
+  task: Přesun v0.app projektu do GitHub organizace, Vercel projekt pod firemním účtem, branch preview, `.env` správa.
+  acceptance: '`git clone` funguje, deploy z main, preview na PR.'
+  test: PR test.
+  status: todo
+  source: web-audit-2026-10
+- id: WEB-011
+  name: Vícestránková architektura fáze 1
+  role: dev
+  priority: P1
+  effort: L
+  task: 'Stránky: /program, /program/[slug], /divadlo, /svatby, /firemni-akce, /historie, /obnova-zamku, /navsteva, /fotografie, /pamet-mista, /kontakt, /ochrana-osobnich-udaju; CMS (doporučení: Sanity
+    nebo Payload; alternativa MDX v repu pro start) s typy Event, Space, Post, Page. Navigace + patička + breadcrumbs.'
+  acceptance: 'Každá stránka: unikátní title/description/H1/canonical/BreadcrumbList; Lighthouse SEO ≥ 95, Performance ≥ 85 mobil; JS ≤ 300 kB.'
+  test: Lighthouse CI + Playwright smoke (všechny URL 200, žádný 404 v navigaci).
+  status: todo
+  source: web-audit-2026-10
+- id: WEB-012
+  name: Formuláře svatba / event oddělené, vícekrokové
+  role: dev
+  priority: P1
+  effort: M
+  task: Pole dle E2/E3; honeypot zachovat; rate limit; uložení do interního CRM + e-mail notifikace + auto-odpověď; `generate_lead` s `lead_type`, `budget_band`, `guests`.
+  acceptance: Lead v CRM do 10 s, auto-odpověď do 1 min, GA4 událost 1×.
+  test: e2e test.
+  status: todo
+  source: web-audit-2026-10
+- id: WEB-013
+  name: Event stránky s JSON-LD a životním cyklem
+  role: dev
+  priority: P1
+  effort: M
+  task: Šablona dle D4/E5; `impl/jsonld-event-example.json`; po akci skryt Offer, zachována URL.
+  acceptance: 'Rich Results Test: Event validní; po datu konání stránka 200 bez Offer.'
+  test: test na 1 akci.
+  status: todo
+  source: web-audit-2026-10
+- id: WEB-014
+  name: Výkon a přístupnost
+  role: dev
+  priority: P1
+  effort: M
+  task: Bundle analýza, odstranit nepoužité UI knihovny, `next/image` AVIF/WebP, 16px base, kontrast ≥ 4,5:1 (zlatá jen na tmavé), tap targets ≥ 44px, focus stavy.
+  acceptance: Lighthouse a11y ≥ 95; axe 0 critical.
+  test: axe + Lighthouse CI.
+  status: todo
+  source: web-audit-2026-10
+- id: WEB-015
+  name: Vlastní 404 + přesměrování
+  role: dev
+  priority: P1
+  effort: S
+  task: Česká 404 s odkazy; 301 mapa pro případné změny URL.
+  acceptance: '`/neexistuje` 404 česky; staré kotvy fungují na homepage.'
+  test: curl.
+  status: todo
+  source: web-audit-2026-10
+- id: ADS-003
+  name: Předprodej 2027 kampaně (per-event, PMax, Meta)
+  role: PPC
+  priority: P2
+  effort: L
+  task: Předprodej 2027 kampaně (per-event, PMax, Meta)
+  acceptance: ROAS ≥ 3 po 4 týdnech
+  test: ''
+  status: todo
+  source: web-audit-2026-10
+- id: CNT-002
+  name: 90denní kalendář obsahu (F4) splněn
+  role: redakce
+  priority: P2
+  effort: L
+  task: 90denní kalendář obsahu (F4) splněn
+  acceptance: ''
+  test: ''
+  status: todo
+  source: web-audit-2026-10
+- id: DATA-001
+  name: Dashboard (J) v interním systému
+  role: analytik+dev
+  priority: P2
+  effort: M
+  task: Dashboard (J) v interním systému
+  acceptance: denní import GA4/GSC/Ecomail/ticketing/CRM, definice KPI
+  test: ''
+  status: todo
+  source: web-audit-2026-10
+- id: SEO-002
+  name: 'Svatební a eventové katalogy** (10 registrací) · lokální SEO · P2 · S.
+
+
+    **SEO-003 · GEO monitoring** (10 dotazů/měsíc) · SEO · P2 · S.
+
+
+    **CNT-002 · 90denní kalendář obsahu (F4) splněn'
+  role: redakce
+  priority: P2
+  effort: L
+  task: 'Svatební a eventové katalogy** (10 registrací) · lokální SEO · P2 · S.
+
+
+    **SEO-003 · GEO monitoring** (10 dotazů/měsíc) · SEO · P2 · S.
+
+
+    **CNT-002 · 90denní kalendář obsahu (F4) splněn'
+  acceptance: ''
+  test: ''
+  status: todo
+  source: web-audit-2026-10
+- id: WEB-022
+  name: Kalendář volných svatebních termínů 2027
+  role: dev
+  priority: P2
+  effort: S
+  task: Kalendář volných svatebních termínů 2027
+  acceptance: zdroj = interní systém; obsazené termíny automaticky
+  test: ''
+  status: todo
+  source: web-audit-2026-10
+- id: WEB-023
+  name: 'Dárkové poukazy** (ticketing nebo vlastní) · revenue+dev · P2 · M → nákup měřen jako purchase s item `voucher`.
+
+
+    **WEB-024 · Meta Conversions API'
+  role: analytik
+  priority: P2
+  effort: M
+  task: 'Dárkové poukazy** (ticketing nebo vlastní) · revenue+dev · P2 · M → nákup měřen jako purchase s item `voucher`.
+
+
+    **WEB-024 · Meta Conversions API'
+  acceptance: deduplikace ověřena v Events Manageru (event_id shoda ≥ 90 %)
+  test: ''
+  status: todo
+  source: web-audit-2026-10
+- id: WEB-025
+  name: CSP hlavička
+  role: dev
+  priority: P2
+  effort: S
+  task: CSP hlavička
+  acceptance: GTM/GA4/Meta/Ecomail/ticketing whitelist; 0 console CSP chyb
+  test: ''
+  status: todo
+  source: web-audit-2026-10

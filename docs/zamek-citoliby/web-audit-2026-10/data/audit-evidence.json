@@ -1,0 +1,54 @@
+{
+  "audit_date": "2026-10-08",
+  "target": "https://www.zamek-citoliby.cz",
+  "method": "curl (HTTP/headers/status), statická analýza HTML, Chromium 1194 přes Playwright (desktop 1366x900, mobil 390x844), Windsor.ai konektory (GA4, GSC, FB, IG), Elias Bridge (Ecomail health), webové vyhledávání (konkurence, AI-search proxy).",
+  "verified": {
+    "stack": {"framework": "Next.js (App Router, server actions, Turbopack)", "generator_meta": "v0.app", "hosting": "Vercel (iad1, x-vercel-cache HIT, x-nextjs-prerender 1)", "html_bytes": 56360},
+    "redirects": {"http://zamek-citoliby.cz/": "308 -> https://zamek-citoliby.cz/", "https://zamek-citoliby.cz/": "308 -> https://www.zamek-citoliby.cz/", "http://www.zamek-citoliby.cz/": "308 -> https://www.zamek-citoliby.cz/"},
+    "security_headers": ["strict-transport-security max-age=63072000", "x-content-type-options nosniff", "referrer-policy strict-origin-when-cross-origin", "permissions-policy camera=(), microphone=(), geolocation=()"],
+    "status_404": ["/robots.txt", "/sitemap.xml", "/sitemap_index.xml", "/favicon.ico", "/manifest.webmanifest", "/svatby", "/program", "/divadlo", "/kontakt", "/historie", "/ochrana-osobnich-udaju", "/en", "/api/newsletter"],
+    "head": {
+      "title": "Zámek Cítoliby | Místo, kde příběhy pokračují",
+      "meta_description": "Zámek Cítoliby · Il Senso Vero. Historické místo se probouzí k novému životu — prostor pro kulturu, slavnosti a setkávání. Sledujte obnovu a připravovaný program.",
+      "canonical": null,
+      "og_image": "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/… (1536x1152, 300 kB, ilustrace)",
+      "json_ld_blocks": 0,
+      "lang": "cs",
+      "theme_color": "#0F2E57",
+      "icon": "/images/erb-svetly.png (85 kB PNG)"
+    },
+    "headings": {"h1": ["Zámek se probouzí"], "h2": ["Pět důvodů, proč přijet", "Proč Cítoliby", "Chceme vaše fotografie a příběhy", "Chci o všem vědět", "Chcete mít první lístky?", "Zámek Cítoliby (footer)"], "h3": ["Divadlo", "Hudba", "Gastronomie", "Svatby", "Eventy"]},
+    "navigation": ["#zazitky Co tu vzniká", "#pribeh Proč Cítoliby", "#fotografie Fotografie", "#kontakt Kontakt", "#vstupenky Sledovat novinky"],
+    "ctas": {"Naše vize": "#pribeh", "Chci vědět víc (3x: Divadlo, Hudba, Gastronomie)": "#vstupenky (newsletter)", "Poptat svatbu": "dialog s formulářem", "Poptat event": "dialog s formulářem", "Podělit se o fotografii nebo příběh": "dialog s uploadem", "Sledovat novinky (header)": "#vstupenky"},
+    "forms": {
+      "newsletter_novinky": {"fields": ["email*", "consent*", "honeypot website", "source=novinky"], "backend": "Next server action", "destination": "Ecomail list 2 'Zámek Cítoliby – novinky a předprodej' (ecomail_health forms_found=true)"},
+      "newsletter_vstupenky": {"fields": ["email*", "consent*", "honeypot", "source=vstupenky"], "destination": "Ecomail list 2 (stejný list)"},
+      "poptavka_svatba": {"fields": ["name*", "email*", "phone", "preferredDate (text, 'např. léto 2027')", "guests (number)", "message*", "consent*"], "note": "stejný formulář jako event, jen type=svatba"},
+      "poptavka_event": {"fields": ["name*", "email*", "phone", "preferredDate", "guests", "message*", "consent*"]},
+      "fotografie_pribehy": {"fields": ["kind (radio)", "name*", "email*", "title", "story", "files* (6x15MB)", "permission (radio 3)", "consent*"]}
+    },
+    "contact_data_on_page": {"email": "info@zamek-citoliby.cz", "phone": null, "address": null, "map": null, "ico": null, "opening_hours": null, "company": "CASTELLO CÍTOLIBY s.r.o. (jen v © řádku)"},
+    "images": {"hero": "/images/ilustrace-zamek.jpg 280 kB JPEG, alt 'Ilustrace čelního pohledu…' (kreslená ilustrace, ne fotografie)", "erb": "/images/erb-stred-transparentni.png 85 kB PNG (2x načten)", "gallery": "žádná fotogalerie na webu", "formats": "JPEG/PNG, žádné WebP/AVIF přes next/image optimalizaci (obrázky servírovány přímo z /images)"},
+    "tracking": {"gtm": "GTM-KQG9QF8H", "ga4": "G-J6VFT3CS1C", "meta_pixel": "fbevents.js načten po souhlasu", "ecomail_tracker": "d70shl7vidtft.cloudfront.net/ecmtr-2.4.2.js", "consent": "vlastní ConsentProvider, cookie zc_consent, Consent Mode v2 signály (analytics_storage, ad_storage, ad_user_data, ad_personalization) – před souhlasem 0 third-party requestů", "datalayer_custom_events_at_load": 0},
+    "performance_lab": {"note": "Chromium z US datacentra, Vercel cache HIT – ne reálná CZ data (CrUX chybí, web je nový)", "ttfb_ms": {"desktop": 623, "mobile": 589}, "lcp_ms": {"desktop": 1012, "mobile": 1216}, "cls": 0, "transfer_bytes_total": 1102346, "resources": 24, "js_chunks_bytes": {"1m3g-2a-7p2sl.js": 551379, "3nu79wsaskdam.js": 228426, "1l17r7z_0j2lc.js": 128764, "0c0hxoamwjsbw.js": 112594, "ostatní": 115000}, "css_bytes": 87296, "fonts_preloaded": 6},
+    "accessibility_lab": {"body_font_size": "14px", "tap_targets_under_44px": {"desktop": 21, "mobile": 18}, "contrast_sample": "zlatý text rgb(138,122,78) na slonové kosti rgb(247,244,237) ≈ 3.85:1 (pod 4.5:1 pro běžný text)", "skip_link": true, "aria_labels": true, "img_without_alt_not_hidden": 1},
+    "consent_banner_ux": "banner překrývá obsah uprostřed/dole obrazovky; na mobilu zakrývá hero ilustraci; CTA 'Poptat svatbu' bez souhlasu nejde kliknout, dokud uživatel banner nezavře (Playwright click šel do banneru)",
+    "error_page": {"/svatby": "HTTP 404, title '404: This page could not be found.' (výchozí Next, anglicky)"}
+  },
+  "analytics_connectors": {
+    "windsor_trial_note": "Windsor.ai je v TRIAL plánu – force_refresh nelze, data mohou být stará/prázdná. Vše níže ověřit přímo v GA4/GSC UI.",
+    "ga4_property": "557245267 'Zámek Cítoliby'", "ga4_rows_last_30d": [{"date": "2026-10-07", "sessions": 5, "totalusers": 5, "newusers": 4}], "ga4_interpretation": "jediný den s daty = property/konektor vznikl ~7. 10. 2026; žádná historie",
+    "gsc_property": "sc-domain:zamek-citoliby.cz", "gsc_rows_last_30d_3m_12m": 0, "gsc_interpretation": "buď nulové imprese, nebo konektor ještě nesynchronizoval – ověřit v GSC",
+    "facebook_page": "1368510976347515 'Zámek Cítoliby' – 30 dní: 0 follows, 0 unique impressions, 0 engagements (Windsor)",
+    "instagram": "17841426946147322 'zamekcitoliby' – followers_count 0, media_count 0 k 8. 10. 2026 (Windsor); pravděpodobně nový účet nebo chybí oprávnění",
+    "ecomail": {"list_id": 2, "list_name": "Zámek Cítoliby – novinky a předprodej", "confirmed": 57, "pending": 2, "growth_7d": 14, "growth_30d": 57, "campaigns_sent": 0, "sender_domain_valid": true}
+  },
+  "external_presence": {
+    "seznam_index": "homepage indexována (search.seznam.cz vrací www.zamek-citoliby.cz)",
+    "google_index": "NEOVĚŘENO (není přístup k Google SERP z tohoto prostředí) – zkontrolovat site:zamek-citoliby.cz a GSC Pages report",
+    "firmy_cz": "žádný záznam 'Zámek Cítoliby' / 'Castello Cítoliby' (výsledky: Nový Hrad Jimlín, Roudnice, Střekov)",
+    "google_business_profile": "NEOVĚŘENO (bez přístupu) – zkontrolovat ručně",
+    "third_party_pages_outdated": ["hrady.cz: 'není přístupný veřejnosti', majitel s pražskou adresou, nabízen k prodeji přes Luxent (17,9 mil.)", "cs.wikipedia.org Cítoliby (zámek): historie, stav zanedbaný, soud 2018", "turistika.cz, kultura.cz, cokolivokoli.cz: zastaralé/prázdné profily", "zatecky.denik.cz 1/2025: 'zámek zlevnil na cenu pražského bytu'"],
+    "ai_search_proxy": {"Kde uspořádat svatbu poblíž Loun?": "Cítoliby se neobjevují; výsledky: Krásný Dvůr, Stekník, radnice Louny/Žatec", "Co navštívit v Cítolibech?": "zámek popsán jako 'na prodej, budoucí využití nejisté, ověřte zda je otevřen'", "Kde uspořádat firemní večírek v Ústeckém kraji?": "Cítoliby chybí; výsledky: Červený Hrádek, Střekov, Litoměřice (Špitál, hrad)", "Zámecká Resonance": "nulová viditelnost mimo vlastní web"}
+  }
+}
