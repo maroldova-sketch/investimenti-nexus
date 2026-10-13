@@ -1,0 +1,12 @@
+# Druhý connector tunelu maroldova-hq na RPi5 (192.168.1.220). Vrstva 3.
+# Cloudflare rozkládá provoz mezi všechny živé connectory stejného tunelu: když cloudflared na Macu
+# umře, provoz jde přes RPi na appky na Macu. Předpoklad: appky na Macu poslouchají na LAN
+# (uvicorn --host 0.0.0.0) a firewall pustí jen 192.168.1.220. Token tunelu patří do .env (TUNNEL_TOKEN=...),
+# nikdy do gitu.
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-maroldova-replica
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    network_mode: host
