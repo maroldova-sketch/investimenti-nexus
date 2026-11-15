@@ -28,6 +28,8 @@ def roles_for(db, cu):
 
 
 def permitted(db, cu, entity, accepted):
+    if getattr(cu, 'portal', False):
+        return False
     for r in roles_for(db, cu):
         if value(r.role) not in accepted:
             continue
@@ -44,6 +46,9 @@ def permitted(db, cu, entity, accepted):
 
 
 def csrf_token(request, cu):
+    if getattr(cu, 'portal', False):
+        token = request.cookies.get('hr_entry', '')
+        return hmac.new(get_settings().secret_key.encode(), f'hr-portal:{cu.id}:{token}'.encode(), hashlib.sha256).hexdigest()
     token = get_token(request)
     if not token:
         raise HTTPException(401, 'Přihlaste se do Nexusu.')
@@ -51,6 +56,9 @@ def csrf_token(request, cu):
 
 
 def check_csrf(request: Request, cu):
+    if getattr(cu, 'portal', False):
+        from .portal import check_portal_origin
+        check_portal_origin(request, mutation=True)
     if not hmac.compare_digest(request.headers.get('x-hr-csrf', ''), csrf_token(request, cu)):
         raise HTTPException(403, 'Obnovte přihlášení před uložením.')
     origin = request.headers.get('origin')

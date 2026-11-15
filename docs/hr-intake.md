@@ -1,132 +1,198 @@
-# HR intake: first working increment
+# NEXUS People: intake, employee entry and protected documents
 
-This adds an internal HR case workflow to the existing Nexus application at
-`/people/hr`. It uses existing `Person`, `Entity`, `Employment`, `UserAccount`
-and dated/scoped `RoleAssignment` records. It does not create another employee
-directory or change the source of existing employment terms.
+The module uses existing `Person`, `Entity`, `Employment`, `UserAccount` and
+currently valid, scoped `RoleAssignment` records. It is off by default.
+No production database, service, public route or mail account was changed.
 
-## What is implemented
+## Implemented behavior
 
-- An HR operator selects an existing employment relationship and opens one
-  `complete_existing` or `change` case. A concurrent relationship has a separate
-  case. The legal employer and job context are pinned and visible.
-- A five-step responsive form reads its field definitions and conditions from
-  one server-owned template. It prefills existing facts, saves drafts to SQL,
-  and restores them after a page refresh. No answers are stored in browser
-  localStorage or sessionStorage. The UI distinguishes pending, successful and
-  failed saves. A conflicting write returns 409 instead of overwriting data.
-- Personal/contact/insurance/tax inputs, conditional children and months,
-  existing equipment/benefits evidence and questions for HR. These are submitted
-  facts and requests; they do not create legal entitlements or calculate payroll.
-- Submission creates an immutable, numbered snapshot with a SHA-256 digest.
-  A return for correction opens the draft again; resubmission creates a new
-  snapshot. Historical snapshots and review decisions are retained.
-- HR sets the evidence requirements and which block payroll handover. Verified
-  evidence requires a reference; deferrals/exceptions require a reason. The
-  current requirements are frozen in each review/acceptance decision.
-- HR review and payroll receipt are separate transitions. Payroll receipt
-  refers to the exact submitted revision, closes that case and does not imply
-  that payroll has been calculated or regulatory reporting submitted. Later
-  changes use a new case.
-- API reads/writes enforce employment ownership or currently valid role scope.
-  Entity and division scopes do not become global through `CurrentUser.roles`.
-  CSRF protects mutations; own submissions cannot be self-reviewed/accepted.
-  Create/action keys prevent duplicate operations. SQL version counters also
-  reject simultaneous stale database writes. Lists omit submitted answers.
+- HR opens one case per existing employment relationship at `/people/hr`.
+  Concurrent HPP/DPP/DPČ relationships remain separate, with pinned legal
+  employer, person and job context.
+- The responsive employee form now has six steps: personal facts, contact and
+  payroll inputs, conditional tax/family inputs, existing work/benefit evidence,
+  documents, and review/submission. Server-owned fields and validation are
+  versioned. Drafts save to SQL, never browser local/session storage. Stale
+  writes return 409; retries cannot silently replace a newer version.
+- An immutable submission contains answers, context, template version and the
+  exact document manifest/hashes. Corrections create another revision. HR
+  review and payroll receipt are separate, recorded decisions. Payroll receipt
+  closes that case; later changes open a new case.
+- HR selects requirements and evidence. Employees report existing equipment or
+  benefits; they do not grant themselves a car, laptop, benefit or bonus.
+  An uploaded document is not automatically marked legally verified.
+- Existing Nexus accounts retain dated entity/division scope checks. Employees
+  cannot review/accept their own submissions. The module does not overwrite
+  `Person`, contracts or payroll calculations automatically.
 
-## Deliberate boundaries of this increment
+## Employee invitation
 
-This is an **internal authenticated workflow**, not an externally distributable
-employee invitation service. Existing Nexus authentication is reused; there is
-no public token endpoint or newly exposed internal port. The website prototype
-is a separate, unchanged preview and does not become a real invitation.
+HR selects an email already present on the existing person record and confirms
+that it belongs to this employee. The address is not taken from the editable
+intake draft. Creating an invitation returns a shareable link once; it does
+**not** send a message. The UI supports copying a prepared message and native
+mobile sharing. There is no WhatsApp Business API integration in this change.
 
-Files are currently referenced in an existing approved protected repository.
-Uploads, scanning, e-signatures, mail/WhatsApp delivery, provider-card operations,
-benefit grants, KPI-linked rewards and payroll/ERP write connectors are not
-implemented. Capability flags in `/api/hr/meta` explicitly report these gaps.
-Health diagnoses and payment-card credentials are not requested.
+The random 256-bit invitation ticket is stored only as a digest. It travels in
+the URL fragment and is removed from the address bar by the entry page. A GET,
+including a link preview, does not consume the ticket or send a code. The link
+alone discloses no employee answers or identity. `/hr/entry` requests an
+8-digit code through the configured TLS mail adapter after an explicit click.
+Codes expire after ten minutes, allow five attempts each, and are single-use.
+There is a 60-second resend cooldown, ten deliveries per invitation and twenty
+failed verifications over its lifetime. SQL version counters arbitrate races.
 
-The first form is a versioned **intake subset**. It is not an exhaustive Czech
-legal/migration/tax schema. Existing prototype branches such as annual tax
-settlement, foreign-worker evidence and complex insurance claims must be mapped
-and validated before a real pilot is labelled complete. No tax constants or
-legal calculations are implemented here. The vendor watchdog is advisory and
-does not edit this version automatically.
+An invitation lasts seven days. Verification creates a distinct, case-bound,
+two-hour `HttpOnly; Secure; SameSite=Strict` cookie, scoped to `/hr`. It never
+creates a Nexus account or JWT. The employee namespace exposes only the selected
+case, draft, submit and document operations. HR/finance actions, case lists,
+recipient management and access audits are not exposed there. An employee's
+unrelated HR role never expands this portal session.
 
-The module intentionally does not write reviewed answers back to `Person` or
-`EmploymentContract`: field ownership and payroll acceptance mappings still
-need to be confirmed. Readiness for work, BOZP/medical compliance and adaptation
-are not inferred from form completion or payroll receipt.
+A new invitation supersedes the previous link/session. HR can revoke it. Contact
+changes, expiry, invalid employment binding, inactive person/employer, terminated
+employment and payroll receipt also invalidate access. Logout clears the session.
+Resuming after session expiry uses the original invitation and a fresh code.
+Mail failure returns an actionable error and invalidates the undelivered code;
+no plaintext code or ticket is written to the audit log.
 
-## Installation into a reviewed staging copy
+## Documents
 
-The feature is off unless the process environment has `NEXUS_HR_ENABLED=1`.
-Production has **not** been migrated, restarted or changed by this patch.
+- PDF, JPEG and PNG only; extension, declared MIME and file signature must agree.
+  Each upload is streamed with an 8 MiB/30-second bound. There are at most twenty
+  active and fifty lifetime document records per case. Proxies must additionally
+  bound request concurrency, rates and slow connections.
+- The ClamAV adapter uses **only a configured local Unix socket** and INSTREAM.
+  A detection, timeout, unavailable scanner or ambiguous response rejects the
+  upload. Files enter persistent storage only after an explicit clean scan.
+  The scanner/version receipt is retained. Antivirus approval is not a guarantee
+  of harmless content or legal correctness; no inline document rendering occurs.
+- Accepted bytes are encrypted with Fernet/MultiFernet under a separate keyring
+  before they are written. The private directory must exist outside the
+  application tree with no group/other permissions. Server-generated UUID paths
+  and mode 0600 replace user filenames. File and directory are flushed before
+  committing their database reference.
+- Downloads authenticate the case scope, decrypt and check the recorded digest,
+  then return an attachment with no-store/nosniff headers. There are no public
+  object URLs. Reads, uploads and withdrawals produce minimal access events.
+- Withdrawal removes a file from the current draft, not from older snapshots.
+  It is allowed only while editable and is refused while a requirement still
+  references that document. A `document:<id>` evidence reference must belong to
+  this same case. HR must explicitly review its content.
+- A known transaction conflict removes its unreferenced ciphertext. An unknown
+  database commit failure retains ciphertext for reconciliation, because deleting
+  it could damage a commit that actually succeeded. There is no automatic orphan
+  purge or invented retention period; operators must reconcile storage and DB
+  backups and apply the approved retention policy.
 
-1. Review this branch against the actual running Nexus revision. The source
-   checkout used for development was the GitHub `main` revision beginning
-   `ddc570b`; a matching deployment on the host was not verified.
-2. Use a backed-up staging database and the repository's pinned requirements.
-   Never run tests against the checked-in `nexus.db` or a live payroll database.
-3. Inspect the additive schema without making changes:
+## Runtime configuration
+
+The internal workflow can be enabled independently. Invitations/uploads report
+unavailable until their adapters are configured; there are no permissive
+production test modes or plaintext storage fallbacks.
+
+| Variable | Meaning |
+|---|---|
+| `NEXUS_HR_ENABLED=1` | Register the module after schema/signing-key checks. |
+| `NEXUS_HR_PUBLIC_ORIGIN` | Exact HTTPS origin, no path/query/userinfo; the external proxy must preserve it. |
+| `NEXUS_HR_SMTP_HOST`, `_PORT` | TLS-on-connect SMTP service; port defaults to 465. |
+| `NEXUS_HR_SMTP_USER`, `_PASSWORD`, `_FROM` | Delivery credentials and sender; secrets come from deployment configuration. |
+| `NEXUS_HR_DOCUMENT_ROOT` | Existing absolute private document directory outside the code tree. |
+| `NEXUS_HR_DOCUMENT_KEYS` | Comma-separated Fernet keyring, newest first; separate from the Nexus signing key. |
+| `NEXUS_HR_CLAMD_SOCKET` | Absolute path to the private ClamAV Unix socket. |
+
+`_PORT`, `_USER`, `_PASSWORD` and `_FROM` above all use the complete
+`NEXUS_HR_SMTP_` prefix. No real values or generated keys belong in Git.
+
+The signing key must be nondefault and at least 32 characters. Keep document
+keys available for restoration, separate from database/document backups. Adding
+a new key first permits new writes while old files remain readable through older
+keys. Removal of old keys requires a separately reviewed re-encryption procedure;
+this patch does not silently rotate or discard them.
+
+## Deployment boundary and staging runbook
+
+1. Compare this branch against the actual running Nexus revision, not merely the
+   GitHub main branch. Production parity is unverified. Use Python 3.11+ and the
+   repository requirements; tests here used Python 3.12.
+2. Back up and restore a staging copy. Never test on the checked-in `nexus.db` or
+   a live payroll database. Inspect the explicit additive migration:
 
    ```sh
    python scripts/install_hr_schema.py --database-url sqlite:////absolute/staging/nexus.db
    ```
 
-4. Apply the three new tables only after review:
+3. Apply it only to the selected staging database:
 
    ```sh
    python scripts/install_hr_schema.py --database-url sqlite:////absolute/staging/nexus.db --apply
    ```
 
-5. Enable the feature in staging with `NEXUS_HR_ENABLED=1`. Startup refuses a
-   missing/incompatible HR schema or the default/short signing key. Reuse the
-   actual protected Nexus signing configuration; never put credentials in Git.
-6. Verify dated entity/division scopes with actual HR/payroll owners and the
-   designated employment mapping. Verify access, backups/restore, retention,
-   TLS and document repository controls for the target environment.
-7. A genuine first employee case also needs confirmed legal employer, approved
-   minimum intake fields, purpose/retention information, a working recipient
-   access path and agreed handling of required documents. These are unresolved
-   deployment inputs, not invented defaults.
+   There are six HR tables in total. If the first three-table increment already
+   exists, this adds only `hr_document`, `hr_invitation` and `hr_event`. Ordinary
+   application startup does not migrate anything and refuses incompatible tables.
+4. Provision the private directory, protected keyring, ClamAV/freshclam and TLS
+   SMTP sender. ClamAV limits must cover the allowed file size and signature
+   freshness must be monitored. Check a known test detection and a harmless
+   document against the **actual** scanner, and verify real mail delivery in a
+   controlled staging mailbox. This has not been done from this workspace.
+5. Expose only `/hr/entry`, `/hr/api/…`, `/static/hr/app.js` and
+   `/static/hr/style.css` through the external TLS proxy. Deny other routes,
+   including `/people`, `/api/hr`, `/auth`, `/openapi.json`, `/import` and the
+   internal health/admin surfaces. **Do not expose the whole Nexus port.**
+   Preserve canonical Host and trusted forwarded HTTPS scheme; trust forwarded
+   headers only from the actual proxy. Keep the upstream bound privately.
+6. Apply proxy request/body/concurrency limits, particularly to code/verification
+   and uploads. JSON is additionally bounded to 128 KiB by the module; binary
+   documents are bounded by the upload handler. Test encoded traversal, forbidden
+   paths, cookies, CSRF and case scope at the actual external origin.
+7. Rehearse a real browser journey in staging: issue without sending, deliver to
+   the designated test recipient, code verification, resume, upload, submit,
+   return, resubmit, HR review, payroll receipt and revoked/expired access. Check
+   a physical phone, backups/restoration and approved retention/deletion.
+8. Confirm the real legal employer, recipient, minimum field set and responsible
+   payroll owner before creating an actual employee case.
 
-Rollback: disable the feature flag and restart through the existing deployment
-procedure. Keep the additive tables and their data; no destructive downgrade is
-included. The schema installer never runs during ordinary application startup.
+Rollback: disable `NEXUS_HR_ENABLED`, remove/disable the external proxy route and
+restart through the normal deployment process. Retain HR tables, encrypted files
+and keys. Do not perform a destructive database downgrade.
 
-## Validation
+## Validation and known limits
 
 ```sh
-python -m unittest discover -s tests -p test_hr_cases.py -v
+python -m unittest discover -s tests -p 'test_hr*.py' -v
 node --check frontend/static/hr/app.js
 git diff --check
 ```
 
-Synthetic database tests cover authorization/expiry/division scopes, concurrent
-relationships, CSRF/origin checks, idempotency, stale writers, removal of inactive
-family data, conditional validation, immutable submissions, return/resubmission,
-requirement evidence, precise payroll receipt, self-approval and retargeting.
-The test database is in-memory with foreign keys enabled.
+The suite contains 49 scenarios: 48 passed in this workspace and one actual Unix
+socket transport test was skipped because the executor denies socket creation.
+Controlled mail/scanner doubles test delivery failure, malware rejection, quotas,
+expired/replayed codes, cross-case isolation, revocation, contact changes, SQL
+races, encrypted files, immutable attachment manifests and keyring behavior.
+A separate simulated transport test verifies INSTREAM bytes and truncated replies.
+These tests do not prove actual SMTP deliverability or deployed antivirus health.
 
-Browser QA used synthetic people and a separate in-memory preview: creation,
-prefill, conditionally revealed children, monthly selections, persistence after
-reload, submission, HR review and payroll receipt were exercised successfully.
-The mobile wrapper was 390 px wide (375 px content viewport); document
-scrollWidth was 375 px. This is browser-width QA, not a test on a physical phone.
-Preview authentication shortcuts exist only in an untracked external QA harness;
-they are not in this module or its production routes.
+Browser QA covers case creation, preparing an invitation, the initial employee
+entry page and the document step. The mobile content viewport is 375 px with
+scrollWidth 375 px. External code consumption and document bytes were verified
+through API tests; browser OTP entry/upload and a physical phone remain staging
+checks. The synthetic preview uses an isolated in-memory database and controlled
+adapters outside Git; those shortcuts are absent from production code.
 
-## Next integration increment
+The form remains a versioned intake subset, **not an exhaustive Czech legal
+validator**. Annual tax settlement, detailed foreign-worker evidence, approved
+insurance branches and the complete pilot minimum still need mapping. No tax
+constants or legal calculations are introduced. Contract signatures, provider
+cards, new benefit entitlements, KPI-linked rewards and payroll/ERP write adapters
+remain separate work. Form completion or payroll receipt does not certify legal
+work authorization, medical fitness, training or payroll calculation.
 
-1. Confirm production source/deployment parity and field ownership mapping.
-2. Complete the approved first-case schema and protected document intake.
-3. Add recipient authentication and narrowly scoped invitation delivery.
-4. Add a payroll adapter with revision receipts, retries and explicit field
-   ownership; link operational ERP tasks only with an approved minimal payload.
-5. Extend existing-benefit evidence to governed policies/entitlements and cards,
-   and add KPI workflows in their independently reviewed stages.
+The weekly vendor watchdog is advisory. It proposes reviewed template/process
+updates; it does not automatically change live fields, rights or payroll rules.
 
-Technical references: [FastAPI dependencies](https://fastapi.tiangolo.com/tutorial/dependencies/)
-and [SQLAlchemy version counters](https://docs.sqlalchemy.org/en/20/orm/versioning.html).
+References: [OWASP file uploads](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html),
+[OWASP token lifecycle](https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html),
+[ClamD protocol](https://docs.clamav.net/manual/Usage/ClamdProtocol.html),
+[Fernet keyrings](https://cryptography.io/en/latest/fernet/),
+[SQLAlchemy version counters](https://docs.sqlalchemy.org/en/20/orm/versioning.html).

@@ -10,7 +10,7 @@ from backend.core.models.base import Base
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Install only the three new HR tables into an explicitly selected Nexus database.')
+    parser = argparse.ArgumentParser(description='Install only the additive HR tables into an explicitly selected Nexus database.')
     parser.add_argument('--database-url', required=True)
     parser.add_argument('--apply', action='store_true')
     args = parser.parse_args()

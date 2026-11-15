@@ -7,6 +7,8 @@ def install(app):
     from backend.core.models.base import engine
     from .models import HR_TABLES
     from .routes import router
+    from .portal import router as portal_router
+    from .boundary import HRBoundary
     settings = get_settings()
     if len(settings.secret_key) < 32 or settings.secret_key == 'dev-secret-key-change-in-production':
         raise RuntimeError('HR requires a configured non-default signing key of at least 32 characters.')
@@ -18,4 +20,6 @@ def install(app):
         if not set(table.columns.keys()).issubset(actual):
             raise RuntimeError('The HR schema is incompatible. Review the migration before enabling it.')
     app.include_router(router)
+    app.include_router(portal_router)
+    app.add_middleware(HRBoundary)
     app.state.hr_enabled = True

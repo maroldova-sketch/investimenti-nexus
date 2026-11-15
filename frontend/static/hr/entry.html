@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Vaše personální podklady</title>
+    <link rel="stylesheet" href="/static/hr/style.css" />
+  </head>
+  <body data-portal="true">
+    <a class="skip" href="#main">Přejít na obsah</a>
+    <header>
+      <span class="brand"
+        ><span class="monogram">N</span
+        ><span>NEXUS <small>PEOPLE</small></span></span
+      >
+      <button id="logout" class="btn text" hidden>Ukončit vstup</button>
+    </header>
+    <main id="main">
+      <div class="loading" role="status">Připravuji váš vstup…</div>
+    </main>
+    <div id="toast" role="alert" hidden></div>
+    <script type="module" src="/static/hr/app.js"></script>
+  </body>
+</html>

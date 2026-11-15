@@ -15,6 +15,8 @@ from .models import HRCase, HRSubmission, HRDecision
 from .schema import (StrictModel, Requirement, VERSION, SECTIONS, normalize,
                      AnswerError, default_requirements, review_issues)
 from .access import HR_ROLES, PAYROLL_ROLES, permitted, roles_for, value, csrf_token, check_csrf
+from . import runtime
+from .documents import manifest, validate_reference, Withdraw, upload, download, withdraw
 
 
 def private_response(response: Response):
@@ -77,6 +79,11 @@ def employment_context(e):
 
 
 def resolve(db, cu, case_id):
+    if getattr(cu, 'portal', False):
+        from .portal import revalidate_actor
+        revalidate_actor(db, cu)
+        if case_id != cu.case_id:
+            raise HTTPException(404, 'Případ nebyl nalezen.')
     case = db.get(HRCase, case_id)
     if not case:
         raise HTTPException(404, 'Případ nebyl nalezen.')
@@ -97,11 +104,18 @@ def describe(db, cu, case, e, detail=False):
                                    payroll=permitted(db, cu, e.entity, PAYROLL_ROLES)))
     if detail:
         result.update(answers=case.draft, requirements=case.requirements,
+                      documents=manifest(db, case.id),
                       requirements_confirmed=case.requirements_confirmed,
                       issues=review_issues(case.draft),
                       history=[dict(action=x.action, revision=x.revision, note=x.note,
                                     at=x.created_at.isoformat(), actor_id=x.actor_id)
                                for x in db.query(HRDecision).filter_by(case_id=case.id).order_by(HRDecision.created_at).all()])
+        if getattr(cu, 'portal', False):
+            result['requirements'] = [{k: x[k] for k in ['id', 'label', 'status']} for x in case.requirements]
+            result['history'] = [{k: v for k, v in x.items() if k != 'actor_id'} for x in result['history']]
+            for item in result['history']:
+                if item['action'] != 'return':
+                    item['note'] = ''
     return result
 
 
@@ -115,8 +129,8 @@ def page(cu=Depends(get_current_user)):
 def meta(request: Request, cu=Depends(get_current_user), db: Session = Depends(get_db)):
     return dict(template_version=VERSION, sections=SECTIONS, csrf=csrf_token(request, cu),
                 can_create=any(value(r.role) in HR_ROLES for r in roles_for(db, cu)),
-                capabilities={'uploads': False, 'external_invitations': False, 'payroll_export': False},
-                notice='Interní sběr a kontrola podkladů. Doklady se zatím evidují odkazem do schváleného úložiště.')
+                capabilities={'uploads': runtime.uploads_ready(), 'external_invitations': runtime.invitations_ready(), 'payroll_export': False},
+                notice='Sběr a kontrola podkladů. Doklady a pozvánky jsou dostupné po připojení chráněného úložiště, kontroly souborů a doručování kódů.')
 
 
 @router.get('/api/hr/employments')
@@ -207,6 +221,7 @@ def requirements(case_id: str, body: RequirementsUpdate, request: Request, cu=De
     if len(set(ids)) != len(ids) or not body.items:
         raise HTTPException(422, 'Požadavky musí mít jedinečná ID a nesmějí být prázdné.')
     for item in body.items:
+        validate_reference(db, case.id, item.evidence_ref)
         if item.status == 'verified' and not item.evidence_ref:
             raise HTTPException(422, 'Ověřený požadavek musí odkazovat na důkaz.')
         if item.status in ['not_applicable', 'deferred'] and not item.reason:
@@ -244,7 +259,8 @@ def action(case_id: str, body: Action, request: Request, cu=Depends(get_current_
         if case.template_version != VERSION:
             raise HTTPException(409, 'Neznámá verze formuláře.')
         answers = checked_answers(case.draft, complete=True)
-        snapshot = dict(answers=answers, context=case.context, template_version=case.template_version)
+        snapshot = dict(answers=answers, context=case.context, template_version=case.template_version,
+                        documents=manifest(db, case.id))
         digest = hashlib.sha256(json.dumps(snapshot, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
         case.current_revision += 1
         db.add(HRSubmission(case_id=case.id, revision=case.current_revision, snapshot=snapshot,
@@ -261,6 +277,8 @@ def action(case_id: str, body: Action, request: Request, cu=Depends(get_current_
         blockers = [x['label'] for x in case.requirements if x['blocks_payroll'] and x['status'] not in ['verified', 'not_applicable']]
         if blockers:
             raise HTTPException(409, 'Chybí podklady nutné pro předání: ' + ', '.join(blockers))
+        for item in case.requirements:
+            validate_reference(db, case.id, item['evidence_ref'])
         case.status = 'reviewed'
     else:
         if case.status != 'reviewed' or not body.confirmed:
@@ -270,7 +288,8 @@ def action(case_id: str, body: Action, request: Request, cu=Depends(get_current_
     db.add(HRDecision(case_id=case.id, revision=case.current_revision, request_key=body.request_key,
                       action=body.action, actor_id=cu.id, note=body.note,
                       evidence={'requirements': case.requirements, 'confirmed': body.confirmed,
-                                'request_revision': body.revision}))
+                                'request_revision': body.revision,
+                                'actor_type': 'invitation' if getattr(cu, 'portal', False) else 'account'}))
     commit(db)
     return describe(db, cu, case, e, True)
 
@@ -282,3 +301,30 @@ def submission(case_id: str, revision: int, cu=Depends(get_current_user), db: Se
     if not row:
         raise HTTPException(404, 'Verze nebyla nalezena.')
     return dict(revision=row.revision, sha256=row.sha256, snapshot=row.snapshot, created_at=row.created_at.isoformat())
+
+
+@router.post('/api/hr/cases/{case_id}/documents')
+async def upload_document(case_id: str, request: Request, cu=Depends(get_current_user), db: Session = Depends(get_db)):
+    return await upload(case_id, request, cu, db)
+
+
+@router.get('/api/hr/cases/{case_id}/documents/{document_id}')
+def download_document(case_id: str, document_id: str, cu=Depends(get_current_user), db: Session = Depends(get_db)):
+    return download(case_id, document_id, cu, db)
+
+
+@router.post('/api/hr/cases/{case_id}/documents/{document_id}/withdraw')
+def withdraw_document(case_id: str, document_id: str, body: Withdraw, request: Request,
+                      cu=Depends(get_current_user), db: Session = Depends(get_db)):
+    return withdraw(case_id, document_id, body, request, cu, db)
+
+
+@router.get('/api/hr/cases/{case_id}/access-events')
+def access_events(case_id: str, cu=Depends(get_current_user), db: Session = Depends(get_db)):
+    from .models import HREvent
+    case, employment = resolve(db, cu, case_id)
+    if not permitted(db, cu, employment.entity, HR_ROLES):
+        raise HTTPException(403, 'Přístupový audit je určen pověřené HR roli.')
+    return [dict(kind=e.kind, actor_id=e.actor_id, actor_type=e.actor_type,
+                 details=e.details, at=e.created_at.isoformat() + 'Z')
+            for e in db.query(HREvent).filter_by(case_id=case.id).order_by(HREvent.created_at).all()]
