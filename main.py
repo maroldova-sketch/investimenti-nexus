@@ -41,6 +41,12 @@ app.include_router(driver_router)
 app.include_router(fleet_router)
 app.include_router(merge_router)
 app.include_router(contract_router)
+# Keep the constant /people/hr route before /people/{person_id}.
+# Schema installation is an explicit separate step, never a startup mutation.
+app.state.hr_enabled = False
+if os.environ.get("NEXUS_HR_ENABLED") == "1":
+    from backend.modules.hr import install as install_hr
+    install_hr(app)
 app.include_router(people_router)
 app.include_router(attendance_router)
 app.include_router(staging_router)
