@@ -225,6 +225,61 @@ class HRCaseTests(unittest.TestCase):
             db.add(RoleAssignment(person_id='employee-a',role=NexusRole.OWNER,scope_type=ScopeType.ALL))
         self.assertEqual(self.transition(c,'review','employee-a',confirmed=True).status_code,403)
 
+    def test_payroll_returns_multiple_revisions_before_final_receipt(self):
+        c = self.reviewed()
+        snapshots = {}
+        for revision in [1, 2]:
+            self.assertEqual(c['revision'], revision)
+            snapshots[revision] = self.call('GET', f"/cases/{c['id']}/submissions/{revision}").json()
+            r = self.transition(c, 'payroll_return', 'finance-a', note=f'Upřesněte adresu ve verzi {revision}.')
+            self.assertEqual(r.status_code, 200, r.text)
+            self.assertEqual(r.json()['status'], 'returned')
+            c = self.save(r.json(), {**COMPLETE, 'address_permanent': f'Testovací {revision + 1}'})
+            c = self.transition(c, 'submit', 'employee-a').json()
+            c = self.transition(c, 'review', confirmed=True).json()
+        receipt = self.transition(c, 'payroll_receive', 'finance-a', confirmed=True)
+        self.assertEqual(receipt.status_code, 200, receipt.text)
+        c = receipt.json()
+        self.assertEqual(c['revision'], 3)
+        self.assertEqual(c['status'], 'payroll_received')
+        self.assertEqual([h['revision'] for h in c['history'] if h['action'] == 'payroll_return'], [1, 2])
+        for revision, snapshot in snapshots.items():
+            self.assertEqual(self.call('GET', f"/cases/{c['id']}/submissions/{revision}").json(), snapshot)
+        self.assertEqual(self.transition(c, 'payroll_return', 'finance-a', note='Late change').status_code, 409)
+        self.assertNotEqual(self.create()['id'], c['id'])
+
+    def test_payroll_return_requires_scope_reason_and_reviewed_state(self):
+        c = self.submitted()
+        self.assertEqual(self.transition(c, 'payroll_return', 'finance-a', note='Too soon').status_code, 409)
+        c = self.configure(c, True, 'verified', 'protected-reference').json()
+        c = self.transition(c, 'review', confirmed=True).json()
+        for user, status in [('hr-a', 403), ('employee-a', 403), ('hr-b', 404), ('expired', 404)]:
+            self.assertEqual(self.transition(c, 'payroll_return', user, note='Correction').status_code, status)
+        for note in ['', '   \n']:
+            self.assertEqual(self.transition(c, 'payroll_return', 'finance-a', note=note).status_code, 409)
+        with self.Session.begin() as db:
+            db.add(RoleAssignment(person_id='employee-a', role=NexusRole.OWNER, scope_type=ScopeType.ALL))
+        self.assertEqual(self.transition(c, 'payroll_return', 'employee-a', note='Own case').status_code, 403)
+
+    def test_payroll_return_checks_version_and_idempotency(self):
+        c = self.reviewed()
+        path = f"/cases/{c['id']}/actions"
+        body = dict(expected_version=c['version'], revision=c['revision'], request_key=str(uuid4()),
+                    action='payroll_return', note='Please correct the address.')
+        for changed in [{'revision': 0}, {'expected_version': c['version'] - 1}]:
+            self.assertEqual(self.call('POST', path, {**body, **changed}, 'finance-a').status_code, 409)
+        first = self.call('POST', path, body, 'finance-a')
+        self.assertEqual(first.status_code, 200, first.text)
+        self.assertEqual(self.call('POST', path, body, 'finance-a').json(), first.json())
+        self.assertEqual(self.call('POST', path, {**body, 'note': 'Different'}, 'finance-a').status_code, 409)
+        c = self.save(first.json())
+        c = self.transition(c, 'submit', 'employee-a').json()
+        c = self.transition(c, 'review', confirmed=True).json()
+        # A delayed retry of v1 must not return v2 or add a second decision.
+        retried = self.call('POST', path, body, 'finance-a').json()
+        self.assertEqual((retried['revision'], retried['status']), (2, 'reviewed'))
+        self.assertEqual(len([h for h in retried['history'] if h['action'] == 'payroll_return']), 1)
+
     def test_context_retarget_requires_hr_review(self):
         c = self.create()
         with self.Session.begin() as db:

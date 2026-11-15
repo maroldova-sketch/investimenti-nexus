@@ -42,7 +42,7 @@ class Action(StrictModel):
     expected_version: int = Field(ge=1)
     revision: int = Field(ge=0)
     request_key: str = Field(min_length=16, max_length=100)
-    action: Literal['submit', 'return', 'review', 'payroll_receive']
+    action: Literal['submit', 'return', 'review', 'payroll_return', 'payroll_receive']
     note: str = Field(default='', max_length=1200)
     confirmed: bool = False
 
@@ -114,7 +114,7 @@ def describe(db, cu, case, e, detail=False):
             result['requirements'] = [{k: x[k] for k in ['id', 'label', 'status']} for x in case.requirements]
             result['history'] = [{k: v for k, v in x.items() if k != 'actor_id'} for x in result['history']]
             for item in result['history']:
-                if item['action'] != 'return':
+                if item['action'] not in ['return', 'payroll_return']:
                     item['note'] = ''
     return result
 
@@ -242,7 +242,7 @@ def action(case_id: str, body: Action, request: Request, cu=Depends(get_current_
             raise HTTPException(403, 'Podání není dostupné pro tuto roli.')
     elif not permitted(db, cu, e.entity, allowed):
         raise HTTPException(403, 'Chybí odpovídající personální nebo mzdová role.')
-    elif body.action in ['review', 'payroll_receive'] and e.person_id == cu.person_id:
+    elif body.action in ['review', 'payroll_return', 'payroll_receive'] and e.person_id == cu.person_id:
         raise HTTPException(403, 'Vlastní podklady musí převzít jiná pověřená osoba.')
     previous = db.query(HRDecision).filter_by(case_id=case.id, request_key=body.request_key).first()
     if previous:
@@ -268,8 +268,12 @@ def action(case_id: str, body: Action, request: Request, cu=Depends(get_current_
         case.draft = answers
         case.status = 'submitted'
     elif body.action == 'return':
-        if case.status not in ['submitted', 'reviewed'] or not body.note:
+        if case.status not in ['submitted', 'reviewed'] or not body.note.strip():
             raise HTTPException(409, 'Vrácení vyžaduje odeslaný případ a konkrétní důvod opravy.')
+        case.status = 'returned'
+    elif body.action == 'payroll_return':
+        if case.status != 'reviewed' or not body.note.strip():
+            raise HTTPException(409, 'Mzdová role vrací zkontrolovanou nepřevzatou verzi s konkrétním důvodem opravy.')
         case.status = 'returned'
     elif body.action == 'review':
         if case.status != 'submitted' or not body.confirmed or not case.requirements_confirmed:

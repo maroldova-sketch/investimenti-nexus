@@ -1,0 +1,38 @@
+name: HR checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hr-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hr-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: sqlite://
+      SECRET_KEY: synthetic-ci-key-never-use-in-production
+      NEXUS_HR_REQUIRE_SOCKET_TEST: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned application dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Test synthetic HR cases, entry and deployment gates
+        run: python -m unittest discover -s tests -p 'test_hr*.py' -v
+      - name: Check browser script syntax
+        run: node --check frontend/static/hr/app.js
+      - name: Check patch whitespace
+        run: git diff --check HEAD^ HEAD

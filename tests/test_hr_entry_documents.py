@@ -124,6 +124,44 @@ class HREntryDocumentTests(TestCase):
         self.assertEqual(self.deliveries, [])
         self.assertEqual(self.portal.get('/hr/api/meta').status_code, 401)
 
+    def test_isolated_entry_supports_full_flow_and_shows_payroll_correction(self):
+        from backend.modules.hr.entry_app import create_app
+        # Factory configuration points at a synthetic file; dependency sessions
+        # use the same in-memory fixture as the internal HR/finance client.
+        path = Path(self.temp.name) / 'synthetic.db'
+        path.touch()
+        settings = SimpleNamespace(secret_key='synthetic-unit-test-key-never-use-in-production',
+                                   database_url='sqlite:///' + str(path))
+        with patch.dict(os.environ, {'NEXUS_HR_ENABLED': '1'}), \
+                patch('backend.config.get_settings', return_value=settings), \
+                patch('backend.core.models.base.engine', self.engine):
+            app = create_app()
+        app.dependency_overrides.update(self.client.app.dependency_overrides)
+        self.portal.close()
+        self.portal = TestClient(app, base_url='https://people.example')
+        case, _, _, _ = self.login()
+        r = self.external('PUT', f"/cases/{case['id']}/draft",
+                          dict(expected_version=case['version'], answers=COMPLETE))
+        self.assertEqual(r.status_code, 200, r.text)
+        case = r.json()
+        r = self.upload(case, external=True)
+        self.assertEqual(r.status_code, 200, r.text)
+        case = self.external('GET', '/cases/' + case['id']).json()
+        r = self.external('POST', f"/cases/{case['id']}/actions", dict(expected_version=case['version'],
+            revision=0, request_key=str(uuid4()), action='submit'))
+        self.assertEqual(r.status_code, 200, r.text)
+        case = self.configure(r.json(), True, 'verified', 'protected-reference').json()
+        case = self.transition(case, 'review', confirmed=True).json()
+        self.assertEqual(self.external('POST', f"/cases/{case['id']}/actions", dict(expected_version=case['version'],
+            revision=1, request_key=str(uuid4()), action='payroll_return', note='Forbidden')).status_code, 403)
+        returned = self.transition(case, 'payroll_return', 'finance-a', note='Upřesněte prosím adresu.')
+        self.assertEqual(returned.status_code, 200, returned.text)
+        visible = self.external('GET', '/cases/' + case['id']).json()
+        self.assertEqual(visible['status'], 'returned')
+        self.assertEqual(visible['history'][-1]['note'], 'Upřesněte prosím adresu.')
+        self.assertNotIn('actor_id', visible['history'][-1])
+        self.assertEqual(self.portal.get('/api/hr/cases').status_code, 404)
+
     def test_single_use_code_secure_cookie_and_no_nexus_access(self):
         case, invitation, token, verified = self.login()
         cookie = verified.headers['set-cookie']
@@ -405,6 +443,8 @@ class HRScannerProtocolTests(TestCase):
             try:
                 server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             except PermissionError:
+                if os.environ.get('NEXUS_HR_REQUIRE_SOCKET_TEST') == '1':
+                    raise
                 self.skipTest('This executor does not permit Unix sockets; run the transport check in staging.')
             server.bind(path)
             server.listen(2)

@@ -16,8 +16,10 @@ No production database, service, public route or mail account was changed.
   writes return 409; retries cannot silently replace a newer version.
 - An immutable submission contains answers, context, template version and the
   exact document manifest/hashes. Corrections create another revision. HR
-  review and payroll receipt are separate, recorded decisions. Payroll receipt
-  closes that case; later changes open a new case.
+  review and payroll receipt are separate, recorded decisions. Payroll may return
+  any reviewed but unaccepted revision with a concrete correction reason. Each
+  return requires a new employee submission and HR review before receipt. Final
+  payroll receipt closes that case; later changes open a new case.
 - HR selects requirements and evidence. Employees report existing equipment or
   benefits; they do not grant themselves a car, laptop, benefit or bonus.
   An uploaded document is not automatically marked legally verified.
@@ -100,9 +102,14 @@ production test modes or plaintext storage fallbacks.
 | `NEXUS_HR_DOCUMENT_ROOT` | Existing absolute private document directory outside the code tree. |
 | `NEXUS_HR_DOCUMENT_KEYS` | Comma-separated Fernet keyring, newest first; separate from the Nexus signing key. |
 | `NEXUS_HR_CLAMD_SOCKET` | Absolute path to the private ClamAV Unix socket. |
+| `DATABASE_URL` | Explicit absolute SQLite URL to the existing Nexus database; both services use the same file. |
 
 `_PORT`, `_USER`, `_PASSWORD` and `_FROM` above all use the complete
 `NEXUS_HR_SMTP_` prefix. No real values or generated keys belong in Git.
+Supply these variables in the service process environment. Merely adding the
+extra `NEXUS_HR_*` entries to a Pydantic `.env` file does not export them to the
+runtime adapters. The signing key and document configuration must agree between
+the internal Nexus process and the separate employee process.
 
 The signing key must be nondefault and at least 32 characters. Keep document
 keys available for restoration, separate from database/document backups. Adding
@@ -136,7 +143,24 @@ this patch does not silently rotate or discard them.
    freshness must be monitored. Check a known test detection and a harmless
    document against the **actual** scanner, and verify real mail delivery in a
    controlled staging mailbox. This has not been done from this workspace.
-5. Expose only `/hr/entry`, `/hr/api/…`, `/static/hr/app.js` and
+5. Start the isolated employee ASGI factory as a separate private service, using
+   the same release, existing absolute database path and document configuration
+   as internal Nexus. The current core engine supports SQLite, not an untested
+   replacement driver. From the release directory, for a proxy on the same host:
+
+   ```sh
+   python -m uvicorn backend.modules.hr.entry_app:create_app --factory --host 127.0.0.1 --port 8011 --proxy-headers --forwarded-allow-ips 127.0.0.1 --no-access-log
+   ```
+
+   The port is an example; use an available approved private port. Configure the
+   actual process manager/proxy for this deployment. Do not trust `*` forwarded
+   headers or copy an assumed host service configuration. Factory startup checks
+   configuration and schema without migration; missing prerequisites stop startup.
+   Only the exact employee API routes and two static assets are registered. There
+   is no internal Nexus router, general static mount, OpenAPI, health or import
+   route in this application. Never run this public service from `main:app`.
+
+   Expose only `/hr/entry`, `/hr/api/…`, `/static/hr/app.js` and
    `/static/hr/style.css` through the external TLS proxy. Deny other routes,
    including `/people`, `/api/hr`, `/auth`, `/openapi.json`, `/import` and the
    internal health/admin surfaces. **Do not expose the whole Nexus port.**
@@ -148,7 +172,8 @@ this patch does not silently rotate or discard them.
    paths, cookies, CSRF and case scope at the actual external origin.
 7. Rehearse a real browser journey in staging: issue without sending, deliver to
    the designated test recipient, code verification, resume, upload, submit,
-   return, resubmit, HR review, payroll receipt and revoked/expired access. Check
+   return, resubmit, HR review, repeated payroll return, final payroll receipt and
+   revoked/expired access. Check
    a physical phone, backups/restoration and approved retention/deletion.
 8. Confirm the real legal employer, recipient, minimum field set and responsible
    payroll owner before creating an actual employee case.
@@ -156,6 +181,31 @@ this patch does not silently rotate or discard them.
 Rollback: disable `NEXUS_HR_ENABLED`, remove/disable the external proxy route and
 restart through the normal deployment process. Retain HR tables, encrypted files
 and keys. Do not perform a destructive database downgrade.
+
+## Read-only release check
+
+Run under the configured service identity/environment from the reviewed clean
+release checkout. Substitute its full approved Git commit SHA:
+
+```sh
+python scripts/check_hr_readiness.py --expected-revision FULL_REVIEWED_COMMIT_SHA
+python scripts/check_hr_readiness.py --expected-revision FULL_REVIEWED_COMMIT_SHA --probe-adapters
+```
+
+The first command checks revision, tracked cleanliness, feature flag, signing
+key, existing database/schema (SQLite URI `mode=ro`), HTTPS origin and adapter
+configuration. The optional second command also authenticates SMTP over verified
+TLS **without sending mail**, then submits a harmless in-memory probe and the
+standard harmless [EICAR test](https://www.eicar.org/download-anti-malware-testfile/)
+to the actual ClamAV socket. Detection may appear in the scanner's own logs.
+It never reads employee rows, creates a database, migrates tables, writes files,
+generates invitation links or prints credentials/adapter exception details.
+
+Exit 1 means a check failed. Exit 0 means only the requested checks passed;
+`adapter_probes_passed` is false when probes were omitted. `production_ready`
+remains false because real delivery, proxy behavior, physical-phone flow,
+restoration, signature freshness and the named pilot owners need operational
+evidence. A readiness JSON report is not a deployment or legal approval.
 
 ## Validation and known limits
 
@@ -165,13 +215,21 @@ node --check frontend/static/hr/app.js
 git diff --check
 ```
 
-The suite contains 49 scenarios: 48 passed in this workspace and one actual Unix
+The suite contains 64 scenarios: 63 passed in this workspace and one actual Unix
 socket transport test was skipped because the executor denies socket creation.
 Controlled mail/scanner doubles test delivery failure, malware rejection, quotas,
 expired/replayed codes, cross-case isolation, revocation, contact changes, SQL
 races, encrypted files, immutable attachment manifests and keyring behavior.
 A separate simulated transport test verifies INSTREAM bytes and truncated replies.
 These tests do not prove actual SMTP deliverability or deployed antivirus health.
+
+The `HR checks` GitHub Actions workflow runs this synthetic suite, browser-script
+syntax and patch whitespace on pull requests and main. Official checkout/Python
+actions are pinned to verified commit SHAs, repository permissions are read-only,
+credentials are not persisted and no production secrets are used. Linux CI sets
+`NEXUS_HR_REQUIRE_SOCKET_TEST=1`, so the actual Unix socket transport scenario must
+pass instead of silently skipping. Factory isolation and the full external
+submission/payroll-return flow are exercised against synthetic fixtures.
 
 Browser QA covers case creation, preparing an invitation, the initial employee
 entry page and the document step. The mobile content viewport is 375 px with
