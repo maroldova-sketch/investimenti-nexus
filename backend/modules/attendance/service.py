@@ -23,37 +23,74 @@ def get_period(db: Session, period_id: str) -> AttendancePeriod | None:
     ).filter(AttendancePeriod.id == period_id).first()
 
 def create_period(db: Session, entity_id: str, year: int, month: int,
-                  notes: str = None, actor_id: str = None, actor_email: str = None) -> AttendancePeriod:
-    months_cs = ["","Leden","Únor","Březen","Duben","Květen","Červen",
-                 "Červenec","Srpen","Září","Říjen","Listopad","Prosinec"]
+                  actor_id: str = None, actor_email: str = None) -> AttendancePeriod:
+    """Vytvoří novou docházkovou periodu.
+
+    Pole `label` je na modelu pouze @property (year/month), nevkládá se do ctoru.
+    Sloupec `notes` v DB ani modelu neexistuje — případnou poznámku je třeba
+    řešit přes ApprovalCase.note až po `/submit`.
+    """
+    months_cs = ["", "Leden", "Únor", "Březen", "Duben", "Květen", "Červen",
+                 "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"]
     entity = db.query(Entity).filter(Entity.id == entity_id).first()
-    label = f"{months_cs[month]} {year} — {entity.code if entity else '?'}"
-    p = AttendancePeriod(entity_id=entity_id, year=year, month=month, label=label,
-                         notes=notes, created_by_id=actor_id)
+    audit_detail = f"{months_cs[month]} {year} — {entity.code if entity else '?'}"
+    p = AttendancePeriod(
+        entity_id=entity_id,
+        year=year,
+        month=month,
+        created_by_id=actor_id,
+    )
     db.add(p)
-    audit(db, "CREATE", "attendance_period", None, actor_id, actor_email,
-          entity_id=entity_id, detail=label)
+    db.flush()  # získej p.id pro audit
+    audit(db, "CREATE", "attendance_period", p.id, actor_id, actor_email,
+          entity_id=entity_id, detail=audit_detail)
     db.commit()
     db.refresh(p)
     return p
 
+_SUBMISSION_ALLOWED = frozenset({
+    "days_worked",
+    "hours_worked",
+    "days_vacation",
+    "days_sick",
+    "gross_salary",
+    "note",
+})
+
+
 def add_submission(db: Session, period_id: str, person_id: str, data: dict,
                    actor_id: str = None, actor_email: str = None) -> AttendanceSubmission:
-    emp = db.query(Employment).filter(
-        Employment.person_id == person_id,
-        Employment.status == "active",
+    """Vytvoří AttendanceSubmission.
+
+    Aktuální schéma (viz models.py + DB):
+      povolená pole = days_worked, hours_worked, days_vacation, days_sick,
+                      gross_salary, note.
+    Legacy pole — employment_id, monthly_gross_kc, submitted_at, hours_overtime,
+    hours_regular, notes — byla odstraněna. Cokoli v `data` mimo whitelist
+    je tiše ignorováno (s warning logem by se mohlo doplnit).
+    """
+    # entity_id musí být doplněn z period — drží invariant period↔entity.
+    period = db.query(AttendancePeriod).filter(
+        AttendancePeriod.id == period_id
     ).first()
+    if not period:
+        raise ValueError(f"AttendancePeriod {period_id} not found")
+
+    payload = {
+        k: v for k, v in (data or {}).items()
+        if k in _SUBMISSION_ALLOWED and v is not None
+    }
+
     s = AttendanceSubmission(
         period_id=period_id,
         person_id=person_id,
-        employment_id=emp.id if emp else None,
-        monthly_gross_kc=emp.monthly_gross_kc if emp else None,
-        submitted_at=datetime.utcnow(),
-        **{k: v for k, v in data.items() if v is not None},
+        entity_id=period.entity_id,
+        **payload,
     )
     db.add(s)
-    audit(db, "CREATE", "attendance_submission", period_id, actor_id, actor_email,
-          detail=f"person={person_id}")
+    db.flush()
+    audit(db, "CREATE", "attendance_submission", s.id, actor_id, actor_email,
+          entity_id=period.entity_id, detail=f"person={person_id}")
     db.commit()
     db.refresh(s)
     return s
