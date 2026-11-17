@@ -1,7 +1,8 @@
 const root = document.querySelector("#main");
 const portal = document.body.dataset.portal === "true";
 const apiBase = portal ? "/hr/api" : "/api/hr";
-let invitationTicket = portal ? location.hash.slice(1) : "";
+// Mail clients may glue sentence punctuation to a link; the ticket itself never contains it.
+let invitationTicket = portal ? location.hash.slice(1).replace(/[.,;:!?)\]]+$/, "") : "";
 if (portal) history.replaceState(null, "", "/hr/entry");
 const $ = (s) => document.querySelector(s);
 const escape = (v) =>
