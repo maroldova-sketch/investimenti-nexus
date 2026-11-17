@@ -381,3 +381,15 @@ class OutboxTransportTests(fixtures.unittest.TestCase):
             with self.assertRaises(ValueError) as refused:
                 runtime.send_code('person@example.test', '12345678')
             self.assertNotIsInstance(refused.exception, runtime.UncertainDelivery)
+        import urllib.error
+        from unittest.mock import MagicMock
+        for error, uncertain in [(urllib.error.HTTPError('u', 403, 'forbidden', {}, None), False),
+                                 (urllib.error.HTTPError('u', 502, 'bad gateway', {}, None), True),
+                                 (urllib.error.URLError(ConnectionRefusedError()), False),
+                                 (urllib.error.URLError(TimeoutError()), True)]:
+            opener = MagicMock()
+            opener.open.side_effect = error
+            with patch.object(runtime.urllib.request, 'build_opener', return_value=opener):
+                with self.assertRaises(ValueError) as caught:
+                    runtime.send_code('person@example.test', '12345678')
+            self.assertEqual(isinstance(caught.exception, runtime.UncertainDelivery), uncertain, error)

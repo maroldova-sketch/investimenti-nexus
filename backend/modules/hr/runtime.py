@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
@@ -139,7 +140,15 @@ def outbox_send(recipient, subject, body):
     try:
         with opener.open(request, timeout=40) as response:
             result = json.loads(response.read(65536))
-    except (TimeoutError, OSError) as exc:
+    except urllib.error.HTTPError as exc:
+        if exc.code >= 500 or exc.code == 408:
+            raise UncertainDelivery(reference) from exc
+        raise ValueError('Mail adapter refused the message.') from exc  # 4xx: nothing was sent
+    except urllib.error.URLError as exc:
+        if isinstance(exc.reason, (TimeoutError, ConnectionResetError)):
+            raise UncertainDelivery(reference) from exc
+        raise ValueError('Mail adapter is unavailable.') from exc  # connection refused: nothing was sent
+    except (TimeoutError, ConnectionResetError) as exc:
         raise UncertainDelivery(reference) from exc
     if result.get('ok'):
         return reference
