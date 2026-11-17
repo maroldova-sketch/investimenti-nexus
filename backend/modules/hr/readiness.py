@@ -35,12 +35,18 @@ def check_database(database_url):
 
 def probe_mail():
     if runtime.transport() == 'outbox':
-        url = runtime.outbox_config().rsplit('/api/', 1)[0] + '/api/health'
+        # An empty body is rejected by validation (422) only after authorization passed;
+        # 403 means the HR service is not allowed to send. Nothing is ever sent here.
         opener = runtime.urllib.request.build_opener(runtime.urllib.request.ProxyHandler({}))
-        with opener.open(url, timeout=10) as response:
-            if runtime.json.loads(response.read(65536)).get('status') != 'ok':
-                raise ValueError('Outbox is not healthy.')
-        return  # health only; sends nothing
+        request = runtime.urllib.request.Request(runtime.outbox_config(), data=b'{}', method='POST',
+                                                 headers={'Content-Type': 'application/json',
+                                                          **runtime.outbox_headers()})
+        try:
+            opener.open(request, timeout=10)
+        except runtime.urllib.error.HTTPError as exc:
+            if exc.code == 422:
+                return
+        raise ValueError('Outbox refused the HR service.')
     if runtime.transport() == 'graph':
         runtime.graph_token()  # authenticates the app over verified TLS; sends nothing
         return

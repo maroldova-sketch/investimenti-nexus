@@ -61,6 +61,11 @@ def outbox_config():
     return url
 
 
+def outbox_headers():
+    key = os.environ.get('NEXUS_HR_OUTBOX_KEY', '')
+    return {'X-Hospitality-Key': key} if key else {}
+
+
 def transport():
     return os.environ.get('NEXUS_HR_MAIL_TRANSPORT', 'smtp')
 
@@ -135,7 +140,7 @@ def outbox_send(recipient, subject, body):
     payload = dict(external_id=reference, outbox_id=reference, recipient=recipient, subject=subject,
                    body=body, content_type='Text')
     request = urllib.request.Request(url, data=json.dumps(payload).encode(), method='POST',
-                                     headers={'Content-Type': 'application/json'})
+                                     headers={'Content-Type': 'application/json', **outbox_headers()})
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # never via a proxy
     try:
         with opener.open(request, timeout=40) as response:
