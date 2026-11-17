@@ -66,7 +66,7 @@ async function api(path, method = "GET", body) {
   if (res.redirected || res.status === 303) {
     const error = Error(
       portal
-        ? "Ověření vypršelo. Otevřete původní pozvánku a ověřte se znovu."
+        ? "Vstup vypršel. Otevřete znovu původní pozvánku."
         : "Přihlášení vypršelo. Přihlaste se znovu do Nexusu.",
     );
     error.status = 401;
@@ -483,8 +483,8 @@ function setupHTML() {
     ["Odpovědné osoby", current.owners?.hr ? `HR: ${current.owners.hr}${current.owners.payroll ? " · mzdy: " + current.owners.payroll : " · mzdová osoba neurčena"}` : "Neurčeno", "owners"],
     ["Interní kontext HR", t ? `Verze ${t.revision}, účinnost od ${t.effective_from}` : "Nevyplněno", "terms"],
     ["Požadavky HR", current.requirements_confirmed ? "Potvrzeny" : "Čekají na potvrzení", "requirements"],
-    ["Ověřený kontakt", "Kontakt pro kód je v osobní kartě", "contact"],
-    ["Pozvánka", "Odkaz s kódem na ověřený kontakt", "invite"],
+    ["Ověřený kontakt", "Volitelný pro vstup; zaměstnanec může e-mail doplnit ve formuláři", "contact"],
+    ["Pozvánka", "Soukromý odkaz bez e-mailu a kódu", "invite"],
   ];
   return `<section class="panel" id="setup-panel"><div class="row"><h2>Příprava HR</h2><span class="eyebrow">${escape(current.template_version)}</span></div><ol class="setup-list">${items.map(([title, state, id]) => `<li><div><b>${escape(title)}</b><br><span class="muted">${escape(state)}</span></div><button class="btn text setup-open" data-panel="${id}">Upravit</button></li>`).join("")}</ol><div id="setup-detail"></div></section>`;
 }
@@ -847,9 +847,8 @@ async function openInvitations() {
     const data = await api(`/cases/${current.id}/invitations`);
     const enabled = meta.capabilities.external_invitations && editable();
     $("#invite-panel").innerHTML =
-      `<section class="panel invitation-panel"><h2>Pozvánka do formuláře</h2><p>Odkaz můžete sdílet e-mailem. Přístup zaměstnanec ověří kódem doručeným na kontakt v osobní kartě.</p>
-      ${!data.contacts.length ? '<div class="notice warn">V osobní kartě chybí ověřený e-mail. Doplňte ho v Přípravě HR → Ověřený kontakt.</div>' : ""}
-      ${enabled ? `<form id="invitation-form"><div class="field"><label for="invite-recipient">Ověřený kontakt pro kód</label><select id="invite-recipient" required><option value="">Vyberte…</option>${data.contacts.map((c) => `<option value="${escape(c.source)}">${escape(c.address)} · ${c.source === "personal" ? "osobní" : "pracovní"}</option>`).join("")}</select></div><label class="checkbox"><input id="invite-confirm" type="checkbox" required>Ověřil/a jsem, že tento kontakt ovládá příslušný zaměstnanec.</label><button class="btn primary">Připravit odkaz</button><p class="help">Nová pozvánka zneplatní předchozí odkaz i otevřený vstup. Platí 7 dní.</p></form>` : '<div class="notice">Pozvánky vyžadují otevřený případ, veřejnou zabezpečenou adresu a doručování ověřovacích kódů.</div>'}
+      `<section class="panel invitation-panel"><h2>Pozvánka do formuláře</h2><p>Soukromý odkaz předáte zaměstnanci přímo, například přes WhatsApp. Formulář otevře bez e-mailového kódu a kontakt doplní uvnitř.</p>
+      ${enabled ? `<form id="invitation-form"><div class="field"><label for="invite-recipient">Způsob vstupu</label><select id="invite-recipient" required><option value="link">Soukromý odkaz — bez e-mailu a kódu</option>${meta.capabilities.email_invitations ? data.contacts.map((c) => `<option value="${escape(c.source)}">Kód na ${escape(c.address)} · ${c.source === "personal" ? "osobní" : "pracovní"}</option>`).join("") : ""}</select><p class="help" id="invite-help">Odkaz umožní přístup jen k tomuto formuláři. Předejte jej soukromě správnému člověku.</p></div><label class="checkbox"><input id="invite-confirm" type="checkbox" required><span id="invite-confirm-label">Odkaz předám přímo příslušnému zaměstnanci.</span></label><button class="btn primary">Připravit odkaz</button><p class="help">Nová pozvánka zneplatní předchozí odkaz i otevřený vstup. Platí 7 dní.</p></form>` : '<div class="notice">Pozvánky vyžadují otevřený případ a veřejnou zabezpečenou adresu.</div>'}
       <div id="invitation-result" role="status"></div><div class="invitation-list">${data.invitations
         .slice(0, 10)
         .map(
@@ -858,6 +857,16 @@ async function openInvitations() {
         )
         .join("")}</div></section>`;
     $("#invite-panel").scrollIntoView({ block: "start" });
+    bind("invite-recipient", "change", () => {
+      const byLink = $("#invite-recipient").value === "link";
+      $("#invite-confirm").checked = false;
+      $("#invite-confirm-label").textContent = byLink
+        ? "Odkaz předám přímo příslušnému zaměstnanci."
+        : "Ověřil/a jsem, že tento e-mail ovládá příslušný zaměstnanec.";
+      $("#invite-help").textContent = byLink
+        ? "Odkaz umožní přístup jen k tomuto formuláři. Předejte jej soukromě správnému člověku."
+        : "Před otevřením formuláře bude potřeba kód doručený na vybraný e-mail.";
+    });
     const requestKey = key();
     bind("invitation-form", "submit", async (event) => {
       event.preventDefault();
@@ -875,11 +884,14 @@ async function openInvitations() {
           `<div class="notice">${escape(result.notice)}</div>${result.url ? '<label for="invite-link">Odkaz pro zaměstnance</label><textarea id="invite-link" readonly></textarea><div class="actions"><button id="copy-invite" class="btn">Kopírovat zprávu</button><button id="share-invite" class="btn primary">Sdílet…</button></div>' : ""}`;
         if (result.url) {
           $("#invite-link").value = result.url;
-          const message = `Prosím doplňte personální podklady pro ${current.context.employer}. Vstup ověříte kódem z e-mailu.\n${result.url}`;
+          const entryHelp = result.invitation.access_mode === "link"
+            ? "Formulář otevřete přímo tímto soukromým odkazem, bez e-mailového kódu. Odkaz prosím nepřeposílejte."
+            : "Vstup ověříte kódem z e-mailu.";
+          const message = `Prosím doplňte personální podklady pro ${current.context.employer}. ${entryHelp}\n${result.url}`;
           bind("copy-invite", "click", async () => {
             try {
               await navigator.clipboard.writeText(message);
-              notify("Zpráva zkopírována. Můžete ji vložit do e-mailu.");
+              notify("Zpráva zkopírována. Můžete ji vložit do soukromé zprávy zaměstnanci.");
             } catch {
               $("#invite-link").select();
               notify("Zkopírujte označený odkaz.");
@@ -927,9 +939,27 @@ async function openInvitations() {
   }
 }
 
-function entryScreen(message = "") {
-  root.innerHTML = `<section class="panel entry-panel"><div class="eyebrow">Váš osobní vstup</div><h1>Vítejte.</h1><p>Než otevřeme podklady, ověříme váš přístup krátkým kódem z e-mailu. Potom můžete vyplňovat vlastním tempem a vracet se k uloženým údajům.</p>${message ? `<p role="alert">${escape(message)}</p>` : ""}
-    ${/^[A-Za-z0-9_-]{43}$/.test(invitationTicket) ? '<button id="request-code" class="btn primary">Poslat ověřovací kód</button><div id="entry-status" role="status"></div><form id="verify-form" hidden><div class="field"><label for="entry-code">Osmimístný kód z e-mailu</label><input id="entry-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{8}" minlength="8" maxlength="8" required></div><button class="btn primary">Otevřít moje podklady →</button><p id="verify-error" role="alert"></p></form>' : '<div class="notice">Otevřete původní odkaz z e-mailu. Pokud už neplatí, HR vám připraví nový.</div>'}</section>`;
+function entryScreen(message = "", requiresCode = false) {
+  root.innerHTML = `<section class="panel entry-panel"><div class="eyebrow">Váš osobní vstup</div><h1>Vítejte.</h1><p>${requiresCode
+    ? "Tato pozvánka používá ověření kódem zaslaným na váš známý e-mail."
+    : "Otevřete své podklady a vyplňujte je vlastním tempem. Kontaktní údaje doplníte ve formuláři."}</p>${message ? `<p role="alert">${escape(message)}</p>` : ""}
+    ${/^[A-Za-z0-9_-]{43}$/.test(invitationTicket)
+      ? requiresCode
+        ? '<button id="request-code" class="btn primary">Poslat ověřovací kód</button><div id="entry-status" role="status"></div><form id="verify-form" hidden><div class="field"><label for="entry-code">Osmimístný kód z e-mailu</label><input id="entry-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{8}" minlength="8" maxlength="8" required></div><button class="btn primary">Otevřít moje podklady →</button><p id="verify-error" role="alert"></p></form>'
+        : '<button id="open-entry" class="btn primary">Otevřít moje podklady →</button><div id="entry-status" role="status"></div>'
+      : '<div class="notice">Otevřete původní soukromý odkaz od HR. Pokud už neplatí, HR vám připraví nový.</div>'}</section>`;
+  bind("open-entry", "click", async () => {
+    const button = $("#open-entry");
+    button.disabled = true;
+    try {
+      const result = await api("/open", "POST", { token: invitationTicket });
+      if (result.requires_code) entryScreen("", true);
+      else await start();
+    } catch (error) {
+      $("#entry-status").textContent = error.message;
+      button.disabled = false;
+    }
+  });
   bind("request-code", "click", async () => {
     const button = $("#request-code");
     button.disabled = true;
@@ -1000,4 +1030,7 @@ async function start() {
       root.innerHTML = `<section class="panel"><h1>Podklady nyní nejsou dostupné.</h1><p>${escape(error.message)}</p><a class="btn" href="/auth/login">Přihlásit se do Nexusu</a></section>`;
   }
 }
-await start();
+// A newly supplied invitation always takes precedence over an older case cookie.
+// Opening a link preview must not authenticate or rotate an existing session.
+if (portal && invitationTicket) entryScreen();
+else await start();

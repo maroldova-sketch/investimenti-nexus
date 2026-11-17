@@ -11,6 +11,7 @@ from starlette.responses import JSONResponse
 UPLOAD_LIMIT = 8 * 1024 * 1024 + 64 * 1024
 BODY_LIMIT = 128 * 1024
 RULES = [  # (path predicate, max requests, window seconds)
+    (lambda p: p == '/hr/api/open', 20, 600),
     (lambda p: p == '/hr/api/code', 6, 600),
     (lambda p: p == '/hr/api/verify', 20, 600),
     (lambda p: p.startswith('/hr/api/'), 600, 600),

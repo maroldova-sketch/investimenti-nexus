@@ -89,7 +89,7 @@ SECTIONS = [
      'description': 'Použije pouze oprávněná personální a mzdová role.',
      'fields': [
          f('email', 'Soukromý e-mail pro mzdové informace', 'email',
-           help='Přístupový kód do formuláře chodí na kontakt ověřený HR; tato změna ho nemění.'),
+           help='Kontakt doplňte zde; pro vstup soukromým odkazem není potřeba. HR jej ověří před použitím pro citlivé informace.'),
          f('phone', 'Telefon', 'tel'),
          f('payment_method', 'Výplata mzdy', 'select', True,
            [['bank', 'Na bankovní účet'], ['cash', 'Hotově (jen po dohodě s HR)'], REVIEW]),

@@ -98,7 +98,11 @@ def report(settings, expected_revision, probe_adapters=False):
     check('database_schema', lambda: check_database(settings.database_url),
           'Use an existing absolute SQLite database with the reviewed HR schema; this check never migrates it.')
     check('https_origin', runtime.public_origin, 'Configure the exact HTTPS employee origin.')
-    mail_ok = check('mail_configuration', runtime.check_mail, 'Configure the TLS mail adapter (SMTP or Microsoft 365) and sender.')
+    # Direct private links do not depend on mail. Report the optional mode
+    # separately rather than marking a usable employee entry as unavailable.
+    mail_ok = runtime.invitations_ready()
+    checks.append(dict(check='mail_configuration', status='pass' if mail_ok else 'unavailable',
+                       detail='Email codes are optional; private invitation links do not require mail.'))
     files_ok = check('document_configuration', uploads,
                      'Configure the private external directory, encryption keyring and absolute ClamAV socket.')
     for name, configured, operation, failure in [
@@ -113,10 +117,11 @@ def report(settings, expected_revision, probe_adapters=False):
     return dict(format_version=1, revision=observed, checks=checks,
                 checks_passed=all(c['status'] != 'fail' for c in checks),
                 adapter_probes_passed=all(c['status'] == 'pass' for c in checks[-2:]),
-                production_ready=False,
+                production_ready=False, link_entry_configured=runtime.link_invitations_ready(),
+                email_entry_configured=mail_ok,
                 manual_checks_required=[
                     'Running revision, backup restoration, shared DB/document paths and protected service configuration.',
                     'Public HTTPS proxy isolation, request limits and trusted forwarded headers.',
-                    'Actual code delivery and full employee journey on a physical phone using synthetic staging data.',
+                    'Full private-link journey on a physical phone using synthetic staging data; code delivery when enabled.',
                     'Antivirus signature freshness and approved retention, employer, recipient and payroll owner.',
                 ])
