@@ -361,6 +361,9 @@ answer from new processes and the employee page names the script that is on disk
 | `requirements.txt` changed, history rewritten, tracked changes in the release | left to a person, reported |
 
 It never forces, merges, migrates the database or installs packages, and a commit that failed is not retried.
+Verified on 17. 11. 2026: a pushed commit was deployed by the job itself after green CI, and a requested
+restart replaced both service processes and passed the health check. The return to the previous commit has
+been exercised only in a rehearsal against a scratch repository with simulated services.
 Events (deployed / refused / failed) go to the Telegram chat of the Elias Mac watchdog and to
 `~/andrew_core/logs/com.elias.nexus-hr-autodeploy.stdout`, with one heartbeat line a day; the last result is in
 `~/.elias-deploy/nexus-hr-data/run-autodeploy/state.json`.
@@ -373,5 +376,8 @@ Consequences to keep in mind:
   bring it; tracked changes in the release stop the deployment until they are gone.
 - Pause: `touch ~/.elias-deploy/nexus-hr-data/config/autodeploy.off` (remove the file to resume). Remove:
   `launchctl bootout gui/$UID/com.elias.nexus-hr-autodeploy` and delete its plist.
+- Restart without a code change (after editing `hr.json` or rotating keys):
+  `touch ~/.elias-deploy/nexus-hr-data/run-autodeploy/restart.request`. The next run checks readiness, restarts
+  both services, verifies them and reports; do not call `launchctl kickstart` on the services by hand.
 - The rule about link-mode invitations above still holds: an automatic return goes back one commit only, never
   below the private-link release.
