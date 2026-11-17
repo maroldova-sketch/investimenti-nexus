@@ -187,8 +187,9 @@ def meta(request: Request, cu=Depends(get_current_user), db: Session = Depends(g
     return dict(template_version=VERSION, sections=SECTIONS, csrf=csrf_token(request, cu),
                 can_create=any(value(r.role) in HR_ROLES for r in roles_for(db, cu)),
                 person_id=cu.person_id,
-                capabilities={'uploads': runtime.uploads_ready(), 'external_invitations': runtime.invitations_ready(), 'payroll_export': True},
-                notice='Sběr a kontrola podkladů. Doklady a pozvánky jsou dostupné po připojení chráněného úložiště, kontroly souborů a doručování kódů.')
+                capabilities={'uploads': runtime.uploads_ready(), 'external_invitations': runtime.link_invitations_ready(),
+                              'email_invitations': runtime.invitations_ready(), 'payroll_export': True},
+                notice='Sběr a kontrola podkladů. Soukromou pozvánku lze připravit i bez známého e-mailu zaměstnance.')
 
 
 @router.get('/api/hr/employments')

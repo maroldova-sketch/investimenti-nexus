@@ -9,7 +9,7 @@ from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 
 PUBLIC_PATHS = frozenset({
-    '/hr/entry', '/hr/api/code', '/hr/api/verify', '/hr/api/meta', '/hr/api/logout',
+    '/hr/entry', '/hr/api/open', '/hr/api/code', '/hr/api/verify', '/hr/api/meta', '/hr/api/logout',
     '/hr/api/cases/{case_id}', '/hr/api/cases/{case_id}/draft', '/hr/api/cases/{case_id}/actions',
     '/hr/api/cases/{case_id}/documents', '/hr/api/cases/{case_id}/documents/{document_id}',
     '/hr/api/cases/{case_id}/documents/{document_id}/withdraw',

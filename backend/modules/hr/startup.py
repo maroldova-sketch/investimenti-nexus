@@ -49,7 +49,7 @@ def validate_entry_configuration(settings):
     from . import runtime
     hr_signing_key(settings)
     validate_database_location(settings.database_url)
-    if not runtime.invitations_ready():
-        raise RuntimeError('Configure the HTTPS employee origin and TLS code-delivery adapter before starting entry.')
+    if not runtime.link_invitations_ready():
+        raise RuntimeError('Configure the HTTPS employee origin before starting entry.')
     if not runtime.uploads_ready():
         raise RuntimeError('Configure the private document directory, encryption keyring and ClamAV socket before starting entry.')

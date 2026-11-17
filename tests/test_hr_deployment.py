@@ -76,7 +76,7 @@ class HRDeploymentTests(TestCase):
         self.assertEqual(hashlib.sha256(self.database.read_bytes()).hexdigest(), before)
 
     def test_public_factory_rejects_missing_configuration(self):
-        for variable in ['NEXUS_HR_ENABLED', 'NEXUS_HR_PUBLIC_ORIGIN', 'NEXUS_HR_SMTP_PASSWORD',
+        for variable in ['NEXUS_HR_ENABLED', 'NEXUS_HR_PUBLIC_ORIGIN',
                          'NEXUS_HR_DOCUMENT_KEYS', 'NEXUS_HR_CLAMD_SOCKET']:
             with patch.dict(os.environ, {variable: ''}):
                 with self.assertRaises(RuntimeError, msg=variable):
@@ -85,6 +85,21 @@ class HRDeploymentTests(TestCase):
             with patch.dict(os.environ, {'NEXUS_HR_SIGNING_KEY': key}):
                 with self.assertRaises(RuntimeError):
                     self.app()
+
+    def test_public_factory_supports_link_entry_without_mail_configuration(self):
+        with patch.dict(os.environ, {'NEXUS_HR_SMTP_PASSWORD': ''}):
+            self.assertFalse(runtime.invitations_ready())
+            self.assertTrue(runtime.link_invitations_ready())
+            self.assertIn('/hr/api/open', {r.path for r in self.app().routes})
+
+    def test_readiness_distinguishes_link_entry_from_optional_email_delivery(self):
+        with patch.dict(os.environ, {'NEXUS_HR_SMTP_PASSWORD': ''}), \
+                patch.object(readiness, 'release_state', return_value=(SHA, True)):
+            result = readiness.report(self.settings, SHA)
+        self.assertTrue(result['checks_passed'])
+        self.assertTrue(result['link_entry_configured'])
+        self.assertFalse(result['email_entry_configured'])
+        self.assertFalse(result['adapter_probes_passed'])
 
     def test_public_factory_refuses_missing_schema_without_creating_it(self):
         with self.engine.begin() as connection:

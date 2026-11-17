@@ -80,7 +80,17 @@ def check_mail():
     raise ValueError('Unknown mail transport.')
 
 
+def link_invitations_ready():
+    """A private invitation can be handed over before an email address is known."""
+    try:
+        public_origin()
+        return True
+    except ValueError:
+        return False
+
+
 def invitations_ready():
+    """Readiness of the optional email-code invitation mode."""
     try:
         public_origin()
         check_mail()

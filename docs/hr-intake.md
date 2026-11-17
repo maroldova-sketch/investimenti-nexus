@@ -29,22 +29,39 @@ No production database, service, public route or mail account was changed.
 
 ## Employee invitation
 
-HR selects an email already present on the existing person record and confirms
-that it belongs to this employee. The address is not taken from the editable
-intake draft. Creating an invitation returns a shareable link once; it does
-**not** send a message. The UI supports copying a prepared message and native
-mobile sharing. There is no WhatsApp Business API integration in this change.
+The default invitation is a **private case-bound link without an email code**.
+HR confirms that it will hand the link directly to the intended employee, for
+example in a private WhatsApp conversation. No email address or configured mail
+adapter is required. The link is a bearer credential: anyone holding it can open
+that case until expiry or revocation. It must not be published or forwarded.
+The employee supplies contact details inside the form. These remain unverified
+draft inputs; they never update the master contact or verify its ownership.
+HR can subsequently verify the contact in the existing person/contact workflow.
+
+For an already known contact, HR may explicitly choose the existing email-code
+mode. The address must already be in the person record and HR confirms that it
+belongs to the employee. Existing email-code invitations retain their original
+requirements; they are never silently downgraded. To change the mode, HR issues
+a replacement invitation, which invalidates the previous link and session.
+
+Creating either invitation returns a shareable link once and **does not send a
+message**. The UI supports copying a prepared message and native mobile sharing.
+There is no WhatsApp Business API integration in this change.
 
 The random 256-bit invitation ticket is stored only as a digest. It travels in
 the URL fragment and is removed from the address bar by the entry page. A GET,
-including a link preview, does not consume the ticket or send a code. The link
-alone discloses no employee answers or identity. `/hr/entry` requests an
-8-digit code through the configured TLS mail adapter after an explicit click.
+including a link preview, does not open a session or send a code. After the
+employee clicks “Otevřít moje podklady”, `POST /hr/api/open` authenticates a
+private-link invitation and issues a case-bound session. Opening again rotates
+that session, so its previous cookie stops working. The endpoint cannot convert
+an email-code invitation into a private-link invitation; it returns only
+`requires_code: true` without a session or employee data. For that optional mode,
+`/hr/entry` requests an 8-digit code through the configured mail adapter after an explicit click.
 Codes expire after ten minutes, allow five attempts each, and are single-use.
 There is a 60-second resend cooldown, ten deliveries per invitation and twenty
 failed verifications over its lifetime. SQL version counters arbitrate races.
 
-An invitation lasts seven days. Verification creates a distinct, case-bound,
+An invitation lasts seven days. Opening or code verification creates a distinct, case-bound,
 two-hour `HttpOnly; Secure; SameSite=Strict` cookie, scoped to `/hr`. It never
 creates a Nexus account or JWT. The employee namespace exposes only the selected
 case, draft, submit and document operations. HR/finance actions, case lists,
@@ -52,11 +69,38 @@ recipient management and access audits are not exposed there. An employee's
 unrelated HR role never expands this portal session.
 
 A new invitation supersedes the previous link/session. HR can revoke it. Contact
-changes, expiry, invalid employment binding, inactive person/employer, terminated
+changes in email-code mode, expiry, invalid employment binding, inactive person/employer, terminated
 employment and payroll receipt also invalidate access. Logout clears the session.
-Resuming after session expiry uses the original invitation and a fresh code.
+Resuming after session expiry uses the original private link, or a fresh code
+when HR selected email-code mode. No plaintext ticket is stored in browser storage.
 Mail failure returns an actionable error and invalidates the undelivered code;
 no plaintext code or ticket is written to the audit log.
+
+## Private-link rollout (17 November 2026)
+
+This change is prepared against `e33c7b8ce264324ff5b2cd75ee57f9d3c65fdf18`
+on `blok-nexus-hr-20261117`. Deploy the internal and employee applications from
+the same reviewed revision before issuing private-link invitations. The new
+`/hr/api/open` endpoint is in the isolated employee allowlist and under the
+existing `/hr/api/…` ingress. No database schema migration is required:
+`recipient_source=link` identifies the new mode, with an empty `recipient`.
+
+Existing email-code invitations, including already shared links, remain in
+their original mode. An HR user must explicitly create a replacement private
+link and hand it to the employee. The UI explains that this replaces the old
+link/session. The link itself is the credential; a code is not sent and contact
+ownership is not asserted by opening or completing the form.
+
+Validation in the isolated workspace: 99 synthetic tests, 98 passed and one
+Unix-socket transport test skipped because this executor forbids `AF_UNIX`.
+The same transport test remains mandatory in Linux CI. JavaScript syntax and
+patch whitespace checks passed. These results do not establish deployment or
+real-browser/physical-phone acceptance.
+
+Rollback after issuing link-mode invitations must retain code that recognizes
+that mode. Older releases assume every invitation recipient is an email and
+cannot safely list the new rows. If needed, disable employee entry and fix
+forward; do not delete invitation rows or convert them to unverified emails.
 
 ## Documents
 
@@ -89,8 +133,9 @@ no plaintext code or ticket is written to the audit log.
 
 ## Runtime configuration
 
-The internal workflow can be enabled independently. Invitations/uploads report
-unavailable until their adapters are configured; there are no permissive
+The internal workflow can be enabled independently. Private links require the
+exact HTTPS origin, while optional email codes also require their delivery adapter.
+Uploads report unavailable until their adapters are configured; there are no permissive
 production test modes or plaintext storage fallbacks.
 
 | Variable | Meaning |
@@ -138,8 +183,8 @@ this patch does not silently rotate or discard them.
    There are six HR tables in total. If the first three-table increment already
    exists, this adds only `hr_document`, `hr_invitation` and `hr_event`. Ordinary
    application startup does not migrate anything and refuses incompatible tables.
-4. Provision the private directory, protected keyring, ClamAV/freshclam and TLS
-   SMTP sender. ClamAV limits must cover the allowed file size and signature
+4. Provision the private directory, protected keyring and ClamAV/freshclam; add
+   a mail adapter when email-code invitations are needed. ClamAV limits must cover the allowed file size and signature
    freshness must be monitored. Check a known test detection and a harmless
    document against the **actual** scanner, and verify real mail delivery in a
    controlled staging mailbox. This has not been done from this workspace.
@@ -170,10 +215,10 @@ this patch does not silently rotate or discard them.
    and uploads. JSON is additionally bounded to 128 KiB by the module; binary
    documents are bounded by the upload handler. Test encoded traversal, forbidden
    paths, cookies, CSRF and case scope at the actual external origin.
-7. Rehearse a real browser journey in staging: issue without sending, deliver to
-   the designated test recipient, code verification, resume, upload, submit,
+7. Rehearse a real browser journey in staging: issue without a known email,
+   hand the private link to the designated test recipient, open, resume, upload, submit,
    return, resubmit, HR review, repeated payroll return, final payroll receipt and
-   revoked/expired access. Check
+   revoked/expired access. Also test the optional email-code mode. Check
    a physical phone, backups/restoration and approved retention/deletion.
 8. Confirm the real legal employer, recipient, minimum field set and responsible
    payroll owner before creating an actual employee case.

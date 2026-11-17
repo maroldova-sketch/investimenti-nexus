@@ -329,6 +329,12 @@ class EntryGuardTests(fixtures.unittest.TestCase):
         big_upload = c.post('/hr/api/cases/1/documents', content=b'x' * (1024 * 1024))
         self.assertEqual(big_upload.status_code, 200)
 
+    def test_link_opens_are_rate_limited(self):
+        c = self.client()
+        for _ in range(20):
+            self.assertEqual(c.post('/hr/api/open', json={}).status_code, 200)
+        self.assertEqual(c.post('/hr/api/open', json={}).status_code, 429)
+
 
 if __name__ == '__main__':
     fixtures.unittest.main()
