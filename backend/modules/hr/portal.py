@@ -4,11 +4,9 @@ import hmac
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from fastapi.responses import FileResponse
 from pydantic import Field
 from sqlalchemy.orm import Session
 from backend.config import get_settings
@@ -17,6 +15,7 @@ from backend.core.security.auth import get_current_user
 from backend.modules.people.models import Employment
 from . import runtime
 from .access import HR_ROLES, check_csrf, csrf_token, permitted, value, signing_key
+from .assets import page
 from .audit import record
 from .models import HRInvitation, HRCase
 from .schema import StrictModel, VERSION, SECTIONS
@@ -211,7 +210,7 @@ def revoke(case_id: str, invitation_id: str, body: Revoke, request: Request,
 @router.get('/hr/entry')
 def entry(request: Request):
     check_portal_origin(request)
-    return FileResponse(Path(__file__).resolve().parents[3] / 'frontend/static/hr/entry.html')
+    return page('entry.html')
 
 
 def find_ticket(db, token):

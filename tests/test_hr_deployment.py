@@ -13,7 +13,7 @@ from cryptography.fernet import Fernet
 import test_hr_cases as fixtures
 from backend.modules.hr.entry_app import create_app, PUBLIC_PATHS
 from backend.modules.hr.startup import validate_database_location
-from backend.modules.hr import readiness, runtime
+from backend.modules.hr import assets, readiness, routes, runtime
 
 SHA = 'a' * 40
 
@@ -91,6 +91,35 @@ class HRDeploymentTests(TestCase):
             self.assertFalse(runtime.invitations_ready())
             self.assertTrue(runtime.link_invitations_ready())
             self.assertIn('/hr/api/open', {r.path for r in self.app().routes})
+
+    def test_pages_reference_script_and_stylesheet_by_content_version(self):
+        internal = routes.page(cu=None)
+        self.assertEqual(internal.headers['cache-control'], 'no-store')
+        with TestClient(self.app(), base_url='https://people.example') as client:
+            for html in [client.get('/hr/entry').text, internal.body.decode()]:
+                for asset in ['app.js', 'style.css']:
+                    content = (assets.STATIC / asset).read_bytes()
+                    address = f'/static/hr/{asset}?v={hashlib.sha256(content).hexdigest()[:16]}'
+                    self.assertIn(f'"{address}"', html)
+                    self.assertNotIn(f'"/static/hr/{asset}"', html)
+                    served = client.get(address)
+                    self.assertEqual((served.status_code, served.content), (200, content))
+
+    def test_asset_version_follows_content_and_missing_reference_is_refused(self):
+        static = Path(self.temp.name) / 'static'
+        static.mkdir()
+        (static / 'app.js').write_text('one')
+        (static / 'style.css').write_text('css')
+        (static / 'entry.html').write_text('<link href="/static/hr/style.css"><script src="/static/hr/app.js"></script>')
+        (static / 'broken.html').write_text('<script src="/static/hr/app.js"></script>')
+        with patch.object(assets, 'STATIC', static), patch.dict(assets._versions, clear=True):
+            self.assertEqual(assets.asset_version('app.js'), hashlib.sha256(b'one').hexdigest()[:16])
+            (static / 'app.js').write_text('two!')
+            changed = hashlib.sha256(b'two!').hexdigest()[:16]
+            self.assertEqual(assets.asset_version('app.js'), changed)
+            self.assertIn(f'"/static/hr/app.js?v={changed}"', assets.page('entry.html').body.decode())
+            with self.assertRaises(RuntimeError):
+                assets.page('broken.html')
 
     def test_readiness_distinguishes_link_entry_from_optional_email_delivery(self):
         with patch.dict(os.environ, {'NEXUS_HR_SMTP_PASSWORD': ''}), \

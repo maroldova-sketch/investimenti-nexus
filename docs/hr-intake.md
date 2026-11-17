@@ -321,3 +321,23 @@ validator. Hidden branch answers are kept until an explicit confirmed clearing; 
 
 Rollback: restore `audits/nexus_hr_20261117/before/com.elias.nexus.plist`, `launchctl bootout/bootstrap com.elias.nexus`;
 `launchctl bootout com.elias.nexus-hr-entry`; `cf_podklady.py --rollback <tunnel backup>`; keep HR tables, files and keys.
+
+### Private-link release on this Mac (17. 11. 2026, afternoon)
+
+PR #16 was deployed to both services by a fast-forward of the release checkout and
+`launchctl kickstart -k gui/$UID/com.elias.nexus-hr-entry` and `…/com.elias.nexus`, after
+`nexus_hr_backup.py` (local + fortress, restore drill passed). No schema migration and no change of
+`hr.json`, the plists or the tunnel.
+
+**Script and stylesheet addresses carry a content version.** `/hr/entry` and `/people/hr` are rendered by
+`backend/modules/hr/assets.py` with `/static/hr/app.js?v=<16 hex of SHA-256>` (same for `style.css`). The
+pages are `no-store`, but Cloudflare replaces the assets' `no-cache` with `max-age=14400` for browsers, so
+an unversioned address kept the previous script for four hours in every browser that had opened the page:
+after the release such a browser still showed the e-mail-code screen. With versioned addresses a release
+needs no cache purge; the tunnel ingress matches the path only, so the query passes unchanged.
+
+One invitation issued before the release was switched from e-mail code to private link on HR's explicit
+instruction, keeping its address and expiry: `~/.elias-deploy/nexus-hr-data/bin/convert_misa_invitation_to_link.py`
+(dry run by default; identifies the row by invitation id **and** the link digest; cancels the pending code
+and session; `hr_event` `invitation_mode_changed` plus an `audit_log` row). It is a one-off, not a general
+tool: every other earlier invitation keeps its e-mail-code requirement.

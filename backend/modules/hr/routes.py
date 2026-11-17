@@ -1,9 +1,7 @@
 import hashlib
 import json
-from pathlib import Path
 from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 from sqlalchemy.exc import IntegrityError
@@ -18,6 +16,7 @@ from .schema import (StrictModel, Requirement, VERSION, SECTIONS, AnswerError, d
 from .access import (HR_ROLES, PAYROLL_ROLES, permitted, roles_for, value, csrf_token, check_csrf,
                      holds_role)
 from . import runtime
+from .assets import page as hr_page
 from .documents import manifest, validate_reference, Withdraw, upload, download, withdraw
 
 
@@ -178,8 +177,7 @@ def describe(db, cu, case, e, detail=False):
 
 @router.get('/people/hr')
 def page(cu=Depends(get_current_user)):
-    path = Path(__file__).resolve().parents[3] / 'frontend/static/hr/index.html'
-    return FileResponse(path, headers={'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff'})
+    return hr_page('index.html', headers={'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff'})
 
 
 @router.get('/api/hr/meta')
