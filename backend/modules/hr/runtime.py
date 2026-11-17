@@ -1,6 +1,10 @@
 """Explicit optional adapters; no delivery/storage defaults or secret logging."""
+import json
 import os
 import re
+import urllib.parse
+import urllib.request
+import uuid
 import socket
 import ssl
 import smtplib
@@ -38,28 +42,91 @@ def mail_config():
     return (*values, port)
 
 
+def graph_config():
+    """Microsoft 365 sendMail with an app registration (client credentials over verified TLS)."""
+    keys = ['TENANT_ID', 'CLIENT_ID', 'CLIENT_SECRET']
+    values = [os.environ.get('NEXUS_HR_GRAPH_' + k, '') for k in keys]
+    sender = os.environ.get('NEXUS_HR_MAIL_FROM', '')
+    if not all(values) or not valid_email(sender) or not re.fullmatch(r'[A-Za-z0-9.-]{1,100}', values[0]):
+        raise ValueError('Configure the HR Microsoft 365 mail adapter.')
+    return (*values, sender)
+
+
+def transport():
+    return os.environ.get('NEXUS_HR_MAIL_TRANSPORT', 'smtp')
+
+
+def check_mail():
+    if transport() == 'graph':
+        return graph_config()
+    if transport() == 'smtp':
+        return mail_config()
+    raise ValueError('Unknown mail transport.')
+
+
 def invitations_ready():
     try:
         public_origin()
-        mail_config()
+        check_mail()
         return True
     except ValueError:
         return False
 
 
+def code_message(recipient, code):
+    subject = 'Ověření vstupu do personálního formuláře'
+    body = (f'Váš jednorázový kód je {code}. Platí 10 minut.\n\n'
+            'Pokud jste o vstup nepožádali, kód nikomu nesdělujte.\nNEXUS People')
+    return subject, body
+
+
+def graph_token():
+    tenant, client, secret, _ = graph_config()
+    data = urllib.parse.urlencode({'client_id': client, 'client_secret': secret, 'grant_type': 'client_credentials',
+                                   'scope': 'https://graph.microsoft.com/.default'}).encode()
+    request = urllib.request.Request(f'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token', data=data,
+                                     method='POST')
+    with urllib.request.urlopen(request, timeout=15, context=ssl.create_default_context()) as response:
+        token = json.loads(response.read(65536)).get('access_token', '')
+    if not token:
+        raise ValueError('Mail adapter authentication failed.')
+    return token
+
+
+def graph_send(recipient, subject, body):
+    """Returns a delivery reference (custom header) so an uncertain send can be traced."""
+    _, _, _, sender = graph_config()
+    reference = str(uuid.uuid4())
+    payload = {'message': {'subject': subject, 'body': {'contentType': 'Text', 'content': body},
+                           'toRecipients': [{'emailAddress': {'address': recipient}}],
+                           'internetMessageHeaders': [{'name': 'X-Nexus-Hr-Delivery', 'value': reference}]},
+               'saveToSentItems': True}
+    request = urllib.request.Request(
+        f'https://graph.microsoft.com/v1.0/users/{urllib.parse.quote(sender)}/sendMail',
+        data=json.dumps(payload).encode(), method='POST',
+        headers={'Authorization': 'Bearer ' + graph_token(), 'Content-Type': 'application/json'})
+    with urllib.request.urlopen(request, timeout=20, context=ssl.create_default_context()) as response:
+        if response.status != 202:
+            raise ValueError('Mail adapter did not accept the message.')
+    return reference
+
+
 def send_code(recipient, code):
-    host, username, password, sender, port = mail_config()
     if not valid_email(recipient):
         raise ValueError('Invalid recipient.')
+    subject, body = code_message(recipient, code)
+    if transport() == 'graph':
+        return graph_send(recipient, subject, body)
+    host, username, password, sender, port = mail_config()
     message = EmailMessage()
     message['From'] = sender
     message['To'] = recipient
-    message['Subject'] = 'Ověření vstupu do personálního formuláře'
-    message.set_content(f'Váš jednorázový kód je {code}. Platí 10 minut.\n\n'
-                        'Pokud jste o vstup nepožádali, kód nikomu nesdělujte.\nNEXUS People')
+    message['Subject'] = subject
+    message.set_content(body)
     with smtplib.SMTP_SSL(host, port, timeout=10, context=ssl.create_default_context()) as smtp:
         smtp.login(username, password)
         smtp.send_message(message)
+    return None
 
 
 def document_config():

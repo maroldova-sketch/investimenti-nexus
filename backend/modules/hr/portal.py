@@ -16,7 +16,7 @@ from backend.core.models.base import get_db
 from backend.core.security.auth import get_current_user
 from backend.modules.people.models import Employment
 from . import runtime
-from .access import HR_ROLES, check_csrf, csrf_token, permitted, value
+from .access import HR_ROLES, check_csrf, csrf_token, permitted, value, signing_key
 from .audit import record
 from .models import HRInvitation, HRCase
 from .schema import StrictModel, VERSION, SECTIONS
@@ -211,7 +211,7 @@ def find_ticket(db, token):
 
 
 def code_hash(invitation_id, nonce, code):
-    return hmac.new(get_settings().secret_key.encode(), f'hr-code:{invitation_id}:{nonce}:{code}'.encode(), hashlib.sha256).hexdigest()
+    return hmac.new(signing_key(), f'hr-code:{invitation_id}:{nonce}:{code}'.encode(), hashlib.sha256).hexdigest()
 
 
 @router.post('/hr/api/code')
@@ -235,7 +235,7 @@ def request_code(body: Ticket, request: Request, db: Session = Depends(get_db)):
     record(db, invitation.case_id, 'entry_code_requested', actor)
     commit(db)  # Reserve the rate limit before invoking the delivery adapter.
     try:
-        runtime.send_code(invitation.recipient, code)
+        reference = runtime.send_code(invitation.recipient, code)
     except Exception:
         db.refresh(invitation)
         if invitation.code_nonce == nonce:
@@ -243,6 +243,9 @@ def request_code(body: Ticket, request: Request, db: Session = Depends(get_db)):
             record(db, invitation.case_id, 'entry_delivery_failed', actor)
             commit(db)
         raise HTTPException(503, 'Kód se nepodařilo doručit. Za minutu to zkuste znovu nebo kontaktujte HR.')
+    if reference:
+        record(db, invitation.case_id, 'entry_code_handed_over', actor, delivery=reference)
+        commit(db)
     return dict(recipient=masked(invitation.recipient), expires_in=600)
 
 

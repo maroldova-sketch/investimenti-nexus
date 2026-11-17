@@ -10,11 +10,13 @@ from sqlalchemy.exc import IntegrityError
 from pydantic import Field, ValidationError
 from backend.core.models.base import get_db
 from backend.core.security.auth import get_current_user
+from backend.core.models.kernel import Person
 from backend.modules.people.models import Employment
 from .models import HRCase, HRSubmission, HRDecision
-from .schema import (StrictModel, Requirement, VERSION, SECTIONS, normalize,
-                     AnswerError, default_requirements, review_issues)
-from .access import HR_ROLES, PAYROLL_ROLES, permitted, roles_for, value, csrf_token, check_csrf
+from .schema import (StrictModel, Requirement, VERSION, SECTIONS, AnswerError, default_requirements,
+                     review_issues, template, suggested_requirements)
+from .access import (HR_ROLES, PAYROLL_ROLES, permitted, roles_for, value, csrf_token, check_csrf,
+                     holds_role)
 from . import runtime
 from .documents import manifest, validate_reference, Withdraw, upload, download, withdraw
 
@@ -31,18 +33,30 @@ class CreateCase(StrictModel):
     employment_id: str = Field(min_length=1, max_length=36)
     kind: Literal['complete_existing', 'change'] = 'complete_existing'
     request_key: str = Field(min_length=16, max_length=100)
+    hr_owner_id: str | None = Field(default=None, max_length=36)
+    payroll_owner_id: str | None = Field(default=None, max_length=36)
 
 
 class SaveDraft(StrictModel):
     expected_version: int = Field(ge=1)
     answers: dict
+    confirm_clear: bool = False
+
+
+class Owners(StrictModel):
+    expected_version: int = Field(ge=1)
+    hr_owner_id: str = Field(min_length=1, max_length=36)
+    payroll_owner_id: str | None = Field(default=None, max_length=36)
+
+
+PAYROLL_ATTESTATIONS = ['payroll_import', 'authority_filing']
 
 
 class Action(StrictModel):
     expected_version: int = Field(ge=1)
     revision: int = Field(ge=0)
     request_key: str = Field(min_length=16, max_length=100)
-    action: Literal['submit', 'return', 'review', 'payroll_return', 'payroll_receive']
+    action: Literal['submit', 'return', 'review', 'payroll_return', 'payroll_receive', *PAYROLL_ATTESTATIONS]
     note: str = Field(default='', max_length=1200)
     confirmed: bool = False
 
@@ -71,6 +85,29 @@ def editable(case):
         raise HTTPException(409, 'Odeslanou verzi nelze upravovat. HR ji může vrátit, po převzetí založte změnový případ.')
 
 
+def case_template(case):
+    try:
+        return template(case.template_version)
+    except KeyError:
+        raise HTTPException(409, 'Tato verze formuláře vyžaduje vlastní validátor.')
+
+
+def check_hr_owner(db, entity, person_id):
+    if not person_id or not holds_role(db, person_id, entity, HR_ROLES):
+        raise HTTPException(422, 'Odpovědné HR musí být osoba s platnou personální rolí pro tuto firmu.')
+
+
+def check_payroll_owner(db, entity, person_id):
+    # Only an explicit finance role counts; owner/admin rights never imitate an accountant.
+    if person_id and not holds_role(db, person_id, entity, {'finance'}):
+        raise HTTPException(422, 'Mzdová osoba musí mít platnou mzdovou (finance) roli pro tuto firmu.')
+
+
+def person_name(db, person_id):
+    person = db.get(Person, person_id) if person_id else None
+    return person.full_name if person else None
+
+
 def employment_context(e):
     return dict(person_id=e.person_id, entity_id=e.entity_id, employment_id=e.id,
                 name=e.person.full_name, employer=e.entity.legal_name or e.entity.name,
@@ -96,21 +133,41 @@ def resolve(db, cu, case_id):
 
 
 def describe(db, cu, case, e, detail=False):
+    portal = getattr(cu, 'portal', False)
+    is_payroll_owner = bool(case.payroll_owner_id) and case.payroll_owner_id == cu.person_id and not portal
     result = dict(id=case.id, kind=case.kind, status=case.status, version=case.version,
                   context=case.context, template_version=case.template_version,
                   revision=case.current_revision, updated_at=case.updated_at.isoformat(),
+                  owners=dict(hr=person_name(db, case.hr_owner_id), payroll=person_name(db, case.payroll_owner_id),
+                              hr_id=case.hr_owner_id, payroll_id=case.payroll_owner_id),
                   permissions=dict(edit=e.person_id == cu.person_id or permitted(db, cu, e.entity, HR_ROLES),
                                    hr=permitted(db, cu, e.entity, HR_ROLES),
-                                   payroll=permitted(db, cu, e.entity, PAYROLL_ROLES)))
+                                   payroll=permitted(db, cu, e.entity, PAYROLL_ROLES),
+                                   payroll_owner=is_payroll_owner and holds_role(db, cu.person_id, e.entity, {'finance'})))
     if detail:
+        from .terms import handover, latest_terms
+        try:
+            tpl = template(case.template_version)
+            issues, hidden = tpl['issues'](case.draft), tpl['hidden'](case.draft)
+            sections, review_flags = tpl['sections'], tpl['review_flags']
+        except KeyError:
+            issues, hidden, sections, review_flags = [], [], [], False
         result.update(answers=case.draft, requirements=case.requirements,
                       documents=manifest(db, case.id),
                       requirements_confirmed=case.requirements_confirmed,
-                      issues=review_issues(case.draft),
+                      sections=sections, review_flags=review_flags, hidden_answers=hidden,
+                      handover=handover(db, e.id),
+                      issues=issues,
                       history=[dict(action=x.action, revision=x.revision, note=x.note,
                                     at=x.created_at.isoformat(), actor_id=x.actor_id)
                                for x in db.query(HRDecision).filter_by(case_id=case.id).order_by(HRDecision.created_at).all()])
-        if getattr(cu, 'portal', False):
+        if not portal and permitted(db, cu, e.entity, HR_ROLES | PAYROLL_ROLES):
+            terms = latest_terms(db, e.id)
+            result['terms'] = terms
+            result['suggested_requirements'] = (suggested_requirements(case.draft, case.requirements, case.template_version)
+                                                if case.template_version in (VERSION,) else [])
+        if portal:
+            result['owners'] = dict(hr=result['owners']['hr'])
             result['requirements'] = [{k: x[k] for k in ['id', 'label', 'status']} for x in case.requirements]
             result['history'] = [{k: v for k, v in x.items() if k != 'actor_id'} for x in result['history']]
             for item in result['history']:
@@ -129,7 +186,8 @@ def page(cu=Depends(get_current_user)):
 def meta(request: Request, cu=Depends(get_current_user), db: Session = Depends(get_db)):
     return dict(template_version=VERSION, sections=SECTIONS, csrf=csrf_token(request, cu),
                 can_create=any(value(r.role) in HR_ROLES for r in roles_for(db, cu)),
-                capabilities={'uploads': runtime.uploads_ready(), 'external_invitations': runtime.invitations_ready(), 'payroll_export': False},
+                person_id=cu.person_id,
+                capabilities={'uploads': runtime.uploads_ready(), 'external_invitations': runtime.invitations_ready(), 'payroll_export': True},
                 notice='Sběr a kontrola podkladů. Doklady a pozvánky jsou dostupné po připojení chráněného úložiště, kontroly souborů a doručování kódů.')
 
 
@@ -165,15 +223,47 @@ def create(body: CreateCase, request: Request, cu=Depends(get_current_user), db:
         return describe(db, cu, old, e, True)
     if db.query(HRCase).filter_by(open_key=e.id).first():
         raise HTTPException(409, 'Tento pracovní vztah už má otevřený případ.')
-    p = e.person
-    draft = dict(first_name=p.first_name or '', last_name=p.last_name or '', maiden_name=p.maiden_name or '',
-                 birth_date=p.birth_date or '', birth_place=p.birth_place or '', citizenship=p.nationality or '',
-                 address_permanent=p.address_permanent or '', email=p.email_personal or p.email_work or '',
-                 phone=p.phone or '', bank_account=p.bank_account or '', health_insurance=p.health_insurance or '')
+    hr_owner = body.hr_owner_id or cu.person_id
+    check_hr_owner(db, e.entity, hr_owner)
+    check_payroll_owner(db, e.entity, body.payroll_owner_id)
     case = HRCase(employment_id=e.id, open_key=e.id, request_key=body.request_key,
                   created_by=cu.id, kind=body.kind, template_version=VERSION,
-                  context=employment_context(e), draft=draft, requirements=default_requirements())
+                  hr_owner_id=hr_owner, payroll_owner_id=body.payroll_owner_id,
+                  context=employment_context(e), draft=prefill(e.person), requirements=default_requirements())
     db.add(case)
+    commit(db)
+    return describe(db, cu, case, e, True)
+
+
+def prefill(p):
+    """Copy only simple, already recorded facts; nothing is inferred or guessed."""
+    from .schema_v2 import valid_rc
+    draft = {k: v.strip() for k, v in dict(
+        title_before=p.title_before, first_name=p.first_name, last_name=p.last_name, maiden_name=p.maiden_name,
+        birth_date=p.birth_date, birth_place=p.birth_place, citizenship=p.nationality,
+        email=p.email_personal, phone=p.phone).items() if isinstance(v, str) and v.strip()}
+    rc = (p.rod_cislo or p.personal_id or '').strip()
+    if rc and valid_rc(rc):
+        draft.update(personal_id_status='assigned', personal_id=rc)
+    if (p.health_insurance or '').strip() in {'111', '201', '205', '207', '209', '211', '213'}:
+        draft['health_insurer'] = p.health_insurance.strip()
+    return draft
+
+
+@router.put('/api/hr/cases/{case_id}/owners')
+def owners(case_id: str, body: Owners, request: Request, cu=Depends(get_current_user), db: Session = Depends(get_db)):
+    check_csrf(request, cu)
+    case, e = resolve(db, cu, case_id)
+    if not permitted(db, cu, e.entity, HR_ROLES):
+        raise HTTPException(403, 'Odpovědné osoby určuje HR.')
+    check_version(case, body.expected_version)
+    if case.status == 'payroll_received':
+        raise HTTPException(409, 'Převzatý případ už nelze předat jiné osobě.')
+    check_hr_owner(db, e.entity, body.hr_owner_id)
+    check_payroll_owner(db, e.entity, body.payroll_owner_id)
+    case.hr_owner_id, case.payroll_owner_id = body.hr_owner_id, body.payroll_owner_id
+    from .audit import record
+    record(db, case.id, 'owners_changed', cu, hr=body.hr_owner_id, payroll=body.payroll_owner_id)
     commit(db)
     return describe(db, cu, case, e, True)
 
@@ -184,9 +274,9 @@ def get_case(case_id: str, cu=Depends(get_current_user), db: Session = Depends(g
     return describe(db, cu, case, e, True)
 
 
-def checked_answers(answers, complete=False):
+def checked_answers(answers, complete=False, version=VERSION):
     try:
-        return normalize(answers, complete)
+        return template(version)['normalize'](answers, complete)
     except AnswerError as exc:
         raise HTTPException(422, {'message': str(exc), 'fields': exc.errors})
     except (ValueError, ValidationError):
@@ -201,9 +291,13 @@ def save(case_id: str, body: SaveDraft, request: Request, cu=Depends(get_current
         raise HTTPException(403, 'Tato role neupravuje podání zaměstnance.')
     check_version(case, body.expected_version)
     editable(case)
-    if case.template_version != VERSION:
-        raise HTTPException(409, 'Tato verze formuláře vyžaduje vlastní validátor.')
-    case.draft = checked_answers(body.answers)
+    tpl = case_template(case)
+    answers = checked_answers(body.answers, version=case.template_version)
+    dropped = tpl['dropped_hidden'](case.draft, answers)
+    if dropped and not body.confirm_clear:
+        raise HTTPException(409, {'message': 'Uložení by smazalo skryté odpovědi z jiné volby. Potvrďte jejich vymazání.',
+                                  'hidden': dropped})
+    case.draft = answers
     commit(db)
     return describe(db, cu, case, e, True)
 
@@ -236,13 +330,18 @@ def requirements(case_id: str, body: RequirementsUpdate, request: Request, cu=De
 def action(case_id: str, body: Action, request: Request, cu=Depends(get_current_user), db: Session = Depends(get_db)):
     check_csrf(request, cu)
     case, e = resolve(db, cu, case_id)
-    allowed = HR_ROLES if body.action in ['return', 'review'] else PAYROLL_ROLES
+    payroll_actions = ['payroll_return', 'payroll_receive', *PAYROLL_ATTESTATIONS]
     if body.action == 'submit':
         if e.person_id != cu.person_id and not permitted(db, cu, e.entity, HR_ROLES):
             raise HTTPException(403, 'Podání není dostupné pro tuto roli.')
-    elif not permitted(db, cu, e.entity, allowed):
-        raise HTTPException(403, 'Chybí odpovídající personální nebo mzdová role.')
-    elif body.action in ['review', 'payroll_return', 'payroll_receive'] and e.person_id == cu.person_id:
+    elif body.action in ['return', 'review'] and not permitted(db, cu, e.entity, HR_ROLES):
+        raise HTTPException(403, 'Chybí odpovídající personální role.')
+    elif body.action in payroll_actions and (
+            getattr(cu, 'portal', False) or not case.payroll_owner_id or case.payroll_owner_id != cu.person_id
+            or not holds_role(db, cu.person_id, e.entity, {'finance'})):
+        raise HTTPException(403, 'Mzdové kroky provádí jen určená mzdová osoba s platnou mzdovou rolí. '
+                                 'Bez ní případ zůstává připravený pro mzdy, ale nepřevzatý.')
+    if body.action in ['review', *payroll_actions] and e.person_id == cu.person_id:
         raise HTTPException(403, 'Vlastní podklady musí převzít jiná pověřená osoba.')
     previous = db.query(HRDecision).filter_by(case_id=case.id, request_key=body.request_key).first()
     if previous:
@@ -256,11 +355,12 @@ def action(case_id: str, body: Action, request: Request, cu=Depends(get_current_
         raise HTTPException(409, 'Rozhodnutí se týká jiné verze podání.')
     if body.action == 'submit':
         editable(case)
-        if case.template_version != VERSION:
-            raise HTTPException(409, 'Neznámá verze formuláře.')
-        answers = checked_answers(case.draft, complete=True)
-        snapshot = dict(answers=answers, context=case.context, template_version=case.template_version,
-                        documents=manifest(db, case.id))
+        tpl = case_template(case)
+        if tpl['review_flags'] and not body.confirmed:
+            raise HTTPException(422, 'Potvrďte, že odesíláte podklady ke kontrole (nejde o podpis smlouvy ani Prohlášení).')
+        answers = checked_answers(case.draft, complete=True, version=case.template_version)
+        snapshot = dict(answers=tpl['effective'](answers), context=case.context, template_version=case.template_version,
+                        documents=manifest(db, case.id), issues=tpl['issues'](answers))
         digest = hashlib.sha256(json.dumps(snapshot, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
         case.current_revision += 1
         db.add(HRSubmission(case_id=case.id, revision=case.current_revision, snapshot=snapshot,
@@ -284,11 +384,17 @@ def action(case_id: str, body: Action, request: Request, cu=Depends(get_current_
         for item in case.requirements:
             validate_reference(db, case.id, item['evidence_ref'])
         case.status = 'reviewed'
-    else:
+    elif body.action == 'payroll_receive':
         if case.status != 'reviewed' or not body.confirmed:
             raise HTTPException(409, 'Převzetí vyžaduje zkontrolovanou konkrétní verzi.')
         case.status = 'payroll_received'
         case.open_key = None
+    else:
+        # Import into payroll software and an official filing are separate, later
+        # attestations; neither is implied by receipt or by an export download.
+        if case.status != 'payroll_received' or not body.confirmed or not body.note.strip():
+            raise HTTPException(409, 'Import i úřední podání potvrzuje mzdová osoba po převzetí, s konkrétním údajem (produkt, číslo podání).')
+        case.version += 1
     db.add(HRDecision(case_id=case.id, revision=case.current_revision, request_key=body.request_key,
                       action=body.action, actor_id=cu.id, note=body.note,
                       evidence={'requirements': case.requirements, 'confirmed': body.confirmed,

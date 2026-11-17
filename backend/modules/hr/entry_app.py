@@ -38,6 +38,8 @@ def create_app():
     # never share mutable APIRoute objects with the internal application.
     app.include_router(APIRouter(routes=routes))
     app.add_middleware(HRBoundary)
+    from .guard import EntryGuard
+    app.add_middleware(EntryGuard)  # outermost: limits apply before any route or body parsing
     static = Path(__file__).resolve().parents[3] / 'frontend/static/hr'
 
     @app.get('/static/hr/{asset}', include_in_schema=False)

@@ -2,6 +2,7 @@
 import os
 os.environ['DATABASE_URL'] = 'sqlite://'
 os.environ['SECRET_KEY'] = 'synthetic-unit-test-key-never-use-in-production'
+os.environ['NEXUS_HR_SIGNING_KEY'] = 'synthetic-hr-signing-key-never-use-in-production'
 import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
@@ -20,9 +21,13 @@ from backend.modules.hr.routes import router, commit
 from backend.modules.hr.schema import normalize
 
 
-COMPLETE = dict(first_name='Test', last_name='Osoba', birth_date='1990-01-01',
-                citizenship='CZ', address_permanent='Testovací 1', personal_id_status='not_assigned',
-                health_insurance='111', tax_residency='CZ', declaration='no')
+COMPLETE = dict(first_name='Test', last_name='Osoba', birth_date='1990-01-01', birth_place='Louny',
+                birth_country='Česká republika', citizenship='česká', citizenship_group='cz',
+                personal_id_status='not_assigned', sex='F', perm_street='Testovací', perm_number='1',
+                perm_city='Louny', perm_zip='440 01', perm_country='Česká republika', contact_same='yes',
+                payment_method='bank', bank_account='19-2000145399/0800', account_holder='own',
+                health_insurer='111', state_insured='no', pension_status='none', other_employment='no',
+                tax_residency='CZ', declaration='no', enforcement='no', insolvency='no', voluntary_deductions='no')
 
 
 class HRCaseTests(unittest.TestCase):
@@ -71,8 +76,11 @@ class HRCaseTests(unittest.TestCase):
             headers['X-HR-CSRF'] = self.client.get('/api/hr/meta', headers=headers).json()['csrf']
         return self.client.request(method, '/api/hr' + path, json=body, headers=headers)
 
-    def create(self, employment='work-a', user='hr-a', request_key=None):
-        response = self.call('POST', '/cases', dict(employment_id=employment, request_key=request_key or str(uuid4())), user)
+    def create(self, employment='work-a', user='hr-a', request_key=None, payroll_owner='default'):
+        if payroll_owner == 'default':
+            payroll_owner = 'finance-a' if employment == 'work-a' else None
+        response = self.call('POST', '/cases', dict(employment_id=employment, request_key=request_key or str(uuid4()),
+                                                    payroll_owner_id=payroll_owner), user)
         self.assertEqual(response.status_code, 200, response.text)
         return response.json()
 
@@ -82,6 +90,8 @@ class HRCaseTests(unittest.TestCase):
         return r.json()
 
     def transition(self, case, action, user='hr-a', **extra):
+        if action == 'submit':
+            extra.setdefault('confirmed', True)
         body = dict(expected_version=case['version'], revision=case['revision'], request_key=str(uuid4()), action=action, **extra)
         return self.call('POST', f"/cases/{case['id']}/actions", body, user)
 
@@ -155,12 +165,31 @@ class HRCaseTests(unittest.TestCase):
                 commit(two)
             self.assertEqual(cm.exception.status_code, 409)
 
-    def test_hidden_family_data_removed_and_unknown_fields_rejected(self):
+    def test_hidden_branch_answers_kept_not_submitted_and_cleared_only_on_confirmation(self):
         c = self.create()
-        answers = {**COMPLETE, 'children_claim':'yes', 'second_taxpayer':'Hidden', 'children':[{'name':'Hidden child'}]}
-        saved = self.save(c, answers)
-        self.assertNotIn('children', saved['answers'])
-        self.assertNotIn('second_taxpayer', saved['answers'])
+        answers = {**COMPLETE, 'declaration': 'yes', 'tax_period': '2026-11', 'ztpp_holder': 'no', 'children_claim': 'yes',
+                   'second_taxpayer': 'none',
+                   'children': [{'name': 'Synthetic child', 'birth_date': '2015-05-05', 'personal_id_status': 'not_assigned',
+                                 'relationship': 'own', 'household': 'yes', 'order': '1', 'months': [1, 2], 'ztpp': 'no'}]}
+        c = self.save(c, answers)
+        # Switching the branch off keeps the hidden answers in the draft.
+        c = self.save(c, {**answers, 'declaration': 'no'})
+        self.assertEqual(c['answers']['children'][0]['name'], 'Synthetic child')
+        self.assertTrue(c['hidden_answers'])
+        # A client that silently drops them is refused without an explicit confirmation.
+        dropped = {k: v for k, v in c['answers'].items() if k not in ['children', 'children_claim', 'tax_period']}
+        r = self.call('PUT', f"/cases/{c['id']}/draft", dict(expected_version=c['version'], answers=dropped), 'employee-a')
+        self.assertEqual(r.status_code, 409)
+        self.assertIn('hidden', r.json()['detail'])
+        c = self.transition(c, 'submit', 'employee-a').json()
+        snapshot = self.call('GET', f"/cases/{c['id']}/submissions/1").json()['snapshot']['answers']
+        self.assertNotIn('children', snapshot)
+        self.assertEqual(snapshot['declaration'], 'no')
+        c = self.transition(c, 'return', note='Doplňte prosím údaj.').json()
+        r = self.call('PUT', f"/cases/{c['id']}/draft", dict(expected_version=c['version'], answers=dropped,
+                                                             confirm_clear=True), 'employee-a')
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertNotIn('children', r.json()['answers'])
         with self.assertRaises(ValueError):
             normalize({'salary':'99999'})
 
@@ -175,7 +204,7 @@ class HRCaseTests(unittest.TestCase):
 
     def test_submit_is_immutable_and_replay_is_idempotent(self):
         c = self.save(self.create())
-        body = dict(expected_version=c['version'],revision=0,request_key=str(uuid4()),action='submit')
+        body = dict(expected_version=c['version'],revision=0,request_key=str(uuid4()),action='submit',confirmed=True)
         r = self.call('POST', f"/cases/{c['id']}/actions", body, 'employee-a')
         self.assertEqual(r.status_code,200)
         self.assertEqual(self.call('POST', f"/cases/{c['id']}/actions", body, 'employee-a').json()['revision'],1)
@@ -190,7 +219,7 @@ class HRCaseTests(unittest.TestCase):
         c = self.submitted()
         first = self.call('GET',f"/cases/{c['id']}/submissions/1").json()
         c = self.transition(c,'return',note='Prosím upřesnit adresu.').json()
-        c = self.save(c,{**COMPLETE,'address_permanent':'Testovací 2'})
+        c = self.save(c,{**COMPLETE,'perm_street':'Testovací 2'})
         c = self.transition(c,'submit','employee-a').json()
         self.assertEqual(c['revision'],2)
         self.assertEqual(self.call('GET',f"/cases/{c['id']}/submissions/1").json(),first)
@@ -234,7 +263,7 @@ class HRCaseTests(unittest.TestCase):
             r = self.transition(c, 'payroll_return', 'finance-a', note=f'Upřesněte adresu ve verzi {revision}.')
             self.assertEqual(r.status_code, 200, r.text)
             self.assertEqual(r.json()['status'], 'returned')
-            c = self.save(r.json(), {**COMPLETE, 'address_permanent': f'Testovací {revision + 1}'})
+            c = self.save(r.json(), {**COMPLETE, 'perm_street': f'Testovací {revision + 1}'})
             c = self.transition(c, 'submit', 'employee-a').json()
             c = self.transition(c, 'review', confirmed=True).json()
         receipt = self.transition(c, 'payroll_receive', 'finance-a', confirmed=True)
@@ -291,9 +320,10 @@ class HRCaseTests(unittest.TestCase):
 
     def test_install_refuses_default_signing_key(self):
         from backend.modules.hr import install
-        with patch('backend.config.get_settings', return_value=SimpleNamespace(secret_key='dev-secret-key-change-in-production')):
-            with self.assertRaisesRegex(RuntimeError, 'signing key'):
-                install(FastAPI())
+        for key in ['dev-secret-key-change-in-production', 'short', os.environ['SECRET_KEY']]:
+            with patch.dict(os.environ, {'NEXUS_HR_SIGNING_KEY': key}):
+                with self.assertRaisesRegex(RuntimeError, 'signing key'):
+                    install(FastAPI())
 
     def test_install_refuses_missing_schema(self):
         from backend.modules.hr import install

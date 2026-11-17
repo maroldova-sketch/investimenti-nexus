@@ -31,6 +31,7 @@ class HRDeploymentTests(TestCase):
         fixtures.Base.metadata.create_all(self.engine)
         self.env = patch.dict(os.environ, {
             'NEXUS_HR_ENABLED': '1', 'NEXUS_HR_PUBLIC_ORIGIN': 'https://people.example',
+            'NEXUS_HR_SIGNING_KEY': 'synthetic-hr-deployment-signing-key-not-for-production',
             'NEXUS_HR_SMTP_HOST': 'mail.example', 'NEXUS_HR_SMTP_USER': 'synthetic-user',
             'NEXUS_HR_SMTP_PASSWORD': 'synthetic-sensitive-password', 'NEXUS_HR_SMTP_FROM': 'hr@example.test',
             'NEXUS_HR_SMTP_PORT': '465', 'NEXUS_HR_DOCUMENT_ROOT': str(self.documents),
@@ -80,9 +81,10 @@ class HRDeploymentTests(TestCase):
             with patch.dict(os.environ, {variable: ''}):
                 with self.assertRaises(RuntimeError, msg=variable):
                     self.app()
-        with patch.object(self.settings, 'secret_key', 'dev-secret-key-change-in-production'):
-            with self.assertRaises(RuntimeError):
-                self.app()
+        for key in ['', 'dev-secret-key-change-in-production', self.settings.secret_key]:
+            with patch.dict(os.environ, {'NEXUS_HR_SIGNING_KEY': key}):
+                with self.assertRaises(RuntimeError):
+                    self.app()
 
     def test_public_factory_refuses_missing_schema_without_creating_it(self):
         with self.engine.begin() as connection:

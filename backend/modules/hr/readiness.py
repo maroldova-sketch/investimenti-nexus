@@ -7,7 +7,7 @@ from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.engine import make_url
 from . import runtime
-from .startup import validate_database_location, validate_schema, validate_signing_key
+from .startup import validate_database_location, validate_schema, hr_signing_key
 
 
 def release_state():
@@ -34,6 +34,9 @@ def check_database(database_url):
 
 
 def probe_mail():
+    if runtime.transport() == 'graph':
+        runtime.graph_token()  # authenticates the app over verified TLS; sends nothing
+        return
     host, username, password, _, port = runtime.mail_config()
     with runtime.smtplib.SMTP_SSL(host, port, timeout=10,
                                  context=runtime.ssl.create_default_context()) as smtp:
@@ -78,11 +81,11 @@ def report(settings, expected_revision, probe_adapters=False):
 
     check('release', revision, 'Use the expected committed revision with no tracked local changes.')
     check('enabled', enabled, 'Set NEXUS_HR_ENABLED=1 for the selected service.')
-    check('signing_key', lambda: validate_signing_key(settings.secret_key), 'Configure the nondefault signing key.')
+    check('signing_key', lambda: hr_signing_key(settings), 'Configure the dedicated HR signing key.')
     check('database_schema', lambda: check_database(settings.database_url),
           'Use an existing absolute SQLite database with the reviewed HR schema; this check never migrates it.')
     check('https_origin', runtime.public_origin, 'Configure the exact HTTPS employee origin.')
-    mail_ok = check('mail_configuration', runtime.mail_config, 'Configure the TLS SMTP adapter and sender.')
+    mail_ok = check('mail_configuration', runtime.check_mail, 'Configure the TLS mail adapter (SMTP or Microsoft 365) and sender.')
     files_ok = check('document_configuration', uploads,
                      'Configure the private external directory, encryption keyring and absolute ClamAV socket.')
     for name, configured, operation, failure in [

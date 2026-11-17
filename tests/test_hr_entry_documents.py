@@ -148,7 +148,7 @@ class HREntryDocumentTests(TestCase):
         self.assertEqual(r.status_code, 200, r.text)
         case = self.external('GET', '/cases/' + case['id']).json()
         r = self.external('POST', f"/cases/{case['id']}/actions", dict(expected_version=case['version'],
-            revision=0, request_key=str(uuid4()), action='submit'))
+            revision=0, request_key=str(uuid4()), action='submit', confirmed=True))
         self.assertEqual(r.status_code, 200, r.text)
         case = self.configure(r.json(), True, 'verified', 'protected-reference').json()
         case = self.transition(case, 'review', confirmed=True).json()
@@ -280,7 +280,7 @@ class HREntryDocumentTests(TestCase):
         self.assertEqual(r.status_code, 200, r.text)
         case = r.json()
         r = self.external('POST', f"/cases/{case['id']}/actions", dict(expected_version=case['version'], revision=0,
-            request_key=str(uuid4()), action='submit'))
+            request_key=str(uuid4()), action='submit', confirmed=True))
         self.assertEqual(r.status_code, 200, r.text)
         with self.Session() as db:
             snap = db.query(HRSubmission).filter_by(case_id=case['id']).one()
