@@ -172,11 +172,26 @@ def clamd_command(command, payload=None):
         return bytes(result).split(b'\0', 1)[0]
 
 
+def signatures_age_days(version):
+    """Age of the loaded signature database from 'ClamAV x.y.z/NNNNN/Sun Nov 16 06:24:00 2026'."""
+    from datetime import datetime
+    try:
+        stamp = version.decode('ascii', errors='replace').split('/', 2)[2].strip()
+        built = datetime.strptime(stamp, '%a %b %d %H:%M:%S %Y')
+    except (IndexError, ValueError):
+        return None
+    return (datetime.utcnow() - built).total_seconds() / 86400
+
+
 def scan_document(data):
-    # Files enter durable storage only after an unambiguous successful scan.
+    # Files enter durable storage only after an unambiguous successful scan
+    # against reasonably fresh signatures (fail closed if updates stopped).
     version = clamd_command(b'VERSION')
     if not version.startswith(b'ClamAV '):
         raise ValueError('Unrecognized scanner.')
+    age = signatures_age_days(version)
+    if age is None or age > float(os.environ.get('NEXUS_HR_CLAMAV_MAX_AGE_DAYS', '7')):
+        raise ValueError('Scanner signatures are missing or stale.')
     result = clamd_command(b'INSTREAM', data)
     if result.endswith(b' FOUND'):
         return None
