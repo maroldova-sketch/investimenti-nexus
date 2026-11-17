@@ -254,3 +254,25 @@ References: [OWASP file uploads](https://cheatsheetseries.owasp.org/cheatsheets/
 [ClamD protocol](https://docs.clamav.net/manual/Usage/ClamdProtocol.html),
 [Fernet keyrings](https://cryptography.io/en/latest/fernet/),
 [SQLAlchemy version counters](https://docs.sqlalchemy.org/en/20/orm/versioning.html).
+
+## Deployment on the INVESTIMENTI Mac (17. 11. 2026)
+
+Template `cz-existing-2026.11-v2` is the default for new cases; v1 cases stay readable and editable under the v1
+validator. Hidden branch answers are kept until an explicit confirmed clearing; only active answers are submitted.
+
+| Item | Value (no secrets) |
+|---|---|
+| Release checkout | `~/.elias-deploy/nexus-hr`, branch `blok-nexus-hr-20261117` (PR #15 over PR #14) |
+| Internal Nexus | `com.elias.nexus` → `~/.elias-deploy/nexus-hr-data/bin/hr_launch.py internal`, `0.0.0.0:8000`, HR enabled |
+| Employee entry | `com.elias.nexus-hr-entry` → `hr_launch.py entry`, `127.0.0.1:8013`, factory `entry_app:create_app` |
+| Public origin | `https://podklady.investimenti.cz` (tunnel `elias-mac-mini`; ingress only `/hr/entry`, `/hr/api/.+`, `/static/hr/(app.js|style.css)`; other paths 404; no Cloudflare Access: link + e-mail code) |
+| Database | `/Users/investimenti/Projects/nexus/nexus.db` (shared absolute path, 7 HR tables added additively) |
+| Documents | `~/.local/share/nexus-hr/documents` (0700, Fernet ciphertext, 0600 files) |
+| Keys | `NEXUS_HR_SIGNING_KEY`, `NEXUS_HR_DOCUMENT_KEYS` in `~/andrew/.env` only (not in data backups) |
+| Scanner | `com.elias.nexus-hr-clamd` (socket `~/.local/share/nexus-hr/clamd/clamd.sock`, 0600), `com.elias.nexus-hr-freshclam` every 6 h; uploads refused when signatures are older than 7 days |
+| Mail | `NEXUS_HR_MAIL_TRANSPORT` = `outbox` (loopback ERP outbox) or `graph` (Microsoft 365 app) or `smtp` (TLS). The outbox requires an approved key (`NEXUS_HR_OUTBOX_KEY`). |
+| Backup | `com.elias.nexus-hr-backup` 02:40: online SQLite snapshot + documents + manifest → `~/elias_backups/nexus-hr` and `fortress:/home/ubuntu/backups/nexus-hr` (SHA verified, 7 kept). Restore drill: `nexus_hr_backup.py --verify <archive>` |
+| Readiness | `~/.elias-deploy/nexus-hr-data/bin/hr_readiness.py --probe-adapters` (never sends mail) |
+
+Rollback: restore `audits/nexus_hr_20261117/before/com.elias.nexus.plist`, `launchctl bootout/bootstrap com.elias.nexus`;
+`launchctl bootout com.elias.nexus-hr-entry`; `cf_podklady.py --rollback <tunnel backup>`; keep HR tables, files and keys.
