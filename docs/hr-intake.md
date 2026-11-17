@@ -319,6 +319,7 @@ validator. Hidden branch answers are kept until an explicit confirmed clearing; 
 | Backup | `com.elias.nexus-hr-backup` 02:40: online SQLite snapshot + documents + manifest → `~/elias_backups/nexus-hr` and `fortress:/home/ubuntu/backups/nexus-hr` (SHA verified, 7 kept). Restore drill: `nexus_hr_backup.py --verify <archive>` |
 | Readiness | `~/.elias-deploy/nexus-hr-data/bin/hr_readiness.py --probe-adapters` (never sends mail) |
 | Automatic deployment | `com.elias.nexus-hr-autodeploy` every 5 min → `~/.elias-deploy/nexus-hr-data/bin/nexus_hr_autodeploy.py` (see below) |
+| Monitoring | Elias Mac watchdog (`com.elias.mac-watchdog`, every 15 min) → `~/.elias-deploy/nexus-hr-data/bin/nexus_hr_health.py` (see below) |
 
 Rollback: restore `audits/nexus_hr_20261117/before/com.elias.nexus.plist`, `launchctl bootout/bootstrap com.elias.nexus`;
 `launchctl bootout com.elias.nexus-hr-entry`; `cf_podklady.py --rollback <tunnel backup>`; keep HR tables, files and keys.
@@ -381,3 +382,22 @@ Consequences to keep in mind:
   both services, verifies them and reports; do not call `launchctl kickstart` on the services by hand.
 - The rule about link-mode invitations above still holds: an automatic return goes back one commit only, never
   below the private-link release.
+
+### Monitoring by the Elias Mac watchdog (since 17. 11. 2026)
+
+`~/andrew_core/runtime/maintenance/elias_watchdog.sh` (block `2d`) runs the read-only
+`nexus_hr_health.py` every 15 minutes and passes its `ALERT:` lines to the watchdog's Telegram chat; the
+watchdog reports a set of problems once and stays quiet until the set changes. Watched:
+
+- both services are running under launchd and answer locally;
+- the public address opens the employee page through the tunnel **and** still answers 404 for `/people/hr`,
+  `/api/hr/cases` and `/auth/login` (the internal application must never become reachable there);
+- the automatic deployment job is loaded and checked GitHub within the last 25 minutes, or has been paused
+  for more than a day;
+- the ClamAV socket answers and its signatures are younger than five days (uploads stop at seven);
+- the newest archive in `~/elias_backups/nexus-hr` is younger than 26 hours.
+
+The check names itself in `User-Agent`: Cloudflare answers 403 (error 1010) to the default Python client.
+The deployment job ends with exit code 0 even when it refuses a commit, because it reports that itself and
+the watchdog would otherwise repeat it as a failed LaunchAgent. Fault rehearsal:
+`nexus_hr_health.py --config <copy of hr.json with wrong ports>`.
