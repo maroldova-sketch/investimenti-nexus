@@ -332,3 +332,52 @@ class EntryGuardTests(fixtures.unittest.TestCase):
 
 if __name__ == '__main__':
     fixtures.unittest.main()
+
+
+class OutboxTransportTests(fixtures.unittest.TestCase):
+    def setUp(self):
+        import os
+        from unittest.mock import patch
+        self.env = patch.dict(os.environ, {'NEXUS_HR_MAIL_TRANSPORT': 'outbox',
+                                           'NEXUS_HR_OUTBOX_URL': 'http://127.0.0.1:8019/api/send-direct'})
+        self.env.start()
+
+    def tearDown(self):
+        self.env.stop()
+
+    def reply(self, payload):
+        from unittest.mock import MagicMock
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.read.return_value = json.dumps(payload).encode()
+        opener = MagicMock()
+        opener.open.return_value = response
+        return opener
+
+    def test_outbox_only_loopback_and_reference_returned(self):
+        import os
+        from unittest.mock import patch
+        from backend.modules.hr import runtime
+        self.assertTrue(runtime.check_mail())
+        with patch.dict(os.environ, {'NEXUS_HR_OUTBOX_URL': 'http://mail.example/api/send-direct'}):
+            with self.assertRaises(ValueError):
+                runtime.check_mail()
+        opener = self.reply({'ok': True})
+        with patch.object(runtime.urllib.request, 'build_opener', return_value=opener):
+            reference = runtime.send_code('person@example.test', '12345678')
+        self.assertTrue(reference.startswith('nexus-hr-'))
+        sent = json.loads(opener.open.call_args[0][0].data)
+        self.assertEqual(sent['recipient'], 'person@example.test')
+        self.assertIn('12345678', sent['body'])
+        self.assertEqual(sent['outbox_id'], reference)
+
+    def test_uncertain_and_refused_results_are_distinguished(self):
+        from unittest.mock import patch
+        from backend.modules.hr import runtime
+        with patch.object(runtime.urllib.request, 'build_opener', return_value=self.reply({'ok': False, 'uncertain': True})):
+            with self.assertRaises(runtime.UncertainDelivery):
+                runtime.send_code('person@example.test', '12345678')
+        with patch.object(runtime.urllib.request, 'build_opener', return_value=self.reply({'ok': False, 'uncertain': False})):
+            with self.assertRaises(ValueError) as refused:
+                runtime.send_code('person@example.test', '12345678')
+            self.assertNotIsInstance(refused.exception, runtime.UncertainDelivery)

@@ -236,11 +236,12 @@ def request_code(body: Ticket, request: Request, db: Session = Depends(get_db)):
     commit(db)  # Reserve the rate limit before invoking the delivery adapter.
     try:
         reference = runtime.send_code(invitation.recipient, code)
-    except Exception:
+    except Exception as exc:
         db.refresh(invitation)
         if invitation.code_nonce == nonce:
-            invitation.code_digest = None
-            record(db, invitation.case_id, 'entry_delivery_failed', actor)
+            invitation.code_digest = None  # an undelivered or uncertain code never stays valid
+            record(db, invitation.case_id, 'entry_delivery_failed', actor,
+                   **({'uncertain': exc.reference} if isinstance(exc, runtime.UncertainDelivery) else {}))
             commit(db)
         raise HTTPException(503, 'Kód se nepodařilo doručit. Za minutu to zkuste znovu nebo kontaktujte HR.')
     if reference:

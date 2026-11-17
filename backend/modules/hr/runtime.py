@@ -52,11 +52,21 @@ def graph_config():
     return (*values, sender)
 
 
+def outbox_config():
+    """Local Elias outbox (loopback only); the HR process then holds no mail credentials."""
+    url = os.environ.get('NEXUS_HR_OUTBOX_URL', '')
+    if not re.fullmatch(r'http://127\.0\.0\.1:\d{2,5}/api/send-direct', url):
+        raise ValueError('Configure the local outbox adapter.')
+    return url
+
+
 def transport():
     return os.environ.get('NEXUS_HR_MAIL_TRANSPORT', 'smtp')
 
 
 def check_mail():
+    if transport() == 'outbox':
+        return outbox_config()
     if transport() == 'graph':
         return graph_config()
     if transport() == 'smtp':
@@ -111,10 +121,39 @@ def graph_send(recipient, subject, body):
     return reference
 
 
+class UncertainDelivery(ValueError):
+    """The message may have been sent; never retry blindly, look it up by reference."""
+    def __init__(self, reference):
+        self.reference = reference
+        super().__init__('Delivery result is uncertain.')
+
+
+def outbox_send(recipient, subject, body):
+    url = outbox_config()
+    reference = 'nexus-hr-' + uuid.uuid4().hex[:24]
+    payload = dict(external_id=reference, outbox_id=reference, recipient=recipient, subject=subject,
+                   body=body, content_type='Text')
+    request = urllib.request.Request(url, data=json.dumps(payload).encode(), method='POST',
+                                     headers={'Content-Type': 'application/json'})
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # never via a proxy
+    try:
+        with opener.open(request, timeout=40) as response:
+            result = json.loads(response.read(65536))
+    except (TimeoutError, OSError) as exc:
+        raise UncertainDelivery(reference) from exc
+    if result.get('ok'):
+        return reference
+    if result.get('uncertain'):
+        raise UncertainDelivery(reference)
+    raise ValueError('Mail adapter did not accept the message.')
+
+
 def send_code(recipient, code):
     if not valid_email(recipient):
         raise ValueError('Invalid recipient.')
     subject, body = code_message(recipient, code)
+    if transport() == 'outbox':
+        return outbox_send(recipient, subject, body)
     if transport() == 'graph':
         return graph_send(recipient, subject, body)
     host, username, password, sender, port = mail_config()

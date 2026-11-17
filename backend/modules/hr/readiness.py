@@ -34,6 +34,13 @@ def check_database(database_url):
 
 
 def probe_mail():
+    if runtime.transport() == 'outbox':
+        url = runtime.outbox_config().rsplit('/api/', 1)[0] + '/api/health'
+        opener = runtime.urllib.request.build_opener(runtime.urllib.request.ProxyHandler({}))
+        with opener.open(url, timeout=10) as response:
+            if runtime.json.loads(response.read(65536)).get('status') != 'ok':
+                raise ValueError('Outbox is not healthy.')
+        return  # health only; sends nothing
     if runtime.transport() == 'graph':
         runtime.graph_token()  # authenticates the app over verified TLS; sends nothing
         return
