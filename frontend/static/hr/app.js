@@ -387,7 +387,8 @@ function renderField(f, act) {
   const val = answers[f.key] ?? "";
   const id = "f-" + f.key;
   const common = `id="${id}" data-field="${escape(f.key)}" ${editable() ? "" : "disabled"}`;
-  const flag = current.review_flags
+  const hasReviewOption = (f.options || []).some((o) => o[0] === "review");
+  const flag = current.review_flags && !hasReviewOption
     ? `<label class="review-flag"><input type="checkbox" data-review="${escape(f.key)}" ${reviewed(f.key) ? "checked" : ""} ${editable() ? "" : "disabled"}>Potřebuji upřesnit</label>`
     : "";
   return `<div class="field ${f.type === "textarea" ? "full" : ""}" data-wrapper="${escape(f.key)}" ${act[f.key] ? "" : "hidden"}><label for="${id}">${escape(f.label)}${f.required ? " *" : ""}</label>${inputFor(f, val, common)}${f.help ? `<p class="help">${escape(f.help)}</p>` : ""}${flag}</div>`;
