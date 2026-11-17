@@ -318,6 +318,7 @@ validator. Hidden branch answers are kept until an explicit confirmed clearing; 
 | Mail | `NEXUS_HR_MAIL_TRANSPORT` = `outbox` (loopback ERP outbox) or `graph` (Microsoft 365 app) or `smtp` (TLS). The outbox requires an approved key (`NEXUS_HR_OUTBOX_KEY`). |
 | Backup | `com.elias.nexus-hr-backup` 02:40: online SQLite snapshot + documents + manifest → `~/elias_backups/nexus-hr` and `fortress:/home/ubuntu/backups/nexus-hr` (SHA verified, 7 kept). Restore drill: `nexus_hr_backup.py --verify <archive>` |
 | Readiness | `~/.elias-deploy/nexus-hr-data/bin/hr_readiness.py --probe-adapters` (never sends mail) |
+| Automatic deployment | `com.elias.nexus-hr-autodeploy` every 5 min → `~/.elias-deploy/nexus-hr-data/bin/nexus_hr_autodeploy.py` (see below) |
 
 Rollback: restore `audits/nexus_hr_20261117/before/com.elias.nexus.plist`, `launchctl bootout/bootstrap com.elias.nexus`;
 `launchctl bootout com.elias.nexus-hr-entry`; `cf_podklady.py --rollback <tunnel backup>`; keep HR tables, files and keys.
@@ -341,3 +342,36 @@ instruction, keeping its address and expiry: `~/.elias-deploy/nexus-hr-data/bin/
 (dry run by default; identifies the row by invitation id **and** the link digest; cancels the pending code
 and session; `hr_event` `invitation_mode_changed` plus an `audit_log` row). It is a one-off, not a general
 tool: every other earlier invitation keeps its e-mail-code requirement.
+
+### Automatic deployment of this branch (since 17. 11. 2026)
+
+Nobody has to watch a fix through any more. `com.elias.nexus-hr-autodeploy` compares the release checkout with
+`origin/blok-nexus-hr-20261117` every five minutes. A newer commit is deployed only when GitHub's `hr-tests`
+check has finished green **for exactly that commit**, in the same order as by hand: `nexus_hr_backup.py` →
+fast-forward → `hr_readiness.py` → `launchctl kickstart -k` of both services → health check (both services
+answer from new processes and the employee page names the script that is on disk). A change limited to
+`docs/`, `tests/`, `.github/` or `*.md` is fast-forwarded without a restart.
+
+| Situation | What happens |
+|---|---|
+| CI still running, or no CI run for the commit | waits; reported after one hour (CI runs only for commits of an open pull request) |
+| CI failed | not deployed, reported; a later commit is tried again |
+| readiness check fails (for example a missing schema change) | checkout returns to the previous commit; services are never restarted |
+| a service does not come back healthy | checkout returns to the previous commit, both services restart again, reported |
+| `requirements.txt` changed, history rewritten, tracked changes in the release | left to a person, reported |
+
+It never forces, merges, migrates the database or installs packages, and a commit that failed is not retried.
+Events (deployed / refused / failed) go to the Telegram chat of the Elias Mac watchdog and to
+`~/andrew_core/logs/com.elias.nexus-hr-autodeploy.stdout`, with one heartbeat line a day; the last result is in
+`~/.elias-deploy/nexus-hr-data/run-autodeploy/state.json`.
+
+Consequences to keep in mind:
+
+- **Write access to this branch is now write access to production.** Whatever is pushed here and passes CI is
+  live within minutes. Keep the branch for reviewed changes.
+- **Do not edit the release checkout by hand.** Change a separate clone or worktree, push, and let the job
+  bring it; tracked changes in the release stop the deployment until they are gone.
+- Pause: `touch ~/.elias-deploy/nexus-hr-data/config/autodeploy.off` (remove the file to resume). Remove:
+  `launchctl bootout gui/$UID/com.elias.nexus-hr-autodeploy` and delete its plist.
+- The rule about link-mode invitations above still holds: an automatic return goes back one commit only, never
+  below the private-link release.
