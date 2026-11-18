@@ -4,6 +4,7 @@ from typing import Optional
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import String, select, type_coerce
 from backend.core.models.base import get_db
 from backend.core.models.kernel import UserAccount, RoleAssignment, NexusRole
 from backend.config import get_settings
@@ -75,7 +76,13 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> Current
     ).first()
     if not user:
         raise HTTPException(status_code=303, headers={"Location": "/auth/login"})
-    roles = [r.role for r in db.query(RoleAssignment).filter(
-        RoleAssignment.person_id == user.person_id
-    ).all()]
+    # An unknown historical enum must not crash authentication or grant a role.
+    raw_roles = db.execute(select(type_coerce(RoleAssignment.__table__.c.role, String)).where(
+        RoleAssignment.person_id == user.person_id)).scalars().all()
+    roles = []
+    for raw in raw_roles:
+        try:
+            roles.append(NexusRole(str(raw).lower()))
+        except ValueError:
+            continue
     return CurrentUser(user, roles)

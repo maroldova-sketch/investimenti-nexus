@@ -102,32 +102,31 @@
         {% endif %}
       </div>
 
-            {# C. PHM #}
+      {# C. PHM — shared conservative attribution #}
       <div class="card mb-3">
-        <div class="card-header d-flex justify-content-between fw-medium">
-          PHM
-          <span class="text-muted" style="font-size:12px">{{ "{:,.0f}".format(phm_total_kc).replace(",", " ") }} Kč · {{ "{:.1f}".format(phm_total_l) }} L celkem</span>
-        </div>
-        {% if phm_txns %}
-        <div class="table-responsive">
-          <table class="table">
-            <thead><tr><th>Měsíc</th><th>Vozidlo</th><th>Kč s DPH</th><th>Litry</th><th>Doklad</th></tr></thead>
-            <tbody>
-              {% for t in phm_txns[:10] %}
-              <tr>
-                <td class="text-muted">{% if t.year and t.month %}{{ t.year }}/{{ "%02d"|format(t.month) }}{% else %}—{% endif %}</td>
-                <td>{% set v = vehicles_map.get(t.vehicle_id) %}{% if v %}<span class="nx-badge nx-badge-neutral">{{ v.spz }}</span>{% else %}—{% endif %}</td>
-                <td><strong>{{ "{:,.0f}".format(t.amount_total|float).replace(",", " ") if t.amount_total else "—" }} Kč</strong></td>
-                <td>{{ "{:.2f}".format(t.liters_total|float) if t.liters_total else "—" }} L</td>
-                <td style="font-size:11px;color:#9ba3af">{{ t.source_doc_ref or "—" }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        {% else %}
-        <div class="card-body"><div class="nx-empty"><div class="nx-empty-title">Žádné PHM transakce</div></div></div>
+        <div class="card-header fw-medium">PHM — jednoznačně přiřazené: {{ "{:,.2f}".format(phm_total_kc).replace(",", " ") }} Kč</div>
+        <div class="table-responsive"><table class="table">
+          <thead><tr><th>Datum / období</th><th>Vozidlo</th><th>Kč s DPH</th><th>Litry</th><th>Doklad</th></tr></thead>
+          <tbody>{% for t in phm_txns %}<tr>
+            <td>{{ t.transaction_date or ("%02d/%s — souhrn"|format(t.month, t.year)) }}</td>
+            <td>{% set v = vehicles_map.get(t.vehicle_id) %}{{ v.spz if v else t.vehicle_id }}</td>
+            <td>{{ "{:,.2f}".format(t.amount_total).replace(",", " ") if t.amount_total is not none else "Chybí částka" }}</td>
+            <td>{{ "{:.3f}".format(t.liters_total) if t.liters_total is not none else "—" }}</td>
+            <td>{{ t.source_doc_ref or "—" }}</td>
+          </tr>{% else %}<tr><td colspan="5">Žádné jednoznačně přiřazené schválené záznamy.</td></tr>{% endfor %}</tbody>
+        </table></div>
+        {% if phm_unresolved %}
+        <details class="card-body" open>
+          <summary class="text-warning fw-bold">K ověření: {{ phm_unresolved|length }} záznamů · {{ "{:,.2f}".format(phm_unresolved_kc).replace(",", " ") }} Kč</summary>
+          <p class="text-muted mt-2">Záznamy souvisejících vozidel nebo výslovného odkazu na řidiče. Nejsou započteny jako náklad tohoto řidiče. Měsíční souhrn nelze dělit bez podkladu.</p>
+          <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Vozidlo</th><th>Datum / období</th><th>Kč</th><th>Doklad</th><th>Důvod</th></tr></thead><tbody>
+          {% for r in phm_unresolved %}{% set t = r.transaction %}{% set v = vehicles_map.get(t.vehicle_id) %}<tr>
+            <td>{{ v.spz if v else t.vehicle_id }}</td><td>{{ t.transaction_date if t.transaction_date is not none else ((t.month|string) + "/" + (t.year|string)) }}</td>
+            <td>{{ "{:,.2f}".format(t.amount_total).replace(",", " ") if t.amount_total is not none else "Chybí částka" }}</td><td>{{ t.source_doc_ref or "—" }}</td><td>{{ r.reason }}</td>
+          </tr>{% endfor %}</tbody></table></div>
+        </details>
         {% endif %}
+        <div class="card-footer"><a href="/fleet/phm">Celkový přehled PHM včetně nerozřazených záznamů</a></div>
       </div>
 
       {# D. FINES + CLAIMS #}

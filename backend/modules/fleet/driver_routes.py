@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from .periods import driver_phm, decimal_total
 from backend.core.models.base import get_db
 from backend.core.models.kernel import Person, Entity, EntityMembership
 from backend.core.security.auth import get_current_user, CurrentUser
@@ -123,13 +124,11 @@ def driver_detail(person_id: str, request: Request, db: Session = Depends(get_db
     mem = db.query(EntityMembership).filter(EntityMembership.person_id == person_id).first()
     entity = db.query(Entity).filter(Entity.id == mem.entity_id).first() if mem else None
 
-    # PHM — canonical transactions for driver's vehicles during their assignment periods
-    phm_txns = db.query(FuelTransaction).filter(
-        FuelTransaction.vehicle_id.in_(vehicle_ids),
-        FuelTransaction.status == "approved"
-    ).order_by(FuelTransaction.year.desc(), FuelTransaction.month.desc()).all()
-    phm_total_kc = sum(float(t.amount_total or 0) for t in phm_txns)
-    phm_total_l = sum(float(t.liters_total or 0) for t in phm_txns)
+    # Shared conservative attribution; unresolved records remain visible separately.
+    phm_txns, phm_unresolved = driver_phm(db, person_id, vehicle_ids)
+    phm_total_kc = decimal_total(phm_txns, "amount_total")
+    phm_total_l = decimal_total(phm_txns, "liters_total")
+    phm_unresolved_kc = decimal_total([r.transaction for r in phm_unresolved], "amount_total")
 
     # Fines
     fines = db.query(TrafficFine).filter(
@@ -194,6 +193,7 @@ def driver_detail(person_id: str, request: Request, db: Session = Depends(get_db
         "assignments": assignments, "vehicles_map": vehicles_map,
         "current_asgn": current_asgn, "current_vehicle": current_vehicle,
         "phm_txns": phm_txns, "phm_total_kc": phm_total_kc, "phm_total_l": phm_total_l,
+        "phm_unresolved": phm_unresolved, "phm_unresolved_kc": phm_unresolved_kc,
         "fines": fines, "claims": claims, "deductions": deductions,
         "last_odo": last_odo, "odo_days": odo_days, "odo_warn": odo_warn,
         "open_alerts": open_alerts,

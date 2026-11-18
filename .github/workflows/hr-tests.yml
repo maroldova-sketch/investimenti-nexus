@@ -34,5 +34,9 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_hr*.py' -v
       - name: Check browser script syntax
         run: node --check frontend/static/hr/app.js
+      - name: Test synthetic fleet commands and allocation
+        run: python -m unittest discover -s tests -p 'test_fleet*.py' -v
+      - name: Check fleet browser script syntax
+        run: node --check frontend/static/fleet/operations.js
       - name: Check patch whitespace
         run: git diff --check HEAD^ HEAD

@@ -12,6 +12,9 @@
       </div>
       <div class="col-auto ms-auto d-print-none">
         <div class="d-flex gap-2">
+          {% if request.app.state.fleet_pilot_enabled %}
+          <a href="/fleet/operations" class="btn btn-primary btn-sm">Kilometry a závady</a>
+          {% endif %}
           <a href="/fleet/phm" class="btn btn-outline-secondary btn-sm">⛽ PHM přehled</a>
           <a href="/import" class="btn btn-outline-secondary btn-sm">↑ Import PHM</a>
         </div>
