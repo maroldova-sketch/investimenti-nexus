@@ -1,0 +1,79 @@
+{% extends "layouts/base.html" %}
+{% block title %}Vozový park — provoz{% endblock %}
+{% block breadcrumb %}Vozový park / Provoz{% endblock %}
+{% block page_header %}
+<div class="page-header"><div class="container-xl">
+  <div class="row align-items-center g-3">
+    <div class="col"><div class="page-pretitle">NEXUS · vozový park</div><h1 class="page-title">Každodenní provoz</h1><p class="text-muted mb-0 mt-2">Vyber auto, zapiš skutečný odečet nebo nahlas závadu.</p></div>
+    <div class="col-auto"><a class="btn btn-outline-secondary" href="/fleet">Přehled vozidel</a></div>
+  </div>
+</div></div>
+{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/static/fleet/operations.css?v=20261118-1">
+<div class="container-xl fleet-operations" id="fleet-operations">
+  <noscript><div class="alert alert-warning">Pro vyhledávání a ukládání je potřeba zapnout JavaScript.</div></noscript>
+  <div id="fleet-status" class="fleet-status mb-3" role="status" aria-live="polite" aria-atomic="true">Načítám vozový park…</div>
+  <div class="fleet-workspace">
+    <aside class="card fleet-selector" aria-labelledby="vehicle-search-title">
+      <div class="card-body">
+        <h2 class="card-title" id="vehicle-search-title">Vybrat vozidlo</h2>
+        <form id="vehicle-search-form" role="search">
+          <label class="form-label" for="vehicle-query">SPZ, značka nebo model</label>
+          <div class="input-group"><input class="form-control" id="vehicle-query" type="search" maxlength="100" autocomplete="off" placeholder="Např. 1UN7000"><button class="btn btn-primary" id="vehicle-search-button" type="submit">Hledat</button></div>
+        </form>
+        <p class="text-muted small mt-3 mb-2" id="vehicle-count"></p>
+        <ul id="vehicle-list" class="fleet-vehicle-list" aria-label="Nalezená vozidla"></ul>
+      </div>
+    </aside>
+    <main class="fleet-main" aria-labelledby="selected-vehicle-title">
+      <section class="card" id="vehicle-placeholder"><div class="card-body"><h2 class="card-title">Vozidlo zatím není vybrané</h2><p class="text-muted mb-0">Vyber auto ze seznamu. Uvidíš jeho údaje, poslední odečty a hlášení.</p></div></section>
+      <div id="vehicle-panel" hidden>
+        <section class="card mb-3">
+          <div class="card-body">
+            <div class="fleet-detail-heading"><div><div class="text-muted small" id="selected-vehicle-spz"></div><h2 class="card-title mb-1" id="selected-vehicle-title" tabindex="-1"></h2></div><button class="btn btn-sm btn-outline-secondary" id="refresh-vehicle" type="button">Obnovit údaje</button></div>
+            <dl class="fleet-facts mt-3 mb-0"><div><dt>Stav</dt><dd id="vehicle-state"></dd></div><div><dt>Řidič</dt><dd id="vehicle-driver"></dd></div><div><dt>Evidovaný tachometr</dt><dd id="vehicle-odometer"></dd></div></dl>
+            <div id="assignment-warning" class="alert alert-warning mt-3 mb-0" hidden></div>
+          </div>
+        </section>
+        <section class="card mb-3" aria-labelledby="record-title">
+          <div class="card-body">
+            <h2 class="card-title" id="record-title">Nový záznam</h2>
+            <p class="text-muted small">Stejnou evidenci používá Elias. Tady můžeš záznam zadat přímo. Uložení potvrdíme až po zpětném ověření.</p>
+            <p class="small" id="fleet-timezone"></p>
+            <div class="fleet-record-grid">
+              <form id="odometer-form">
+                <fieldset id="odometer-fields" disabled>
+                  <legend class="h3">Zapsat kilometry</legend>
+                  <div class="mb-3"><label class="form-label" for="odometer-km">Skutečný stav tachometru v km</label><input class="form-control" type="number" id="odometer-km" name="km" min="0" max="9999999" step="1" inputmode="numeric" required><div class="form-hint">Napiš celé číslo z tachometru, nikoli ujetou vzdálenost. Nejvýše 9 999 999 km.</div></div>
+                  <div class="mb-3"><label class="form-label" for="odometer-at">Kdy byl stav odečten</label><input class="form-control" type="datetime-local" id="odometer-at" required></div>
+                  <button class="btn btn-primary" type="submit">Uložit odečet</button>
+                </fieldset>
+              </form>
+              <form id="defect-form">
+                <fieldset id="defect-fields" disabled>
+                  <legend class="h3">Nahlásit závadu</legend>
+                  <div class="mb-3"><label class="form-label" for="defect-description">Co se stalo nebo co je potřeba řešit</label><textarea class="form-control" id="defect-description" rows="3" maxlength="2000" required placeholder="Např. při brzdění vibruje volant."></textarea><div class="form-hint">Nejvýše 2 000 znaků.</div></div>
+                  <div class="mb-3"><label class="form-label" for="defect-at">Kdy byla závada zjištěna</label><input class="form-control" type="datetime-local" id="defect-at" required></div>
+                  <button class="btn btn-primary" type="submit">Uložit hlášení</button>
+                </fieldset>
+              </form>
+            </div>
+            <div id="command-progress" class="alert alert-info mt-3 mb-0" hidden>
+              <p class="mb-2" id="command-message" role="status" aria-live="polite" aria-atomic="true"></p>
+              <p class="small mb-2" id="command-reference"></p>
+              <div class="fleet-command-buttons"><button class="btn btn-sm btn-primary" id="retry-command" type="button" hidden>Ověřit / opakovat stejný záznam</button><button class="btn btn-sm btn-outline-secondary" id="new-command" type="button" hidden>Nové zadání</button></div>
+            </div>
+            <p class="text-muted small mt-3 mb-0">Při nejasném výsledku tuto stránku nezavírej. Opakování použije stejné zadání, aby nevznikla kopie záznamu.</p>
+          </div>
+        </section>
+        <div class="fleet-history-grid">
+          <section class="card"><div class="card-body"><h2 class="card-title">Poslední odečty</h2><ul class="fleet-history" id="odometer-history"></ul></div></section>
+          <section class="card"><div class="card-body"><h2 class="card-title">Události a hlášení</h2><ul class="fleet-history" id="event-history"></ul></div></section>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/fleet/operations.js?v=20261118-1" defer></script>{% endblock %}

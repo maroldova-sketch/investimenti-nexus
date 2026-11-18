@@ -5,7 +5,6 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse, PlainTextResponse
-import subprocess
 
 from backend.modules.auth.routes import router as auth_router
 from backend.modules.fleet.routes import router as fleet_router
@@ -30,15 +29,24 @@ from backend.modules.m365.routes import router as m365_router
 app = FastAPI(title="NEXUS", redirect_slashes=False, docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
 
+fleet_dependencies = []
+app.state.fleet_pilot_enabled = False
+if os.environ.get("NEXUS_FLEET_ELIAS_ENABLED") == "1":
+    from backend.modules.fleet.pilot import install as install_fleet_pilot
+    fleet_dependencies = install_fleet_pilot(app)
+
 app.include_router(webhook_router)
 app.include_router(auth_router)
 app.include_router(calendar_router)
 app.include_router(notifications_router)
-app.include_router(axigon_router)
-app.include_router(completion_router)
-app.include_router(deduction_router)
-app.include_router(driver_router)
-app.include_router(fleet_router)
+app.include_router(axigon_router, dependencies=fleet_dependencies)
+app.include_router(completion_router, dependencies=fleet_dependencies)
+app.include_router(deduction_router, dependencies=fleet_dependencies)
+app.include_router(driver_router, dependencies=fleet_dependencies)
+# Literal fleet paths must precede /fleet/{vehicle_id}.
+app.include_router(trip_router, dependencies=fleet_dependencies)
+app.include_router(phm2_router, dependencies=fleet_dependencies)
+app.include_router(fleet_router, dependencies=fleet_dependencies)
 app.include_router(merge_router)
 app.include_router(contract_router)
 # Keep the constant /people/hr route before /people/{person_id}.
@@ -49,15 +57,12 @@ if os.environ.get("NEXUS_HR_ENABLED") == "1":
     install_hr(app)
 app.include_router(people_router)
 app.include_router(attendance_router)
-app.include_router(staging_router)
-app.include_router(trip_router)
 app.include_router(atlas_router)
-app.include_router(phm2_router)
 app.include_router(gov_router)
 app.include_router(m365_router)
 
 @app.get("/")
-def root(): return RedirectResponse("/fleet")
+def root(): return RedirectResponse("/fleet/operations" if app.state.fleet_pilot_enabled else "/fleet")
 
 @app.get("/health")
 def health(): return {"status": "ok", "app": "nexus"}
@@ -71,18 +76,13 @@ def health_db():
     except Exception as e:
         return {"status": "error", "detail": str(e)}
 
-# Quick import triggers
-ROOT = os.path.dirname(os.path.abspath(__file__))
-PYTHON = os.path.join(ROOT, ".venv", "bin", "python")
-
 @app.get("/import/run/fleet", response_class=PlainTextResponse)
 def run_fleet():
-    r = subprocess.run([PYTHON, "scripts/import_fleet.py"], cwd=ROOT,
-        env={**os.environ, "PYTHONPATH": ROOT}, capture_output=True, text=True, timeout=30)
-    return (r.stdout + r.stderr) + "\n\nDone. Go to /import"
+    return PlainTextResponse("HTTP import je vypnutý. Použijte kontrolovaný lokální import po záloze.", status_code=410)
 
 @app.get("/import/run/fuel", response_class=PlainTextResponse)
 def run_fuel():
-    r = subprocess.run([PYTHON, "scripts/import_fuel.py"], cwd=ROOT,
-        env={**os.environ, "PYTHONPATH": ROOT}, capture_output=True, text=True, timeout=30)
-    return (r.stdout + r.stderr) + "\n\nDone. Go to /import"
+    return PlainTextResponse("HTTP import je vypnutý. Použijte kontrolovaný lokální import po záloze.", status_code=410)
+
+# Keep the disabled literal import triggers ahead of /import/{batch_id}/fuel.
+app.include_router(staging_router, dependencies=fleet_dependencies)
