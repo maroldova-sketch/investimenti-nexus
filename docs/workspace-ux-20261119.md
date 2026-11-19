@@ -18,7 +18,11 @@ Konkrétní routy `/fleet/trips` a `/fleet/phm` se registrují před `/fleet/{ve
 
 Čtení Outlooku, kalendáře, kontaktů a OneDrive rozlišuje chybějící přístup, chybějící záznam, omezení počtu požadavků, nedostupnou síť a poruchu poskytovatele. Návodná chybová stránka nepředstírá úspěšně načtený prázdný seznam. Nevypisuje surové výjimky, tokeny ani chybové tělo Microsoftu. Respektuje `Retry-After`; nic samo neopakuje. Zápis a odesílání pošty se nemění.
 
+Přehled vozidel používá mřížku statistik se čtyřmi sloupci na desktopu a dvěma na menších obrazovkách. Peněžní hodnoty mají kompaktní nezalamovaný zápis. Filtry tvoří jednu zalamovací lištu; identifikátory a filtrovací JavaScript se nemění.
+
 ## Ověření
+
+GitHub workflow `HR checks` běží pro všechny pull requesty a také pro push do provozní větve `blok-nexus-hr-20261117`. Nemá filtr cest, takže kontrola zahrne i společné styly, šablony a UI routy. Stejná brána `hr-tests` spouští nové UX testy a získá výsledek i pro přesný commit vzniklý sloučením PR; autodeploy svou kontrolu neobchází.
 
 ```text
 python -m unittest discover -s tests -p test_workspace_shell.py -v

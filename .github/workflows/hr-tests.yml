@@ -3,7 +3,7 @@ name: HR checks
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, blok-nexus-hr-20261117]
 
 permissions:
   contents: read
@@ -32,7 +32,11 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Test synthetic HR cases, entry and deployment gates
         run: python -m unittest discover -s tests -p 'test_hr*.py' -v
+      - name: Test shared workspace and Microsoft 365 read routes
+        run: python -m unittest discover -s tests -p 'test_workspace_shell.py' -v
       - name: Check browser script syntax
-        run: node --check frontend/static/hr/app.js
+        run: |
+          node --check frontend/static/hr/app.js
+          node --check frontend/static/js/workspace.js
       - name: Check patch whitespace
         run: git diff --check HEAD^ HEAD
