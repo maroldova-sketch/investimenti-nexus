@@ -1,0 +1,53 @@
+{# Only registered read-only landing routes; never launch jobs from navigation. #}
+{% set groups = [
+  {'key':'day', 'label':'Můj den', 'icon':'sun', 'links':[
+    {'key':'atlas','href':'/atlas','label':'Přehled holdingu','hint':'Podívej se na přehled a otevři oblast, která potřebuje tvoji pozornost.','steps':['Zkontroluj aktuální ukazatele.','Otevři související agendu v menu.','Pracuj s konkrétním záznamem a jeho podklady.']},
+    {'key':'notifications','href':'/notifications','label':'Co čeká','hint':'Začni nevyřízenými upozorněními a otevři jejich související záznam.','steps':['Vyber upozornění.','Ověř jeho podklady.','Potvrď vyřízení až po dokončení práce.'],'keywords':'notifikace oznámení'},
+    {'key':'calendar','href':'/calendar','label':'Kalendář týmu','hint':'Vyber den a zkontroluj dostupnost lidí před naplánováním práce.','steps':['Vyber den nebo období.','Zkontroluj dostupnost a existující události.','Doplň událost s jasným názvem a termínem.']}
+  ]},
+  {'key':'work','label':'Práce','icon':'check','links':[
+    {'key':'intake','href':'/intake','label':'Požadavky a podněty','hint':'Otevři požadavek a upřesni, co je potřeba vyřešit a kdo má navázat.','steps':['Vyber nebo založ požadavek.','Doplň stručný popis a podklady.','Zkontroluj odpovědnost a další krok.'],'keywords':'intake úkol'},
+    {'key':'approvals','href':'/approvals','label':'Ke schválení','hint':'Před rozhodnutím otevři detail a zkontroluj jeho podklady.','steps':['Vyber čekající případ.','Ověř podklady a dopad rozhodnutí.','Schval, nebo vrať s konkrétním důvodem.']},
+    {'key':'mail','href':'/m365/mail','label':'Pošta Outlook','hint':'Vyhledej zprávu nebo otevři nový e-mail. Odeslání potvrzuješ samostatně.','steps':['Najdi zprávu nebo otevři Nový mail.','Zkontroluj příjemce, předmět a text.','Odeslat použij až po kontrole obsahu.'],'keywords':'email Microsoft 365'},
+    {'key':'outlook-calendar','href':'/m365/calendar','label':'Kalendář Outlook','hint':'Vyber období a porovnej termíny v připojeném Microsoft 365.','steps':['Nastav začátek a konec období.','Zkontroluj načtené události.','Ověř termín a účastníky před další domluvou.'],'keywords':'Microsoft 365 schůzka'}
+  ]},
+  {'key':'operations','label':'Provoz','icon':'box','links':[
+    {'key':'fleet-operations','href':'/fleet/operations','label':'Kilometry a závady','hint':'Vyber auto a zapiš skutečný odečet tachometru nebo konkrétní závadu. Výsledek si ověř po uložení.','steps':['Najdi a vyber správné vozidlo.','Doplň skutečný odečet nebo popis závady a čas zjištění.','Ulož záznam a vyčkej na potvrzení výsledku.'],'keywords':'auto vozidlo tachometr Elias'},
+    {'key':'fleet','href':'/fleet','label':'Vozový park','hint':'Otevři kartu konkrétního auta. Odtud uvidíš údaje, řidiče a navazující evidenci.','steps':['Vyber vozidlo podle značky nebo SPZ.','Zkontroluj jeho aktuální údaje a platnosti.','Doplň změnu do příslušné evidence.'],'keywords':'auto vozidlo automobil'},
+    {'key':'drivers','href':'/fleet/drivers','label':'Řidiči','hint':'Vyber řidiče a zkontroluj přiřazené vozidlo i odpovídající podklady.','steps':['Otevři řidiče.','Zkontroluj přiřazení a platné údaje.','Uprav jen doloženou změnu.']},
+    {'key':'trips','href':'/fleet/trips','label':'Kniha jízd','hint':'Vyber vozidlo a období, pak zkontroluj nebo doplň konkrétní jízdu.','steps':['Nastav vozidlo a období.','Zkontroluj stav kilometrů.','Ulož konkrétní jízdu s jejím účelem.'],'keywords':'kilometry tachometr'},
+    {'key':'completion','href':'/fleet/completion','label':'Doplnit údaje vozidel','hint':'Procházej chybějící údaje a doplňuj je podle skutečných dokladů.','steps':['Vyber neúplné vozidlo.','Ověř údaj v dokladu.','Doplň hodnotu a zkontroluj výsledek.']}
+  ]},
+  {'key':'people','label':'Lidé','icon':'people','links':[
+    {'key':'people','href':'/people','label':'Lidé a pracovní vztahy','hint':'Najdi člověka a otevři jeho kartu. Pracovní vztah vždy ověř pro správnou firmu.','steps':['Vyhledej osobu.','Vyber správný pracovní vztah a firmu.','Zkontroluj kontakty, platnosti a podklady.'],'keywords':'zaměstnanec personál'},
+    {'key':'hr','href':'/people/hr','label':'Personální podklady','hint':'Průvodce tě provede firmou, člověkem, účelem a odpovědnými osobami.','steps':['Vyber firmu a doložený pracovní vztah.','Zkontroluj odpovědné HR a mzdovou osobu.','Doplň podklady a postupuj podle stavu případu.'],'keywords':'HR nástup zaměstnanec'},
+    {'key':'attendance','href':'/attendance','label':'Docházka','hint':'Vyber období a firmu. Nejprve zkontroluj neúplné nebo sporné záznamy.','steps':['Vyber období.','Ověř docházku jednotlivých lidí.','Uzavři až zkontrolované podklady.']},
+    {'key':'leave','href':'/leave','label':'Dovolené a absence','hint':'Ověř člověka a termín absence, aby navazující plán odpovídal skutečnosti.','steps':['Vyber člověka.','Zkontroluj termín a druh absence.','Zapiš nebo zpracuj konkrétní žádost.'],'keywords':'volno nemoc'},
+    {'key':'contacts','href':'/m365/contacts','label':'Kontakty Outlook','hint':'Vyhledej kontakt v připojeném Microsoft 365 a ověř správné spojení.','steps':['Najdi osobu nebo firmu.','Zkontroluj e-mail a telefon.','Použij kontakt pro konkrétní práci.'],'keywords':'Microsoft 365 adresář'}
+  ]},
+  {'key':'finance','label':'Finance','icon':'chart','links':[
+    {'key':'phm','href':'/fleet/phm','label':'Tankování a náklady','hint':'Vyber období a firmu. Odlišuj jednotlivá tankování od souhrnných nákladů.','steps':['Nastav období a firmu.','Zkontroluj nákupy a jejich původ.','Ověř rozúčtování před předáním účetní.'],'keywords':'PHM benzín nafta palivo'},
+    {'key':'deductions','href':'/fleet/deductions','label':'Srážky za vozidla','hint':'Zkontroluj konkrétní srážku, její podklad, osobu a období.','steps':['Vyber osobu a období.','Ověř podklad a částku.','Potvrď jen ověřenou změnu.']},
+    {'key':'axigon','href':'/fleet/axigon','label':'AXIGON','hint':'Zkontroluj podklady z AXIGON a jejich přiřazení k provozu vozidel.','steps':['Otevři příslušný přehled.','Ověř vozidlo, firmu a období.','Zkontroluj podklady před rozúčtováním.'],'keywords':'palivová karta tankování'}
+  ]},
+  {'key':'knowledge','label':'Znalosti','icon':'file','links':[
+    {'key':'files','href':'/m365/files','label':'Soubory OneDrive','hint':'Otevři zdrojový dokument v připojeném Microsoft 365 a ověř jeho aktuálnost.','steps':['Vyhledej správný dokument.','Ověř název a datum poslední změny.','Otevři originál v OneDrive.'],'keywords':'dokument příloha soubor Microsoft 365'}
+  ]},
+  {'key':'admin','label':'Správa','icon':'settings','links':[
+    {'key':'import','href':'/import','label':'Importy a kontrola dat','hint':'Nejprve otevři dávku a vyřeš chyby. Převzetí dat potvrď až po kontrole.','steps':['Vyber importní dávku.','Zkontroluj chyby, duplicity a přiřazení.','Potvrď převzetí jen ověřených položek.'],'keywords':'import center dávka'}
+  ]}
+] %}
+
+{% macro icon(name) -%}
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{% if name == 'people' %}<circle cx="9" cy="7" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2m2-16a3 3 0 0 1 0 6m2 10v-2a6 6 0 0 0-3-5"/>
+{% elif name == 'sun' %}<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1"/>
+{% elif name == 'check' %}<rect x="4" y="4" width="16" height="17" rx="3"/><path d="m8 12 3 3 5-6M9 2h6"/>
+{% elif name == 'box' %}<path d="m3 7 9-4 9 4v10l-9 4-9-4V7Zm0 0 9 4 9-4M12 11v10"/>
+{% elif name == 'chart' %}<path d="M4 20h16M6 16V9m6 7V4m6 12v-5"/>
+{% elif name == 'file' %}<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6Zm0 0v6h6M8 13h8m-8 4h5"/>
+{% elif name == 'settings' %}<circle cx="12" cy="12" r="4"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"/>
+{% elif name == 'menu' %}<path d="M4 6h16M4 12h16M4 18h16"/>
+{% else %}<path d="m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4L12 3Z"/>{% endif %}
+</svg>
+{%- endmacro %}
