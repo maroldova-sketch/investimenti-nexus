@@ -1,0 +1,15 @@
+{% extends "layouts/base.html" %}
+{% block title %}Microsoft 365 · Připojení{% endblock %}
+{% block breadcrumb %}Microsoft 365 / Stav připojení{% endblock %}
+{% block page_header %}<div class="page-header"><div class="container-xl"><h1 class="page-title">{{ error_title }}</h1></div></div>{% endblock %}
+{% block content %}
+<div class="container-xl"><section class="card" data-connection-state="{{ connection_state }}" aria-label="Stav připojení Microsoft 365"><div class="card-body">
+  <span class="nx-badge nx-badge-warn">Data nejsou načtená</span>
+  <p class="mt-3">{{ error_message }}</p>
+  <div class="d-flex flex-wrap gap-2">
+    {% if retry_after is none and connection_state != 'missing' %}<a class="btn btn-primary" href="{{ retry_url }}">Zkusit načíst znovu</a>{% endif %}
+    <a class="btn btn-outline-secondary" href="/atlas">Zpět na přehled</a>
+    {% if connection_state == 'missing' %}<a class="btn btn-primary" href="/m365/mail">Otevřít přehled pošty</a>{% endif %}
+  </div>
+</div></section></div>
+{% endblock %}
