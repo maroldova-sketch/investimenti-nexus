@@ -88,6 +88,16 @@
 .nx-shell .nx-stat-label { font-size: .875rem; text-transform: none; letter-spacing: 0; }
 .nx-shell .nx-stat-sub, .nx-shell .fs-small, .nx-shell .nx-empty-sub { font-size: .875rem; }
 .nx-shell .nx-stat-value { font-size: 2rem; }
+.nx-shell .nx-stats-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.nx-shell .nx-stats-grid > div { min-width: 0; }
+.nx-shell .nx-stats-grid .nx-stat { padding: 1rem; }
+.nx-shell .nx-stats-grid .nx-stat-value { font-size: 1.75rem; line-height: 1.25; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.nx-shell .nx-stats-grid .nx-stat-money { font-size: clamp(1.1rem, 1.6vw, 1.45rem); letter-spacing: -.02em; }
+.nx-shell .nx-stat-unit { font-size: .7em; font-weight: 600; }
+.nx-shell .nx-filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+.nx-shell .nx-filter-bar > .form-control, .nx-shell .nx-filter-bar > .form-select { flex: 1 1 9rem; width: auto; min-width: 0; max-width: 14rem; }
+.nx-shell .nx-filter-bar > .form-control { flex-basis: 14rem; max-width: 22rem; }
+.nx-shell .nx-filter-count { margin-left: auto; font-size: .875rem; color: var(--nx-muted); white-space: nowrap; }
 .nx-shell .table { font-size: .875rem; }
 .nx-shell .table thead th { font-size: .875rem; text-transform: none; letter-spacing: 0; color: #44536b; background: #edf2fa; padding: .8rem .85rem; }
 .nx-shell .table tbody td { padding: .8rem .85rem; }
@@ -104,6 +114,9 @@
 .nx-shell .table-responsive { overscroll-behavior-x: contain; }
 .nx-shell .nx-tl-title { font-size: .9375rem; }
 .nx-shell .nx-tl-meta, .nx-shell .breadcrumb { font-size: .875rem; }
+@media (min-width: 1200px) {
+  .nx-shell .nx-stats-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 @media (min-width: 992px) {
   .nx-shell .navbar-vertical.nx-sidebar ~ .page-wrapper { margin-left: var(--nx-sidebar-width); }
   .nx-shell .navbar-vertical.nx-sidebar { width: var(--nx-sidebar-width); position: fixed; height: 100dvh; }
@@ -126,10 +139,16 @@
   .nx-guide details { margin-left: 0; }
   .nx-guide-icon { display: none; }
   .nx-shell .page-header .row { gap: .75rem; }
+  .nx-shell .page-header .row > .col, .nx-shell .page-header .row > .col-auto { flex: 0 0 100%; width: 100%; }
+  .nx-shell .page-header .d-flex { flex-wrap: wrap; }
   .nx-shell .page-header .ms-auto { margin-left: 0 !important; }
   .nx-shell .page-header form { flex-wrap: wrap; }
   .nx-shell .page-header input { max-width: 100%; }
   .nx-shell .btn { min-height: 44px; }
+  .nx-shell .nx-stats-grid { gap: .75rem; }
+  .nx-shell .nx-stats-grid .nx-stat { padding: .85rem; }
+  .nx-shell .nx-filter-bar > .form-control, .nx-shell .nx-filter-bar > .form-select { flex-basis: calc(50% - .375rem); max-width: none; }
+  .nx-shell .nx-filter-count { flex-basis: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .nx-shell *, .nx-shell *::before, .nx-shell *::after { scroll-behavior: auto !important; transition: none !important; } }
 @media print { .nx-sidebar, .nx-topbar, .nx-guide { display: none !important; } .nx-shell .page-wrapper { margin: 0 !important; } }
