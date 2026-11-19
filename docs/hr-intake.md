@@ -29,22 +29,39 @@ No production database, service, public route or mail account was changed.
 
 ## Employee invitation
 
-HR selects an email already present on the existing person record and confirms
-that it belongs to this employee. The address is not taken from the editable
-intake draft. Creating an invitation returns a shareable link once; it does
-**not** send a message. The UI supports copying a prepared message and native
-mobile sharing. There is no WhatsApp Business API integration in this change.
+The default invitation is a **private case-bound link without an email code**.
+HR confirms that it will hand the link directly to the intended employee, for
+example in a private WhatsApp conversation. No email address or configured mail
+adapter is required. The link is a bearer credential: anyone holding it can open
+that case until expiry or revocation. It must not be published or forwarded.
+The employee supplies contact details inside the form. These remain unverified
+draft inputs; they never update the master contact or verify its ownership.
+HR can subsequently verify the contact in the existing person/contact workflow.
+
+For an already known contact, HR may explicitly choose the existing email-code
+mode. The address must already be in the person record and HR confirms that it
+belongs to the employee. Existing email-code invitations retain their original
+requirements; they are never silently downgraded. To change the mode, HR issues
+a replacement invitation, which invalidates the previous link and session.
+
+Creating either invitation returns a shareable link once and **does not send a
+message**. The UI supports copying a prepared message and native mobile sharing.
+There is no WhatsApp Business API integration in this change.
 
 The random 256-bit invitation ticket is stored only as a digest. It travels in
 the URL fragment and is removed from the address bar by the entry page. A GET,
-including a link preview, does not consume the ticket or send a code. The link
-alone discloses no employee answers or identity. `/hr/entry` requests an
-8-digit code through the configured TLS mail adapter after an explicit click.
+including a link preview, does not open a session or send a code. After the
+employee clicks “Otevřít moje podklady”, `POST /hr/api/open` authenticates a
+private-link invitation and issues a case-bound session. Opening again rotates
+that session, so its previous cookie stops working. The endpoint cannot convert
+an email-code invitation into a private-link invitation; it returns only
+`requires_code: true` without a session or employee data. For that optional mode,
+`/hr/entry` requests an 8-digit code through the configured mail adapter after an explicit click.
 Codes expire after ten minutes, allow five attempts each, and are single-use.
 There is a 60-second resend cooldown, ten deliveries per invitation and twenty
 failed verifications over its lifetime. SQL version counters arbitrate races.
 
-An invitation lasts seven days. Verification creates a distinct, case-bound,
+An invitation lasts seven days. Opening or code verification creates a distinct, case-bound,
 two-hour `HttpOnly; Secure; SameSite=Strict` cookie, scoped to `/hr`. It never
 creates a Nexus account or JWT. The employee namespace exposes only the selected
 case, draft, submit and document operations. HR/finance actions, case lists,
@@ -52,11 +69,38 @@ recipient management and access audits are not exposed there. An employee's
 unrelated HR role never expands this portal session.
 
 A new invitation supersedes the previous link/session. HR can revoke it. Contact
-changes, expiry, invalid employment binding, inactive person/employer, terminated
+changes in email-code mode, expiry, invalid employment binding, inactive person/employer, terminated
 employment and payroll receipt also invalidate access. Logout clears the session.
-Resuming after session expiry uses the original invitation and a fresh code.
+Resuming after session expiry uses the original private link, or a fresh code
+when HR selected email-code mode. No plaintext ticket is stored in browser storage.
 Mail failure returns an actionable error and invalidates the undelivered code;
 no plaintext code or ticket is written to the audit log.
+
+## Private-link rollout (17 November 2026)
+
+This change is prepared against `e33c7b8ce264324ff5b2cd75ee57f9d3c65fdf18`
+on `blok-nexus-hr-20261117`. Deploy the internal and employee applications from
+the same reviewed revision before issuing private-link invitations. The new
+`/hr/api/open` endpoint is in the isolated employee allowlist and under the
+existing `/hr/api/…` ingress. No database schema migration is required:
+`recipient_source=link` identifies the new mode, with an empty `recipient`.
+
+Existing email-code invitations, including already shared links, remain in
+their original mode. An HR user must explicitly create a replacement private
+link and hand it to the employee. The UI explains that this replaces the old
+link/session. The link itself is the credential; a code is not sent and contact
+ownership is not asserted by opening or completing the form.
+
+Validation in the isolated workspace: 99 synthetic tests, 98 passed and one
+Unix-socket transport test skipped because this executor forbids `AF_UNIX`.
+The same transport test remains mandatory in Linux CI. JavaScript syntax and
+patch whitespace checks passed. These results do not establish deployment or
+real-browser/physical-phone acceptance.
+
+Rollback after issuing link-mode invitations must retain code that recognizes
+that mode. Older releases assume every invitation recipient is an email and
+cannot safely list the new rows. If needed, disable employee entry and fix
+forward; do not delete invitation rows or convert them to unverified emails.
 
 ## Documents
 
@@ -89,8 +133,9 @@ no plaintext code or ticket is written to the audit log.
 
 ## Runtime configuration
 
-The internal workflow can be enabled independently. Invitations/uploads report
-unavailable until their adapters are configured; there are no permissive
+The internal workflow can be enabled independently. Private links require the
+exact HTTPS origin, while optional email codes also require their delivery adapter.
+Uploads report unavailable until their adapters are configured; there are no permissive
 production test modes or plaintext storage fallbacks.
 
 | Variable | Meaning |
@@ -138,8 +183,8 @@ this patch does not silently rotate or discard them.
    There are six HR tables in total. If the first three-table increment already
    exists, this adds only `hr_document`, `hr_invitation` and `hr_event`. Ordinary
    application startup does not migrate anything and refuses incompatible tables.
-4. Provision the private directory, protected keyring, ClamAV/freshclam and TLS
-   SMTP sender. ClamAV limits must cover the allowed file size and signature
+4. Provision the private directory, protected keyring and ClamAV/freshclam; add
+   a mail adapter when email-code invitations are needed. ClamAV limits must cover the allowed file size and signature
    freshness must be monitored. Check a known test detection and a harmless
    document against the **actual** scanner, and verify real mail delivery in a
    controlled staging mailbox. This has not been done from this workspace.
@@ -170,10 +215,10 @@ this patch does not silently rotate or discard them.
    and uploads. JSON is additionally bounded to 128 KiB by the module; binary
    documents are bounded by the upload handler. Test encoded traversal, forbidden
    paths, cookies, CSRF and case scope at the actual external origin.
-7. Rehearse a real browser journey in staging: issue without sending, deliver to
-   the designated test recipient, code verification, resume, upload, submit,
+7. Rehearse a real browser journey in staging: issue without a known email,
+   hand the private link to the designated test recipient, open, resume, upload, submit,
    return, resubmit, HR review, repeated payroll return, final payroll receipt and
-   revoked/expired access. Check
+   revoked/expired access. Also test the optional email-code mode. Check
    a physical phone, backups/restoration and approved retention/deletion.
 8. Confirm the real legal employer, recipient, minimum field set and responsible
    payroll owner before creating an actual employee case.
@@ -254,3 +299,108 @@ References: [OWASP file uploads](https://cheatsheetseries.owasp.org/cheatsheets/
 [ClamD protocol](https://docs.clamav.net/manual/Usage/ClamdProtocol.html),
 [Fernet keyrings](https://cryptography.io/en/latest/fernet/),
 [SQLAlchemy version counters](https://docs.sqlalchemy.org/en/20/orm/versioning.html).
+
+## Deployment on the INVESTIMENTI Mac (17. 11. 2026)
+
+Template `cz-existing-2026.11-v2` is the default for new cases; v1 cases stay readable and editable under the v1
+validator. Hidden branch answers are kept until an explicit confirmed clearing; only active answers are submitted.
+
+| Item | Value (no secrets) |
+|---|---|
+| Release checkout | `~/.elias-deploy/nexus-hr`, branch `blok-nexus-hr-20261117` (PR #15 over PR #14) |
+| Internal Nexus | `com.elias.nexus` → `~/.elias-deploy/nexus-hr-data/bin/hr_launch.py internal`, `0.0.0.0:8000`, HR enabled |
+| Employee entry | `com.elias.nexus-hr-entry` → `hr_launch.py entry`, `127.0.0.1:8013`, factory `entry_app:create_app` |
+| Public origin | `https://podklady.investimenti.cz` (tunnel `elias-mac-mini`; ingress only `/hr/entry`, `/hr/api/.+`, `/static/hr/(app.js|style.css)`; other paths 404; no Cloudflare Access: link + e-mail code) |
+| Database | `/Users/investimenti/Projects/nexus/nexus.db` (shared absolute path, 7 HR tables added additively) |
+| Documents | `~/.local/share/nexus-hr/documents` (0700, Fernet ciphertext, 0600 files) |
+| Keys | `NEXUS_HR_SIGNING_KEY`, `NEXUS_HR_DOCUMENT_KEYS` in `~/andrew/.env` only (not in data backups) |
+| Scanner | `com.elias.nexus-hr-clamd` (socket `~/.local/share/nexus-hr/clamd/clamd.sock`, 0600), `com.elias.nexus-hr-freshclam` every 6 h; uploads refused when signatures are older than 7 days |
+| Mail | `NEXUS_HR_MAIL_TRANSPORT` = `outbox` (loopback ERP outbox) or `graph` (Microsoft 365 app) or `smtp` (TLS). The outbox requires an approved key (`NEXUS_HR_OUTBOX_KEY`). |
+| Backup | `com.elias.nexus-hr-backup` 02:40: online SQLite snapshot + documents + manifest → `~/elias_backups/nexus-hr` and `fortress:/home/ubuntu/backups/nexus-hr` (SHA verified, 7 kept). Restore drill: `nexus_hr_backup.py --verify <archive>` |
+| Readiness | `~/.elias-deploy/nexus-hr-data/bin/hr_readiness.py --probe-adapters` (never sends mail) |
+| Automatic deployment | `com.elias.nexus-hr-autodeploy` every 5 min → `~/.elias-deploy/nexus-hr-data/bin/nexus_hr_autodeploy.py` (see below) |
+| Monitoring | Elias Mac watchdog (`com.elias.mac-watchdog`, every 15 min) → `~/.elias-deploy/nexus-hr-data/bin/nexus_hr_health.py` (see below) |
+
+Rollback: restore `audits/nexus_hr_20261117/before/com.elias.nexus.plist`, `launchctl bootout/bootstrap com.elias.nexus`;
+`launchctl bootout com.elias.nexus-hr-entry`; `cf_podklady.py --rollback <tunnel backup>`; keep HR tables, files and keys.
+
+### Private-link release on this Mac (17. 11. 2026, afternoon)
+
+PR #16 was deployed to both services by a fast-forward of the release checkout and
+`launchctl kickstart -k gui/$UID/com.elias.nexus-hr-entry` and `…/com.elias.nexus`, after
+`nexus_hr_backup.py` (local + fortress, restore drill passed). No schema migration and no change of
+`hr.json`, the plists or the tunnel.
+
+**Script and stylesheet addresses carry a content version.** `/hr/entry` and `/people/hr` are rendered by
+`backend/modules/hr/assets.py` with `/static/hr/app.js?v=<16 hex of SHA-256>` (same for `style.css`). The
+pages are `no-store`, but Cloudflare replaces the assets' `no-cache` with `max-age=14400` for browsers, so
+an unversioned address kept the previous script for four hours in every browser that had opened the page:
+after the release such a browser still showed the e-mail-code screen. With versioned addresses a release
+needs no cache purge; the tunnel ingress matches the path only, so the query passes unchanged.
+
+One invitation issued before the release was switched from e-mail code to private link on HR's explicit
+instruction, keeping its address and expiry: `~/.elias-deploy/nexus-hr-data/bin/convert_misa_invitation_to_link.py`
+(dry run by default; identifies the row by invitation id **and** the link digest; cancels the pending code
+and session; `hr_event` `invitation_mode_changed` plus an `audit_log` row). It is a one-off, not a general
+tool: every other earlier invitation keeps its e-mail-code requirement.
+
+### Automatic deployment of this branch (since 17. 11. 2026)
+
+Nobody has to watch a fix through any more. `com.elias.nexus-hr-autodeploy` compares the release checkout with
+`origin/blok-nexus-hr-20261117` every five minutes. A newer commit is deployed only when GitHub's `hr-tests`
+check has finished green **for exactly that commit**, in the same order as by hand: `nexus_hr_backup.py` →
+fast-forward → `hr_readiness.py` → `launchctl kickstart -k` of both services → health check (both services
+answer from new processes and the employee page names the script that is on disk). A change limited to
+`docs/`, `tests/`, `.github/` or `*.md` is fast-forwarded without a restart.
+
+| Situation | What happens |
+|---|---|
+| CI still running, or no CI run for the commit | waits; reported after one hour. CI runs for pull requests and pushes to `blok-nexus-hr-20261117`, including the exact commit created by a merge. |
+| CI failed | not deployed, reported; a later commit is tried again |
+| readiness check fails (for example a missing schema change) | checkout returns to the previous commit; services are never restarted |
+| a service does not come back healthy | checkout returns to the previous commit, both services restart again, reported |
+| `requirements.txt` changed, history rewritten, tracked changes in the release | left to a person, reported |
+
+The workflow has no path filter: shared CSS, JavaScript, templates and backend routes all trigger the same
+`hr-tests` gate. The gate also runs the workspace and Microsoft 365 read-route tests.
+
+It never forces, merges, migrates the database or installs packages, and a commit that failed is not retried.
+Verified on 17. 11. 2026: a pushed commit was deployed by the job itself after green CI, and a requested
+restart replaced both service processes and passed the health check. The return to the previous commit has
+been exercised only in a rehearsal against a scratch repository with simulated services.
+Events (deployed / refused / failed) go to the Telegram chat of the Elias Mac watchdog and to
+`~/andrew_core/logs/com.elias.nexus-hr-autodeploy.stdout`, with one heartbeat line a day; the last result is in
+`~/.elias-deploy/nexus-hr-data/run-autodeploy/state.json`.
+
+Consequences to keep in mind:
+
+- **Write access to this branch is now write access to production.** Whatever is pushed here and passes CI is
+  live within minutes. Keep the branch for reviewed changes.
+- **Do not edit the release checkout by hand.** Change a separate clone or worktree, push, and let the job
+  bring it; tracked changes in the release stop the deployment until they are gone.
+- Pause: `touch ~/.elias-deploy/nexus-hr-data/config/autodeploy.off` (remove the file to resume). Remove:
+  `launchctl bootout gui/$UID/com.elias.nexus-hr-autodeploy` and delete its plist.
+- Restart without a code change (after editing `hr.json` or rotating keys):
+  `touch ~/.elias-deploy/nexus-hr-data/run-autodeploy/restart.request`. The next run checks readiness, restarts
+  both services, verifies them and reports; do not call `launchctl kickstart` on the services by hand.
+- The rule about link-mode invitations above still holds: an automatic return goes back one commit only, never
+  below the private-link release.
+
+### Monitoring by the Elias Mac watchdog (since 17. 11. 2026)
+
+`~/andrew_core/runtime/maintenance/elias_watchdog.sh` (block `2d`) runs the read-only
+`nexus_hr_health.py` every 15 minutes and passes its `ALERT:` lines to the watchdog's Telegram chat; the
+watchdog reports a set of problems once and stays quiet until the set changes. Watched:
+
+- both services are running under launchd and answer locally;
+- the public address opens the employee page through the tunnel **and** still answers 404 for `/people/hr`,
+  `/api/hr/cases` and `/auth/login` (the internal application must never become reachable there);
+- the automatic deployment job is loaded and checked GitHub within the last 25 minutes, or has been paused
+  for more than a day;
+- the ClamAV socket answers and its signatures are younger than five days (uploads stop at seven);
+- the newest archive in `~/elias_backups/nexus-hr` is younger than 26 hours.
+
+The check names itself in `User-Agent`: Cloudflare answers 403 (error 1010) to the default Python client.
+The deployment job ends with exit code 0 even when it refuses a commit, because it reports that itself and
+the watchdog would otherwise repeat it as a failed LaunchAgent. Fault rehearsal:
+`nexus_hr_health.py --config <copy of hr.json with wrong ports>`.

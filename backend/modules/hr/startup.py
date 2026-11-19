@@ -1,12 +1,22 @@
 """Shared non-mutating startup gates for internal HR and the employee service."""
+import os
 from pathlib import Path
 from sqlalchemy import inspect
 from sqlalchemy.engine import make_url
 
 
-def validate_signing_key(secret_key):
-    if len(secret_key) < 32 or secret_key == 'dev-secret-key-change-in-production':
-        raise RuntimeError('HR requires a configured non-default signing key of at least 32 characters.')
+def validate_signing_key(secret_key, nexus_key=None):
+    if (len(secret_key) < 32 or secret_key == 'dev-secret-key-change-in-production'
+            or (nexus_key and secret_key == nexus_key)):
+        raise RuntimeError('HR requires its own configured signing key (NEXUS_HR_SIGNING_KEY) of at least '
+                           '32 characters, separate from the Nexus login key.')
+
+
+def hr_signing_key(settings):
+    """HR HMACs (CSRF, entry codes) use a dedicated key; the Nexus JWT key is untouched."""
+    key = os.environ.get('NEXUS_HR_SIGNING_KEY', '')
+    validate_signing_key(key, getattr(settings, 'secret_key', None))
+    return key
 
 
 def validate_schema(engine):
@@ -37,9 +47,9 @@ def validate_database_location(database_url):
 
 def validate_entry_configuration(settings):
     from . import runtime
-    validate_signing_key(settings.secret_key)
+    hr_signing_key(settings)
     validate_database_location(settings.database_url)
-    if not runtime.invitations_ready():
-        raise RuntimeError('Configure the HTTPS employee origin and TLS code-delivery adapter before starting entry.')
+    if not runtime.link_invitations_ready():
+        raise RuntimeError('Configure the HTTPS employee origin before starting entry.')
     if not runtime.uploads_ready():
         raise RuntimeError('Configure the private document directory, encryption keyring and ClamAV socket before starting entry.')

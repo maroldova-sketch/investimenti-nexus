@@ -1,6 +1,11 @@
 """Explicit optional adapters; no delivery/storage defaults or secret logging."""
+import json
 import os
 import re
+import urllib.error
+import urllib.parse
+import urllib.request
+import uuid
 import socket
 import ssl
 import smtplib
@@ -38,28 +43,153 @@ def mail_config():
     return (*values, port)
 
 
-def invitations_ready():
+def graph_config():
+    """Microsoft 365 sendMail with an app registration (client credentials over verified TLS)."""
+    keys = ['TENANT_ID', 'CLIENT_ID', 'CLIENT_SECRET']
+    values = [os.environ.get('NEXUS_HR_GRAPH_' + k, '') for k in keys]
+    sender = os.environ.get('NEXUS_HR_MAIL_FROM', '')
+    if not all(values) or not valid_email(sender) or not re.fullmatch(r'[A-Za-z0-9.-]{1,100}', values[0]):
+        raise ValueError('Configure the HR Microsoft 365 mail adapter.')
+    return (*values, sender)
+
+
+def outbox_config():
+    """Local Elias outbox (loopback only); the HR process then holds no mail credentials."""
+    url = os.environ.get('NEXUS_HR_OUTBOX_URL', '')
+    if not re.fullmatch(r'http://127\.0\.0\.1:\d{2,5}/api/send-direct', url):
+        raise ValueError('Configure the local outbox adapter.')
+    return url
+
+
+def outbox_headers():
+    key = os.environ.get('NEXUS_HR_OUTBOX_KEY', '')
+    return {'X-Hospitality-Key': key} if key else {}
+
+
+def transport():
+    return os.environ.get('NEXUS_HR_MAIL_TRANSPORT', 'smtp')
+
+
+def check_mail():
+    if transport() == 'outbox':
+        return outbox_config()
+    if transport() == 'graph':
+        return graph_config()
+    if transport() == 'smtp':
+        return mail_config()
+    raise ValueError('Unknown mail transport.')
+
+
+def link_invitations_ready():
+    """A private invitation can be handed over before an email address is known."""
     try:
         public_origin()
-        mail_config()
         return True
     except ValueError:
         return False
 
 
+def invitations_ready():
+    """Readiness of the optional email-code invitation mode."""
+    try:
+        public_origin()
+        check_mail()
+        return True
+    except ValueError:
+        return False
+
+
+def code_message(recipient, code):
+    subject = 'Ověření vstupu do personálního formuláře'
+    body = (f'Váš jednorázový kód je {code}. Platí 10 minut.\n\n'
+            'Pokud jste o vstup nepožádali, kód nikomu nesdělujte.\nNEXUS People')
+    return subject, body
+
+
+def graph_token():
+    tenant, client, secret, _ = graph_config()
+    data = urllib.parse.urlencode({'client_id': client, 'client_secret': secret, 'grant_type': 'client_credentials',
+                                   'scope': 'https://graph.microsoft.com/.default'}).encode()
+    request = urllib.request.Request(f'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token', data=data,
+                                     method='POST')
+    with urllib.request.urlopen(request, timeout=15, context=ssl.create_default_context()) as response:
+        token = json.loads(response.read(65536)).get('access_token', '')
+    if not token:
+        raise ValueError('Mail adapter authentication failed.')
+    return token
+
+
+def graph_send(recipient, subject, body):
+    """Returns a delivery reference (custom header) so an uncertain send can be traced."""
+    _, _, _, sender = graph_config()
+    reference = str(uuid.uuid4())
+    payload = {'message': {'subject': subject, 'body': {'contentType': 'Text', 'content': body},
+                           'toRecipients': [{'emailAddress': {'address': recipient}}],
+                           'internetMessageHeaders': [{'name': 'X-Nexus-Hr-Delivery', 'value': reference}]},
+               'saveToSentItems': True}
+    request = urllib.request.Request(
+        f'https://graph.microsoft.com/v1.0/users/{urllib.parse.quote(sender)}/sendMail',
+        data=json.dumps(payload).encode(), method='POST',
+        headers={'Authorization': 'Bearer ' + graph_token(), 'Content-Type': 'application/json'})
+    with urllib.request.urlopen(request, timeout=20, context=ssl.create_default_context()) as response:
+        if response.status != 202:
+            raise ValueError('Mail adapter did not accept the message.')
+    return reference
+
+
+class UncertainDelivery(ValueError):
+    """The message may have been sent; never retry blindly, look it up by reference."""
+    def __init__(self, reference):
+        self.reference = reference
+        super().__init__('Delivery result is uncertain.')
+
+
+def outbox_send(recipient, subject, body):
+    url = outbox_config()
+    reference = 'nexus-hr-' + uuid.uuid4().hex[:24]
+    payload = dict(external_id=reference, outbox_id=reference, recipient=recipient, subject=subject,
+                   body=body, content_type='Text')
+    request = urllib.request.Request(url, data=json.dumps(payload).encode(), method='POST',
+                                     headers={'Content-Type': 'application/json', **outbox_headers()})
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # never via a proxy
+    try:
+        with opener.open(request, timeout=40) as response:
+            result = json.loads(response.read(65536))
+    except urllib.error.HTTPError as exc:
+        if exc.code >= 500 or exc.code == 408:
+            raise UncertainDelivery(reference) from exc
+        raise ValueError('Mail adapter refused the message.') from exc  # 4xx: nothing was sent
+    except urllib.error.URLError as exc:
+        if isinstance(exc.reason, (TimeoutError, ConnectionResetError)):
+            raise UncertainDelivery(reference) from exc
+        raise ValueError('Mail adapter is unavailable.') from exc  # connection refused: nothing was sent
+    except (TimeoutError, ConnectionResetError) as exc:
+        raise UncertainDelivery(reference) from exc
+    if result.get('ok'):
+        return reference
+    if result.get('uncertain'):
+        raise UncertainDelivery(reference)
+    raise ValueError('Mail adapter did not accept the message.')
+
+
 def send_code(recipient, code):
-    host, username, password, sender, port = mail_config()
     if not valid_email(recipient):
         raise ValueError('Invalid recipient.')
+    subject, body = code_message(recipient, code)
+    if transport() == 'outbox':
+        return outbox_send(recipient, subject, body)
+    if transport() == 'graph':
+        return graph_send(recipient, subject, body)
+    host, username, password, sender, port = mail_config()
     message = EmailMessage()
     message['From'] = sender
     message['To'] = recipient
-    message['Subject'] = 'Ověření vstupu do personálního formuláře'
-    message.set_content(f'Váš jednorázový kód je {code}. Platí 10 minut.\n\n'
-                        'Pokud jste o vstup nepožádali, kód nikomu nesdělujte.\nNEXUS People')
+    message['Subject'] = subject
+    message.set_content(body)
     with smtplib.SMTP_SSL(host, port, timeout=10, context=ssl.create_default_context()) as smtp:
         smtp.login(username, password)
         smtp.send_message(message)
+    return None
 
 
 def document_config():
@@ -105,11 +235,26 @@ def clamd_command(command, payload=None):
         return bytes(result).split(b'\0', 1)[0]
 
 
+def signatures_age_days(version):
+    """Age of the loaded signature database from 'ClamAV x.y.z/NNNNN/Sun Nov 16 06:24:00 2026'."""
+    from datetime import datetime
+    try:
+        stamp = version.decode('ascii', errors='replace').split('/', 2)[2].strip()
+        built = datetime.strptime(stamp, '%a %b %d %H:%M:%S %Y')
+    except (IndexError, ValueError):
+        return None
+    return (datetime.utcnow() - built).total_seconds() / 86400
+
+
 def scan_document(data):
-    # Files enter durable storage only after an unambiguous successful scan.
+    # Files enter durable storage only after an unambiguous successful scan
+    # against reasonably fresh signatures (fail closed if updates stopped).
     version = clamd_command(b'VERSION')
     if not version.startswith(b'ClamAV '):
         raise ValueError('Unrecognized scanner.')
+    age = signatures_age_days(version)
+    if age is None or age > float(os.environ.get('NEXUS_HR_CLAMAV_MAX_AGE_DAYS', '7')):
+        raise ValueError('Scanner signatures are missing or stale.')
     result = clamd_command(b'INSTREAM', data)
     if result.endswith(b' FOUND'):
         return None

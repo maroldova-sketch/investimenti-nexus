@@ -1,6 +1,9 @@
 """M365 routes — mail inbox, send, calendar, contacts, files."""
 import os
-from datetime import date, datetime, timedelta
+import math
+import httpx
+from datetime import date, datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from fastapi import APIRouter, Depends, Request, Form, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -19,12 +22,70 @@ def _ctx(d: dict) -> dict:
     return d
 
 
+def _retry_seconds(value):
+    try:
+        return max(1, int(value))
+    except (TypeError, ValueError):
+        try:
+            at = parsedate_to_datetime(value)
+            if at.tzinfo is None:
+                at = at.replace(tzinfo=timezone.utc)
+            return max(1, math.ceil((at - datetime.now(timezone.utc)).total_seconds()))
+        except (TypeError, ValueError, OverflowError):
+            return 30
+
+
+def _read(request: Request, cu: CurrentUser, load):
+    """Readable provider failures; never expose tokens, raw Graph errors or replay writes."""
+    state, title, message, status, retry = None, None, None, 502, None
+    try:
+        return load(), None
+    except httpx.HTTPStatusError as exc:
+        code = exc.response.status_code
+        if code in (401, 403):
+            state, title = 'access', 'Microsoft 365 potřebuje obnovit přístup'
+            message = 'Požádej správce o kontrolu přihlášení a oprávnění této agendy. Načtení můžeš potom zopakovat.'
+            status = code
+        elif code == 404:
+            state, title = 'missing', 'Záznam už není dostupný'
+            message = 'Vrať se do přehledu pošty a otevři aktuální zprávu.'
+            status = 404
+        elif code == 429:
+            state, title = 'rate_limit', 'Microsoft 365 požádal o krátkou pauzu'
+            retry = _retry_seconds(exc.response.headers.get('Retry-After', '30'))
+            message = f'Zkus načtení znovu za {retry} sekund. Není potřeba nic zadávat znovu.'
+            status = 429
+        else:
+            state, title = 'provider_error', 'Data z Microsoft 365 se nepodařilo načíst'
+            message = 'Zkus načtení zopakovat. Pokud problém trvá, předej správci název této agendy.'
+    except httpx.RequestError:
+        state, title = 'unreachable', 'Microsoft 365 teď neodpovídá'
+        message = 'Zkus načtení za chvíli zopakovat. Tato stránka žádná data nezměnila.'
+        status = 503
+    except RuntimeError:
+        state, title = 'connection', 'Připojení Microsoft 365 potřebuje kontrolu'
+        message = 'Požádej správce o obnovení připojení Microsoft 365 pro NEXUS. Potom otevři agendu znovu.'
+        status = 503
+    retry_url = request.url.path + ('?' + request.url.query if request.url.query else '')
+    headers = {'Cache-Control': 'private, no-store'}
+    if retry is not None:
+        headers['Retry-After'] = str(retry)
+    response = templates.TemplateResponse('pages/m365/unavailable.html', _ctx({
+        'request': request, 'current_user': cu, 'connection_state': state,
+        'error_title': title, 'error_message': message, 'retry_url': retry_url,
+        'retry_after': retry,
+    }), status_code=status, headers=headers)
+    return None, response
+
+
 # ── Mail inbox ───────────────────────────────────────────────────────────────
 @router.get("/mail", response_class=HTMLResponse)
 def mail_inbox(request: Request, page: int = Query(0, ge=0),
                cu: CurrentUser = Depends(get_current_user)):
     per_page = 20
-    data = m365.list_messages(top=per_page, skip=page * per_page)
+    data, error = _read(request, cu, lambda: m365.list_messages(top=per_page, skip=page * per_page))
+    if error is not None:
+        return error
     messages = data.get("value", [])
     return templates.TemplateResponse("pages/m365/mail.html", _ctx({
         "request": request, "current_user": cu,
@@ -33,21 +94,14 @@ def mail_inbox(request: Request, page: int = Query(0, ge=0),
     }))
 
 
-@router.get("/mail/{message_id}", response_class=HTMLResponse)
-def mail_detail(message_id: str, request: Request,
-                cu: CurrentUser = Depends(get_current_user)):
-    msg = m365.get_message(message_id)
-    return templates.TemplateResponse("pages/m365/mail_detail.html", _ctx({
-        "request": request, "current_user": cu, "msg": msg,
-    }))
-
-
 @router.get("/mail/search", response_class=HTMLResponse)
 def mail_search(request: Request, q: str = Query(""),
                 cu: CurrentUser = Depends(get_current_user)):
     messages = []
     if q:
-        data = m365.search_messages(q)
+        data, error = _read(request, cu, lambda: m365.search_messages(q))
+        if error is not None:
+            return error
         messages = data.get("value", [])
     return templates.TemplateResponse("pages/m365/mail.html", _ctx({
         "request": request, "current_user": cu,
@@ -71,6 +125,18 @@ def mail_send(to: str = Form(...), subject: str = Form(...), body: str = Form(..
     return RedirectResponse("/m365/mail", status_code=303)
 
 
+@router.get("/mail/{message_id}", response_class=HTMLResponse)
+def mail_detail(message_id: str, request: Request,
+                cu: CurrentUser = Depends(get_current_user)):
+    msg, error = _read(request, cu, lambda: m365.get_message(message_id))
+    if error is not None:
+        return error
+    return templates.TemplateResponse("pages/m365/mail_detail.html", _ctx({
+        "request": request, "current_user": cu, "msg": msg,
+    }))
+
+
+
 # ── Calendar ─────────────────────────────────────────────────────────────────
 @router.get("/calendar", response_class=HTMLResponse)
 def calendar_view(request: Request,
@@ -81,7 +147,9 @@ def calendar_view(request: Request,
         start = today.isoformat() + "T00:00:00"
     if not end:
         end = (today + timedelta(days=14)).isoformat() + "T23:59:59"
-    data = m365.list_events(start, end)
+    data, error = _read(request, cu, lambda: m365.list_events(start, end))
+    if error is not None:
+        return error
     events = data.get("value", [])
     return templates.TemplateResponse("pages/m365/calendar.html", _ctx({
         "request": request, "current_user": cu,
@@ -92,7 +160,9 @@ def calendar_view(request: Request,
 # ── Contacts ─────────────────────────────────────────────────────────────────
 @router.get("/contacts", response_class=HTMLResponse)
 def contacts_list(request: Request, cu: CurrentUser = Depends(get_current_user)):
-    data = m365.list_contacts()
+    data, error = _read(request, cu, m365.list_contacts)
+    if error is not None:
+        return error
     contacts = data.get("value", [])
     return templates.TemplateResponse("pages/m365/contacts.html", _ctx({
         "request": request, "current_user": cu, "contacts": contacts,
@@ -102,7 +172,9 @@ def contacts_list(request: Request, cu: CurrentUser = Depends(get_current_user))
 # ── Files ────────────────────────────────────────────────────────────────────
 @router.get("/files", response_class=HTMLResponse)
 def files_list(request: Request, cu: CurrentUser = Depends(get_current_user)):
-    data = m365.list_drive_root()
+    data, error = _read(request, cu, m365.list_drive_root)
+    if error is not None:
+        return error
     items = data.get("value", [])
     return templates.TemplateResponse("pages/m365/files.html", _ctx({
         "request": request, "current_user": cu, "items": items,

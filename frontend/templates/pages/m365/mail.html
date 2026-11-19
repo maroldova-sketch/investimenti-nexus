@@ -1,5 +1,5 @@
 {% extends "layouts/base.html" %}
-{% block title %}Mail{% endblock %}
+{% block title %}Pošta Outlook{% endblock %}
 {% block breadcrumb %}M365 / Pošta{% endblock %}
 
 {% block page_header %}
@@ -11,12 +11,12 @@
       </div>
       <div class="col-auto ms-auto">
         <form class="d-flex gap-2" action="/m365/mail/search" method="get">
-          <input type="text" name="q" class="form-control form-control-sm" placeholder="Hledat..." value="{{ search_query|default('') }}" style="width:200px;">
+          <input type="text" name="q" class="form-control form-control-sm" placeholder="Hledat ve zprávách…" value="{{ search_query|default('') }}" style="width:200px;" aria-label="Hledat v poště Outlook">
           <button class="btn btn-sm btn-outline-primary" type="submit">Hledat</button>
         </form>
       </div>
       <div class="col-auto">
-        <a href="/m365/mail/compose" class="btn btn-sm btn-primary">Nový mail</a>
+        <a href="/m365/mail/compose" class="btn btn-sm btn-primary">Napsat e-mail</a>
       </div>
     </div>
   </div>
@@ -46,7 +46,7 @@
             </td>
             <td>{{ m.get('from', {}).get('emailAddress', {}).get('name', m.get('from', {}).get('emailAddress', {}).get('address', '?')) }}</td>
             <td>
-              <span>{{ m.get('subject', '(bez předmětu)') }}</span>
+              <a class="text-reset" href="/m365/mail/{{ m.id }}">{{ m.get('subject', '(bez předmětu)') }}</a>
               <div class="text-muted small" style="max-width:500px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ m.get('bodyPreview', '')[:100] }}</div>
             </td>
             <td class="text-muted">{{ m.get('receivedDateTime', '')[:16].replace('T', ' ') }}</td>

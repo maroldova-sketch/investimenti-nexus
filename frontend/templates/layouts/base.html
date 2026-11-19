@@ -1,231 +1,80 @@
 <!DOCTYPE html>
 <html lang="cs" data-bs-theme="light">
+{% import "layouts/workspace.html" as workspace %}
+{% set current = namespace(group='day', label='NEXUS', hint='Vyber agendu v levém menu. Každá má svůj krátký postup.', steps=['Vyber agendu.', 'Otevři konkrétní záznam.', 'Zkontroluj a potvrď svou změnu.'], length=0) %}
+{% for group in workspace.groups %}{% for item in group.links %}
+  {% if (request.url.path == item.href or request.url.path.startswith(item.href + '/')) and item.href|length > current.length %}
+    {% set current.group = group.key %}{% set current.label = item.label %}{% set current.hint = item.hint %}{% set current.steps = item.steps %}{% set current.length = item.href|length %}
+  {% endif %}
+{% endfor %}{% endfor %}
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}NEXUS{% endblock %} — Holding Operations</title>
+  <title>{% block title %}NEXUS{% endblock %} · Holding</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta21/dist/css/tabler.min.css">
   <link rel="stylesheet" href="/static/css/nexus.css">
+  <link rel="stylesheet" href="/static/css/workspace.css?v=20261119">
 </head>
-<body class="antialiased">
-  <!-- ELIAS Hub bar -->
-  <div style="position:fixed;top:0;left:0;right:0;height:28px;background:#1a1a2e;z-index:9999;display:flex;align-items:center;padding:0 12px;gap:20px;font-size:11px;font-family:sans-serif;">
-    <span style="color:#6c7293;font-weight:700;letter-spacing:.1em;">ELIAS</span>
-    <span style="color:#2d2d4e;">|</span>
-    <a href="http://192.168.1.43:8060" style="color:#6c7293;text-decoration:none;font-weight:500;opacity:.9;" title="Analytika · Shadow Zone">ATLAS</a>
-    <a href="http://192.168.1.43:8050" style="color:#6c7293;text-decoration:none;font-weight:500;opacity:.9;" title="Ekonomika · Bonusy · Srážky">FORTIS</a>
-    <a href="http://192.168.1.43:8000" style="color:#4da6ff;text-decoration:none;font-weight:500;opacity:.9;" title="Operace · HR · Fleet">NEXUS</a>
-    <span style="margin-left:auto;color:#3d3d5e;font-size:10px;">mac · 192.168.1.43</span>
-  </div>
-  <div style="height:28px;"></div>
-
-<div class="wrapper" style="padding-top:28px;">
-
-  {# ── SIDEBAR ── #}
-  <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
-    <div class="container-fluid">
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-nav">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <a href="/dashboard" class="navbar-brand">
-        <span class="navbar-brand-nexus">NEXUS<span>Holding Operations</span></span>
-      </a>
-      <div class="collapse navbar-collapse" id="sidebar-nav">
-        <ul class="navbar-nav pt-lg-3">
-
-          <li class="nav-item {% if active_section == 'dashboard' %}active{% endif %}">
-            <a class="nav-link" href="/dashboard">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
-              <span class="nav-link-title">Dashboard</span>
-            </a>
-          </li>
-
-          <div class="nav-section-label">Lidé & Entity</div>
-
-          {% if request.app.state.hr_enabled | default(false) %}
-          <li class="nav-item"><a class="nav-link" href="/people/hr"><span class="nav-link-title">Personální podklady</span></a></li>
-          {% endif %}
-
-          <li class="nav-item {% if active_section == 'people' %}active{% endif %}">
-            <a class="nav-link" href="/people">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.85"/></svg></span>
-              <span class="nav-link-title">Lidé</span>
-            </a>
-          </li>
-
-          <li class="nav-item {% if active_section == 'entities' %}active{% endif %}">
-            <a class="nav-link" href="/entities">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span>
-              <span class="nav-link-title">Entity</span>
-            </a>
-          </li>
-
-          <div class="nav-section-label">Operace</div>
-
-          <li class="nav-item {% if active_section == 'attendance' %}active{% endif %}">
-            <a class="nav-link" href="/attendance">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
-              <span class="nav-link-title">Docházka</span>
-            </a>
-          </li>
-
-          <li class="nav-item {% if active_section == 'approvals' %}active{% endif %}">
-            <a class="nav-link" href="/approvals">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
-              <span class="nav-link-title">Schvalování</span>
-            </a>
-          </li>
-
-          <li class="nav-item {% if active_section == 'fleet' %}active{% endif %}">
-            <a class="nav-link{% if active_section == 'notifications' %} active{% endif %}" href="/notifications">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
-              <span class="nav-link-title">Notifikace</span>
-            </a>
-            <a class="nav-link{% if active_section == 'intake' %} active{% endif %}" href="/intake">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
-              <span class="nav-link-title">Intake</span>
-            </a>
-            <a class="nav-link{% if active_section == 'fleet' %} active{% endif %}" href="/fleet">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
-              <span class="nav-link-title">Vozový park</span>
-            </a>
-            <a class="nav-link{% if active_section == 'fleet-drivers' %} active{% endif %}" href="/fleet/drivers">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>
-              <span class="nav-link-title">Řidiči</span>
-            </a>
-            <a class="nav-link{% if active_section == 'deductions' %} active{% endif %}" href="/fleet/deductions">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
-              <span class="nav-link-title">Srážky</span>
-            </a>
-            <a class="nav-link{% if active_section == 'trips' %} active{% endif %}" href="/fleet/trips">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
-              <span class="nav-link-title">Kniha jízd</span>
-                        <a class="nav-link{% if active_section == 'atlas' %} active{% endif %}" href="/atlas">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
-              <span class="nav-link-title">ATLAS</span>
-            </a>
-            <a class="nav-link{% if active_section == 'people' %} active{% endif %}" href="/people">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
-              <span class="nav-link-title">Lidé</span>
-            </a>
-            <a class="nav-link{% if active_section == 'attendance' %} active{% endif %}" href="/attendance">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
-              <span class="nav-link-title">Docházka</span>
-            </a>
-            <a class="nav-link{% if active_section == 'attendance' %} active{% endif %}" href="/leave">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
-              <span class="nav-link-title">Volno</span>
-            </a>
-            <a class="nav-link{% if active_section == 'import' %} active{% endif %}" href="/import">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></span>
-              <span class="nav-link-title">Import Center</span>
-            </a>
-            <a class="nav-link{% if active_section == 'approvals' %} active{% endif %}" href="/approvals">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
-              <span class="nav-link-title">Schvalování</span>
-            </a>
-          </li>
-
-          <div class="nav-section-label">Microsoft 365</div>
-
-          <li class="nav-item">
-            <a class="nav-link{% if active_section == 'm365' %} active{% endif %}" href="/m365/mail">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
-              <span class="nav-link-title">Pošta</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link{% if active_section == 'm365-calendar' %} active{% endif %}" href="/m365/calendar">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
-              <span class="nav-link-title">Kalendář</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link{% if active_section == 'm365-contacts' %} active{% endif %}" href="/m365/contacts">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
-              <span class="nav-link-title">Kontakty</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link{% if active_section == 'm365-files' %} active{% endif %}" href="/m365/files">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
-              <span class="nav-link-title">OneDrive</span>
-            </a>
-          </li>
-
-          <div class="nav-section-label">Finance & Systém</div>
-
-          <li class="nav-item {% if active_section == 'bank' %}active{% endif %}">
-            <a class="nav-link" href="/bank">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
-              <span class="nav-link-title">Banka</span>
-            </a>
-          </li>
-
-          <li class="nav-item {% if active_section == 'sync' %}active{% endif %}">
-            <a class="nav-link" href="/sync">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></span>
-              <span class="nav-link-title">Synchronizace</span>
-            </a>
-          </li>
-
-          <li class="nav-item {% if active_section == 'audit' %}active{% endif %}">
-            <a class="nav-link" href="/audit">
-              <span class="nav-link-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
-              <span class="nav-link-title">Audit log</span>
-            </a>
-          </li>
-
-        </ul>
-
-        <div class="mt-auto pb-3 px-3" style="border-top: 1px solid rgba(255,255,255,.08); padding-top: 12px; margin-top: 16px;">
-          <div style="font-size: 11px; color: rgba(255,255,255,.35); margin-bottom: 6px;">
-            {{ current_user.email if current_user else '' }}
-          </div>
-          <a href="/auth/logout" style="font-size: 12px; color: rgba(255,255,255,.45); text-decoration: none;">
-            Odhlásit
-          </a>
-        </div>
+<body class="antialiased nx-shell" data-workspace="{{ current.group }}">
+<a class="nx-skip" href="#workspace-content">Přejít na obsah</a>
+<div class="wrapper">
+  <aside class="navbar navbar-vertical navbar-expand-lg nx-sidebar" id="nx-sidebar" aria-label="Hlavní navigace">
+    <div class="nx-brand-row">
+      <a href="/atlas" class="navbar-brand"><span class="nx-mark" aria-hidden="true">N</span><span class="navbar-brand-nexus">NEXUS<span>Lidé a provoz holdingu</span></span></a>
+      <button class="nx-menu-toggle" type="button" data-nx-menu aria-controls="nx-menu-panel" aria-expanded="false" aria-label="Otevřít hlavní menu">{{ workspace.icon('menu') }}</button>
+    </div>
+    <div class="nx-menu-panel" id="nx-menu-panel">
+      <div class="nx-nav-search">
+        <label for="nx-nav-search">Najít agendu</label>
+        <input type="search" id="nx-nav-search" placeholder="Např. auto, dovolená, pošta…" autocomplete="off" aria-controls="nx-navigation" aria-describedby="nx-search-help">
+        <span id="nx-search-help" class="nx-search-help">Hledá v menu. Zkratka Ctrl / ⌘ K.</span>
+      </div>
+      <nav id="nx-navigation" aria-label="Pracovní oblasti">
+        {% for group in workspace.groups %}
+        <details class="nx-nav-group" data-nav-group="{{ group.key }}" {% if current.group == group.key %}open{% endif %}>
+          <summary><span class="nx-group-icon">{{ workspace.icon(group.icon) }}</span><span>{{ group.label }}</span><span class="nx-chevron" aria-hidden="true">⌄</span></summary>
+          <ul class="navbar-nav">
+            {% for item in group.links %}
+            {% if item.key != 'hr' or request.app.state.hr_enabled | default(false) %}
+            {% set active = current.label == item.label %}
+            <li class="nav-item" data-nav-item data-nav-search="{{ item.label }} {{ item.hint }} {{ item.keywords|default('') }}">
+              <a class="nav-link{% if active %} active{% endif %}" href="{{ item.href }}"{% if active %} aria-current="page"{% endif %}><span class="nav-link-title">{{ item.label }}</span></a>
+            </li>
+            {% endif %}
+            {% endfor %}
+          </ul>
+        </details>
+        {% endfor %}
+      </nav>
+      <p class="nx-search-empty" id="nx-search-empty" hidden role="status">Takovou agendu tu nemáme. Zkus kratší název.</p>
+      <div class="nx-other-systems">
+        <span>Další systémy</span>
+        <a href="https://citoliby.investimenti.cz/erp">ERP Cítoliby</a>
+        <a href="http://192.168.1.43:8050" title="Původní FORTIS, dostupnost závisí na připojení k místní síti">FORTIS <small>místní síť</small></a>
+      </div>
+      <div class="nx-account">
+        <span>{{ current_user.email if current_user else '' }}</span>
+        <a href="/auth/logout">Odhlásit se</a>
       </div>
     </div>
   </aside>
-
-  {# ── MAIN ── #}
   <div class="page-wrapper">
-
-    {# Topbar #}
-    <header class="navbar navbar-expand-md navbar-light d-print-none">
-      <div class="container-xl">
-        <div class="d-flex align-items-center gap-3">
-          <div class="text-muted" style="font-size: 13px;">
-            {% block breadcrumb %}{% endblock %}
-          </div>
-        </div>
-        <div class="navbar-nav ms-auto">
-          <div class="nav-item d-flex align-items-center gap-2">
-            <span style="font-size: 13px; color: #6b7280;">
-              {{ current_user.person.first_name if current_user and current_user.person else '' }}
-            </span>
-            <span class="nx-badge nx-badge-info" style="font-size: 10px;">
-              {{ current_user.role if current_user else '' }}
-            </span>
-          </div>
-        </div>
-      </div>
+    <header class="nx-topbar d-print-none">
+      <div class="nx-breadcrumb"><span class="nx-area-label">{{ current.label }}</span><div>{% block breadcrumb %}{% endblock %}</div></div>
+      <div class="nx-topbar-actions"><button type="button" class="btn nx-guide-button" data-nx-guide aria-controls="nx-guide-steps">Jak na to</button><span class="nx-user-name">{{ current_user.person.first_name if current_user and current_user.person else '' }}</span></div>
     </header>
-
-    {# Page header slot #}
-    {% block page_header %}{% endblock %}
-
-    {# Content #}
-    <div class="page-body">
-      {% block content %}{% endblock %}
-    </div>
-
+    <main id="workspace-content" tabindex="-1">
+      <section class="nx-guide" aria-label="Nápověda k agendě">
+        <div class="nx-guide-intro"><span class="nx-guide-icon" aria-hidden="true">{{ workspace.icon('spark') }}</span><div><strong>Další krok</strong><p>{{ current.hint }}</p></div></div>
+        <details id="nx-guide-steps"><summary>Ukázat postup</summary><ol>{% for step in current.steps %}<li>{{ step }}</li>{% endfor %}</ol></details>
+      </section>
+      {% block page_header %}{% endblock %}
+      <div class="page-body">{% block content %}{% endblock %}</div>
+    </main>
   </div>
 </div>
-
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta21/dist/js/tabler.min.js"></script>
+<script src="/static/js/workspace.js?v=20261119" defer></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

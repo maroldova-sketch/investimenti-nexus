@@ -107,17 +107,42 @@ def save_row(period_id: str, person_id: str = Form(...),
              db: Session = Depends(get_db), cu: CurrentUser = Depends(get_current_user)):
     period = db.query(AttendancePeriod).filter(AttendancePeriod.id==period_id).first()
     if not period or period.status == "locked": raise HTTPException(400)
+
+    # Permission gate: regular users (no admin/manager/hr role) may edit
+    # only THEIR OWN row, and only `hours_worked` + `note` fields.
+    is_admin = cu.has_role("owner", "admin", "manager", "hr")
+    if not is_admin:
+        if not cu.person_id or cu.person_id != person_id:
+            raise HTTPException(403, detail="Můžeš upravit pouze svou docházku.")
+        if period.status not in ("open", "submitted"):
+            raise HTTPException(400, detail="Období je uzavřené pro úpravy.")
+
     sub = db.query(AttendanceSubmission).filter(
         AttendanceSubmission.period_id==period_id, AttendanceSubmission.person_id==person_id
     ).first()
     if not sub:
         sub = AttendanceSubmission(period_id=period_id, person_id=person_id, entity_id=period.entity_id)
         db.add(sub)
-    sub.days_worked=days_worked; sub.hours_worked=hours_worked
-    sub.days_vacation=days_vacation; sub.days_sick=days_sick
-    sub.gross_salary=gross_salary; sub.note=note
+
+    if is_admin:
+        # Full edit — admins overwrite all fields
+        sub.days_worked = days_worked
+        sub.hours_worked = hours_worked
+        sub.days_vacation = days_vacation
+        sub.days_sick = days_sick
+        sub.gross_salary = gross_salary
+        sub.note = note
+        audit_detail = "admin:full"
+    else:
+        # Regular user: ONLY hours_worked + note
+        if hours_worked is not None:
+            sub.hours_worked = hours_worked
+        sub.note = note
+        audit_detail = "self:hours+note"
+
     db.commit()
-    audit(db, "UPDATE", "attendance_submission", sub.id, cu.id, cu.email)
+    audit(db, "UPDATE", "attendance_submission", sub.id, cu.id, cu.email,
+          detail=audit_detail)
     return RedirectResponse(f"/attendance/{period_id}", status_code=303)
 
 @router.post("/attendance/{period_id}/export")

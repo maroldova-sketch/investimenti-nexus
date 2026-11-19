@@ -7,7 +7,7 @@ from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.engine import make_url
 from . import runtime
-from .startup import validate_database_location, validate_schema, validate_signing_key
+from .startup import validate_database_location, validate_schema, hr_signing_key
 
 
 def release_state():
@@ -34,6 +34,22 @@ def check_database(database_url):
 
 
 def probe_mail():
+    if runtime.transport() == 'outbox':
+        # An empty body is rejected by validation (422) only after authorization passed;
+        # 403 means the HR service is not allowed to send. Nothing is ever sent here.
+        opener = runtime.urllib.request.build_opener(runtime.urllib.request.ProxyHandler({}))
+        request = runtime.urllib.request.Request(runtime.outbox_config(), data=b'{}', method='POST',
+                                                 headers={'Content-Type': 'application/json',
+                                                          **runtime.outbox_headers()})
+        try:
+            opener.open(request, timeout=10)
+        except runtime.urllib.error.HTTPError as exc:
+            if exc.code == 422:
+                return
+        raise ValueError('Outbox refused the HR service.')
+    if runtime.transport() == 'graph':
+        runtime.graph_token()  # authenticates the app over verified TLS; sends nothing
+        return
     host, username, password, _, port = runtime.mail_config()
     with runtime.smtplib.SMTP_SSL(host, port, timeout=10,
                                  context=runtime.ssl.create_default_context()) as smtp:
@@ -78,11 +94,15 @@ def report(settings, expected_revision, probe_adapters=False):
 
     check('release', revision, 'Use the expected committed revision with no tracked local changes.')
     check('enabled', enabled, 'Set NEXUS_HR_ENABLED=1 for the selected service.')
-    check('signing_key', lambda: validate_signing_key(settings.secret_key), 'Configure the nondefault signing key.')
+    check('signing_key', lambda: hr_signing_key(settings), 'Configure the dedicated HR signing key.')
     check('database_schema', lambda: check_database(settings.database_url),
           'Use an existing absolute SQLite database with the reviewed HR schema; this check never migrates it.')
     check('https_origin', runtime.public_origin, 'Configure the exact HTTPS employee origin.')
-    mail_ok = check('mail_configuration', runtime.mail_config, 'Configure the TLS SMTP adapter and sender.')
+    # Direct private links do not depend on mail. Report the optional mode
+    # separately rather than marking a usable employee entry as unavailable.
+    mail_ok = runtime.invitations_ready()
+    checks.append(dict(check='mail_configuration', status='pass' if mail_ok else 'unavailable',
+                       detail='Email codes are optional; private invitation links do not require mail.'))
     files_ok = check('document_configuration', uploads,
                      'Configure the private external directory, encryption keyring and absolute ClamAV socket.')
     for name, configured, operation, failure in [
@@ -97,10 +117,11 @@ def report(settings, expected_revision, probe_adapters=False):
     return dict(format_version=1, revision=observed, checks=checks,
                 checks_passed=all(c['status'] != 'fail' for c in checks),
                 adapter_probes_passed=all(c['status'] == 'pass' for c in checks[-2:]),
-                production_ready=False,
+                production_ready=False, link_entry_configured=runtime.link_invitations_ready(),
+                email_entry_configured=mail_ok,
                 manual_checks_required=[
                     'Running revision, backup restoration, shared DB/document paths and protected service configuration.',
                     'Public HTTPS proxy isolation, request limits and trusted forwarded headers.',
-                    'Actual code delivery and full employee journey on a physical phone using synthetic staging data.',
+                    'Full private-link journey on a physical phone using synthetic staging data; code delivery when enabled.',
                     'Antivirus signature freshness and approved retention, employer, recipient and payroll owner.',
                 ])

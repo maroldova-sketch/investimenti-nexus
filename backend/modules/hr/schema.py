@@ -1,10 +1,13 @@
-"""A frozen intake version, not a payroll calculator or legal certification."""
+"""Template registry. v1 stays readable and editable under its own validator;
+new cases use the current version. Not a payroll calculator or legal certification."""
 import re
 from datetime import date
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Literal
+from . import schema_v2
+from .schema_v2 import AnswerError
 
-VERSION = 'cz-existing-2026.11-v1'
+V1 = 'cz-existing-2026.11-v1'
 YES_NO = [['yes', 'Ano'], ['no', 'Ne'], ['review', 'Potřebuji upřesnit s HR']]
 
 
@@ -13,7 +16,7 @@ def field(key, label, kind='text', required=False, options=None, when=None, help
                 options=options, when=when, help=help)
 
 
-SECTIONS = [
+SECTIONS_V1 = [
     {'id': 'personal', 'title': 'Osobní údaje', 'description': 'Zkontrolujte předvyplněné údaje. Oprava se nejprve předá HR.', 'fields': [
         field('first_name', 'Jméno', required=True), field('last_name', 'Příjmení', required=True),
         field('maiden_name', 'Rodné nebo dřívější příjmení'), field('birth_date', 'Datum narození', 'date', True),
@@ -63,13 +66,14 @@ class Requirement(StrictModel):
     id: str = Field(pattern=r'^[a-z0-9_-]{1,40}$')
     label: str = Field(min_length=1, max_length=200)
     owner_role: Literal['hr', 'payroll', 'manager', 'safety', 'employee'] = 'hr'
+    verification: Literal['', 'document', 'inspection', 'register', 'statement'] = ''
     blocks_payroll: bool = False
     status: Literal['unknown', 'pending', 'verified', 'not_applicable', 'deferred'] = 'unknown'
     evidence_ref: str = Field(default='', max_length=300)
     reason: str = Field(default='', max_length=500)
 
 
-def default_requirements():
+def default_requirements_v1():
     return [Requirement(id=k, label=v, owner_role=r).model_dump() for k, v, r in [
         ('contract', 'Pracovní smlouva a případné dodatky', 'hr'),
         ('payroll_docs', 'Podklady požadované mzdovou rolí', 'payroll'),
@@ -87,8 +91,8 @@ def children_active(answers):
     return answers.get('children_claim') == 'yes' and answers.get('declaration') == 'yes' and answers.get('tax_residency') == 'CZ'
 
 
-def normalize(answers, complete=False):
-    fields = [f for s in SECTIONS for f in s['fields']]
+def normalize_v1(answers, complete=False):
+    fields = [f for s in SECTIONS_V1 for f in s['fields']]
     allowed = {f['key'] for f in fields} | {'children'}
     if not isinstance(answers, dict) or set(answers) - allowed:
         raise ValueError('Dotazník obsahuje nepovolená pole.')
@@ -146,14 +150,8 @@ def normalize(answers, complete=False):
     return out
 
 
-class AnswerError(ValueError):
-    def __init__(self, errors):
-        self.errors = errors
-        super().__init__('Zkontrolujte označené údaje.')
-
-
-def review_issues(answers):
-    issues = [f['label'] for s in SECTIONS for f in s['fields'] if answers.get(f['key']) == 'review']
+def review_issues_v1(answers):
+    issues = [f['label'] for s in SECTIONS_V1 for f in s['fields'] if answers.get(f['key']) == 'review']
     if answers.get('declaration') == 'yes' and answers.get('declaration_elsewhere') == 'yes':
         issues.append('Souběh Prohlášení poplatníka — ověřit zaměstnavatele a období.')
     if answers.get('tax_residency') == 'other':
@@ -161,3 +159,68 @@ def review_issues(answers):
     if children_active(answers):
         issues.append('Děti — ověřit nároky, období, pořadí a podklady druhého poplatníka.')
     return issues
+
+
+def v1_ui_sections():
+    """v1 children live outside its field list; describe them for the generic renderer."""
+    sections = [dict(s, fields=list(s['fields'])) for s in SECTIONS_V1]
+    tax = next(s for s in sections if s['id'] == 'tax')
+    tax['fields'].append(dict(key='children', label='Děti', type='list', required=False, options=None, help=None,
+                              when={'children_claim': ['yes'], 'declaration': ['yes'], 'tax_residency': ['CZ']},
+                              items=[dict(key='name', label='Jméno a příjmení', type='text', required=True, options=None, when=None),
+                                     dict(key='birth_date', label='Datum narození', type='date', required=True, options=None, when=None),
+                                     dict(key='relationship', label='Vztah k dítěti', type='text', required=True, options=None, when=None),
+                                     dict(key='household', label='Společná domácnost', type='select', required=True, options=YES_NO, when=None),
+                                     dict(key='order', label='Pořadí pro zamýšlené uplatnění', type='select', required=True, when=None,
+                                          options=[['1', 'První dítě'], ['2', 'Druhé dítě'], ['3', 'Třetí a další'],
+                                                   ['not_claimed', 'Neuplatňuji'], ['review', 'Upřesnit s účetní']]),
+                                     dict(key='months', label='Měsíce zamýšleného uplatnění', type='months', required=False, options=None, when=None),
+                                     dict(key='ztpp', label='ZTP/P', type='select', required=True, options=YES_NO, when=None),
+                                     dict(key='study', label='Doklad o studiu relevantní', type='select', required=True, options=YES_NO, when=None)],
+                              add_label='Přidat dítě'))
+    return sections
+
+
+def v1_effective(answers):
+    return {k: v for k, v in answers.items() if k != '_review'}
+
+
+TEMPLATES = {
+    V1: dict(version=V1, current=False, review_flags=False, sections=v1_ui_sections(),
+             normalize=normalize_v1, issues=review_issues_v1, effective=v1_effective,
+             hidden=lambda answers: [], dropped_hidden=lambda previous, new: [],
+             defaults=default_requirements_v1, suggested=lambda answers: []),
+    schema_v2.VERSION: dict(version=schema_v2.VERSION, current=True, review_flags=True, sections=schema_v2.SECTIONS,
+                            normalize=schema_v2.normalize, issues=schema_v2.review_issues,
+                            effective=schema_v2.effective, hidden=schema_v2.hidden,
+                            dropped_hidden=schema_v2.dropped_hidden,
+                            defaults=lambda: [Requirement(id=k, label=v, owner_role=r).model_dump()
+                                              for k, v, r in schema_v2.BASE_REQUIREMENTS],
+                            suggested=schema_v2.suggested_requirements),
+}
+VERSION = schema_v2.VERSION
+SECTIONS = schema_v2.SECTIONS
+
+
+def template(version):
+    if version not in TEMPLATES:
+        raise KeyError(version)
+    return TEMPLATES[version]
+
+
+def normalize(answers, complete=False, version=VERSION):
+    return template(version)['normalize'](answers, complete)
+
+
+def review_issues(answers, version=VERSION):
+    return template(version)['issues'](answers)
+
+
+def default_requirements(version=VERSION):
+    return template(version)['defaults']()
+
+
+def suggested_requirements(answers, existing, version=VERSION):
+    present = {x['id'] for x in existing}
+    return [Requirement(id=k, label=v, owner_role=r).model_dump()
+            for k, v, r in template(version)['suggested'](answers) if k not in present]

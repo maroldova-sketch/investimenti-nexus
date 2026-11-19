@@ -9,7 +9,7 @@ from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 
 PUBLIC_PATHS = frozenset({
-    '/hr/entry', '/hr/api/code', '/hr/api/verify', '/hr/api/meta', '/hr/api/logout',
+    '/hr/entry', '/hr/api/open', '/hr/api/code', '/hr/api/verify', '/hr/api/meta', '/hr/api/logout',
     '/hr/api/cases/{case_id}', '/hr/api/cases/{case_id}/draft', '/hr/api/cases/{case_id}/actions',
     '/hr/api/cases/{case_id}/documents', '/hr/api/cases/{case_id}/documents/{document_id}',
     '/hr/api/cases/{case_id}/documents/{document_id}/withdraw',
@@ -38,6 +38,8 @@ def create_app():
     # never share mutable APIRoute objects with the internal application.
     app.include_router(APIRouter(routes=routes))
     app.add_middleware(HRBoundary)
+    from .guard import EntryGuard
+    app.add_middleware(EntryGuard)  # outermost: limits apply before any route or body parsing
     static = Path(__file__).resolve().parents[3] / 'frontend/static/hr'
 
     @app.get('/static/hr/{asset}', include_in_schema=False)

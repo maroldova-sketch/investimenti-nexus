@@ -13,7 +13,7 @@ from cryptography.fernet import Fernet
 import test_hr_cases as fixtures
 from backend.modules.hr.entry_app import create_app, PUBLIC_PATHS
 from backend.modules.hr.startup import validate_database_location
-from backend.modules.hr import readiness, runtime
+from backend.modules.hr import assets, readiness, routes, runtime
 
 SHA = 'a' * 40
 
@@ -31,6 +31,7 @@ class HRDeploymentTests(TestCase):
         fixtures.Base.metadata.create_all(self.engine)
         self.env = patch.dict(os.environ, {
             'NEXUS_HR_ENABLED': '1', 'NEXUS_HR_PUBLIC_ORIGIN': 'https://people.example',
+            'NEXUS_HR_SIGNING_KEY': 'synthetic-hr-deployment-signing-key-not-for-production',
             'NEXUS_HR_SMTP_HOST': 'mail.example', 'NEXUS_HR_SMTP_USER': 'synthetic-user',
             'NEXUS_HR_SMTP_PASSWORD': 'synthetic-sensitive-password', 'NEXUS_HR_SMTP_FROM': 'hr@example.test',
             'NEXUS_HR_SMTP_PORT': '465', 'NEXUS_HR_DOCUMENT_ROOT': str(self.documents),
@@ -75,14 +76,59 @@ class HRDeploymentTests(TestCase):
         self.assertEqual(hashlib.sha256(self.database.read_bytes()).hexdigest(), before)
 
     def test_public_factory_rejects_missing_configuration(self):
-        for variable in ['NEXUS_HR_ENABLED', 'NEXUS_HR_PUBLIC_ORIGIN', 'NEXUS_HR_SMTP_PASSWORD',
+        for variable in ['NEXUS_HR_ENABLED', 'NEXUS_HR_PUBLIC_ORIGIN',
                          'NEXUS_HR_DOCUMENT_KEYS', 'NEXUS_HR_CLAMD_SOCKET']:
             with patch.dict(os.environ, {variable: ''}):
                 with self.assertRaises(RuntimeError, msg=variable):
                     self.app()
-        with patch.object(self.settings, 'secret_key', 'dev-secret-key-change-in-production'):
+        for key in ['', 'dev-secret-key-change-in-production', self.settings.secret_key]:
+            with patch.dict(os.environ, {'NEXUS_HR_SIGNING_KEY': key}):
+                with self.assertRaises(RuntimeError):
+                    self.app()
+
+    def test_public_factory_supports_link_entry_without_mail_configuration(self):
+        with patch.dict(os.environ, {'NEXUS_HR_SMTP_PASSWORD': ''}):
+            self.assertFalse(runtime.invitations_ready())
+            self.assertTrue(runtime.link_invitations_ready())
+            self.assertIn('/hr/api/open', {r.path for r in self.app().routes})
+
+    def test_pages_reference_script_and_stylesheet_by_content_version(self):
+        internal = routes.page(cu=None)
+        self.assertEqual(internal.headers['cache-control'], 'no-store')
+        with TestClient(self.app(), base_url='https://people.example') as client:
+            for html in [client.get('/hr/entry').text, internal.body.decode()]:
+                for asset in ['app.js', 'style.css']:
+                    content = (assets.STATIC / asset).read_bytes()
+                    address = f'/static/hr/{asset}?v={hashlib.sha256(content).hexdigest()[:16]}'
+                    self.assertIn(f'"{address}"', html)
+                    self.assertNotIn(f'"/static/hr/{asset}"', html)
+                    served = client.get(address)
+                    self.assertEqual((served.status_code, served.content), (200, content))
+
+    def test_asset_version_follows_content_and_missing_reference_is_refused(self):
+        static = Path(self.temp.name) / 'static'
+        static.mkdir()
+        (static / 'app.js').write_text('one')
+        (static / 'style.css').write_text('css')
+        (static / 'entry.html').write_text('<link href="/static/hr/style.css"><script src="/static/hr/app.js"></script>')
+        (static / 'broken.html').write_text('<script src="/static/hr/app.js"></script>')
+        with patch.object(assets, 'STATIC', static), patch.dict(assets._versions, clear=True):
+            self.assertEqual(assets.asset_version('app.js'), hashlib.sha256(b'one').hexdigest()[:16])
+            (static / 'app.js').write_text('two!')
+            changed = hashlib.sha256(b'two!').hexdigest()[:16]
+            self.assertEqual(assets.asset_version('app.js'), changed)
+            self.assertIn(f'"/static/hr/app.js?v={changed}"', assets.page('entry.html').body.decode())
             with self.assertRaises(RuntimeError):
-                self.app()
+                assets.page('broken.html')
+
+    def test_readiness_distinguishes_link_entry_from_optional_email_delivery(self):
+        with patch.dict(os.environ, {'NEXUS_HR_SMTP_PASSWORD': ''}), \
+                patch.object(readiness, 'release_state', return_value=(SHA, True)):
+            result = readiness.report(self.settings, SHA)
+        self.assertTrue(result['checks_passed'])
+        self.assertTrue(result['link_entry_configured'])
+        self.assertFalse(result['email_entry_configured'])
+        self.assertFalse(result['adapter_probes_passed'])
 
     def test_public_factory_refuses_missing_schema_without_creating_it(self):
         with self.engine.begin() as connection:

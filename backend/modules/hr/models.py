@@ -22,6 +22,9 @@ class HRCase(Base):
     requirements: Mapped[list] = mapped_column(JSON, default=list)
     requirements_confirmed: Mapped[bool] = mapped_column(default=False)
     current_revision: Mapped[int] = mapped_column(Integer, default=0)
+    # Responsible people are explicit person ids, never inferred from generic roles.
+    hr_owner_id: Mapped[str | None] = mapped_column(ForeignKey('person.id'))
+    payroll_owner_id: Mapped[str | None] = mapped_column(ForeignKey('person.id'))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
     __mapper_args__ = {'version_id_col': version}
@@ -108,5 +111,23 @@ class HREvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 
 
+class HRTerms(Base):
+    """Append-only internal HR context of one employment relationship.
+
+    Contract, workplace, schedule, pay, equipment, benefits and car are recorded
+    by HR. The employee never edits them; the portal sees only handover names.
+    """
+    __tablename__ = 'hr_terms'
+    __table_args__ = (UniqueConstraint('employment_id', 'revision'),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    employment_id: Mapped[str] = mapped_column(ForeignKey('employment.id'), index=True)
+    revision: Mapped[int] = mapped_column(Integer)
+    effective_from: Mapped[str] = mapped_column(String(10))
+    data: Mapped[dict] = mapped_column(JSON)
+    source: Mapped[str] = mapped_column(String(300))
+    created_by: Mapped[str] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+
 HR_TABLES = [HRCase.__table__, HRSubmission.__table__, HRDecision.__table__,
-             HRDocument.__table__, HRInvitation.__table__, HREvent.__table__]
+             HRDocument.__table__, HRInvitation.__table__, HREvent.__table__, HRTerms.__table__]

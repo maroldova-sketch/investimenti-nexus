@@ -12,6 +12,8 @@ from uuid import uuid4
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 import test_hr_cases as fixtures
+from datetime import datetime as _dt
+FRESH = ('ClamAV 1.5.4/28185/' + _dt.utcnow().strftime('%a %b %d %H:%M:%S %Y')).encode()
 COMPLETE = fixtures.COMPLETE
 from backend.modules.hr.portal import router as portal_router, now
 from backend.modules.hr.boundary import HRBoundary
@@ -148,7 +150,7 @@ class HREntryDocumentTests(TestCase):
         self.assertEqual(r.status_code, 200, r.text)
         case = self.external('GET', '/cases/' + case['id']).json()
         r = self.external('POST', f"/cases/{case['id']}/actions", dict(expected_version=case['version'],
-            revision=0, request_key=str(uuid4()), action='submit'))
+            revision=0, request_key=str(uuid4()), action='submit', confirmed=True))
         self.assertEqual(r.status_code, 200, r.text)
         case = self.configure(r.json(), True, 'verified', 'protected-reference').json()
         case = self.transition(case, 'review', confirmed=True).json()
@@ -280,7 +282,7 @@ class HREntryDocumentTests(TestCase):
         self.assertEqual(r.status_code, 200, r.text)
         case = r.json()
         r = self.external('POST', f"/cases/{case['id']}/actions", dict(expected_version=case['version'], revision=0,
-            request_key=str(uuid4()), action='submit'))
+            request_key=str(uuid4()), action='submit', confirmed=True))
         self.assertEqual(r.status_code, 200, r.text)
         with self.Session() as db:
             snap = db.query(HRSubmission).filter_by(case_id=case['id']).one()
@@ -474,14 +476,14 @@ class HRScannerProtocolTests(TestCase):
                                 received.append(bytes(content))
                                 connection.sendall(b'stream: OK\0')
                             else:
-                                connection.sendall(b'ClamAV synthetic protocol fixture\0')
+                                connection.sendall(FRESH + b'\0')
                 except Exception as exc:
                     errors.append(exc)
             worker = threading.Thread(target=serve, daemon=True)
             worker.start()
             try:
                 with patch.dict(os.environ, {'NEXUS_HR_CLAMD_SOCKET': path}):
-                    self.assertEqual(runtime.scan_document(PDF), 'ClamAV synthetic protocol fixture')
+                    self.assertEqual(runtime.scan_document(PDF), FRESH.decode())
             finally:
                 worker.join(timeout=4)
                 server.close()
@@ -491,12 +493,19 @@ class HRScannerProtocolTests(TestCase):
 
     def test_scanner_detection_error_or_unknown_reply_is_never_clean(self):
         for reply in [b'stream: Synthetic FOUND', b'stream: ERROR', b'OK']:
-            with patch.object(runtime, 'clamd_command', side_effect=[b'ClamAV synthetic', reply]):
+            with patch.object(runtime, 'clamd_command', side_effect=[FRESH, reply]):
                 if reply.endswith(b' FOUND'):
                     self.assertIsNone(runtime.scan_document(PDF))
                 else:
                     with self.assertRaises(ValueError):
                         runtime.scan_document(PDF)
+
+    def test_stale_or_undated_signatures_are_never_clean(self):
+        stale = b'ClamAV 1.5.4/28000/Mon Jan 05 06:00:00 2026'
+        for version in [stale, b'ClamAV synthetic']:
+            with patch.object(runtime, 'clamd_command', side_effect=[version, b'stream: OK']):
+                with self.assertRaises(ValueError):
+                    runtime.scan_document(PDF)
 
     def test_scanner_transport_frames_bytes_and_rejects_truncated_reply(self):
         import struct

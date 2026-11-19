@@ -4,11 +4,9 @@ import hmac
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from fastapi.responses import FileResponse
 from pydantic import Field
 from sqlalchemy.orm import Session
 from backend.config import get_settings
@@ -16,7 +14,8 @@ from backend.core.models.base import get_db
 from backend.core.security.auth import get_current_user
 from backend.modules.people.models import Employment
 from . import runtime
-from .access import HR_ROLES, check_csrf, csrf_token, permitted, value
+from .access import HR_ROLES, check_csrf, csrf_token, permitted, value, signing_key
+from .assets import page
 from .audit import record
 from .models import HRInvitation, HRCase
 from .schema import StrictModel, VERSION, SECTIONS
@@ -44,7 +43,7 @@ class PortalActor:
 class Issue(StrictModel):
     expected_version: int = Field(ge=1)
     request_key: str = Field(min_length=16, max_length=100)
-    recipient_source: Literal['personal', 'work']
+    recipient_source: Literal['link', 'personal', 'work'] = 'link'
     confirmed: bool
 
 
@@ -84,9 +83,12 @@ def active_invitation(db, invitation):
             or not employment.person.is_active or not employment.entity.is_active
             or value(employment.status) == 'terminated'):
         raise HTTPException(401, 'Vstup k tomuto případu je uzavřen. Kontaktujte HR.')
-    current_contact = employment.person.email_personal if invitation.recipient_source == 'personal' else employment.person.email_work
-    if current_contact != invitation.recipient:
-        raise HTTPException(401, 'Kontakt příjemce se změnil. HR musí připravit novou pozvánku.')
+    if invitation.recipient_source not in {'link', 'personal', 'work'}:
+        raise HTTPException(401, 'Pozvánka již není platná. Požádejte HR o nový odkaz.')
+    if invitation.recipient_source != 'link':
+        current_contact = employment.person.email_personal if invitation.recipient_source == 'personal' else employment.person.email_work
+        if current_contact != invitation.recipient:
+            raise HTTPException(401, 'Kontakt příjemce se změnil. HR musí připravit novou pozvánku.')
     return case, employment
 
 
@@ -96,14 +98,14 @@ def revalidate_actor(db, actor):
     if (not invitation.session_hash or invitation.session_hash != actor.session_hash
             or not invitation.session_expires_at or invitation.session_expires_at <= now()
             or case.id != actor.case_id or employment.person_id != actor.person_id):
-        raise HTTPException(401, 'Ověření vypršelo. Otevřete původní pozvánku a ověřte se znovu.')
+        raise HTTPException(401, 'Vstup vypršel. Otevřete znovu původní pozvánku.')
 
 
 def get_portal_actor(request: Request, db: Session = Depends(get_db)):
     check_portal_origin(request)
     token = request.cookies.get('hr_entry', '')
     if len(token) != 43:
-        raise HTTPException(401, 'Nejprve ověřte vstup kódem z e-mailu.')
+        raise HTTPException(401, 'Nejprve otevřete svůj osobní odkaz do formuláře.')
     hashed = digest(token)
     invitation = db.query(HRInvitation).filter_by(session_hash=hashed).first()
     case, employment = active_invitation(db, invitation)
@@ -118,7 +120,9 @@ def masked(email):
 
 
 def invitation_info(invitation):
-    return dict(id=invitation.id, recipient=masked(invitation.recipient),
+    by_link = invitation.recipient_source == 'link'
+    return dict(id=invitation.id, recipient='Soukromý odkaz' if by_link else masked(invitation.recipient),
+                access_mode='link' if by_link else 'email_code',
                 expires_at=invitation.expires_at.isoformat() + 'Z',
                 revoked=bool(invitation.revoked_at), expired=invitation.expires_at <= now(),
                 locked=invitation.failed_attempts >= 20)
@@ -145,14 +149,19 @@ def issue(case_id: str, body: Issue, request: Request, cu=Depends(get_current_us
     if not permitted(db, cu, employment.entity, HR_ROLES):
         raise HTTPException(403, 'Pozvánky vytváří HR.')
     editable(case)
-    if not runtime.invitations_ready():
-        raise HTTPException(503, 'Pozvánky vyžadují zabezpečený portál a nakonfigurované doručování kódů.')
-    address = employment.person.email_personal if body.recipient_source == 'personal' else employment.person.email_work
-    if not body.confirmed or not runtime.valid_email(address):
+    by_link = body.recipient_source == 'link'
+    if not runtime.link_invitations_ready():
+        raise HTTPException(503, 'Pozvánky vyžadují zabezpečenou adresu zaměstnaneckého portálu.')
+    if not by_link and not runtime.invitations_ready():
+        raise HTTPException(503, 'Pro vstup s e-mailovým kódem musí být dostupné doručování kódů.')
+    address = '' if by_link else (employment.person.email_personal if body.recipient_source == 'personal' else employment.person.email_work)
+    if by_link and not body.confirmed:
+        raise HTTPException(422, 'Potvrďte, že soukromý odkaz předáte přímo příslušnému zaměstnanci.')
+    if not by_link and (not body.confirmed or not runtime.valid_email(address)):
         raise HTTPException(422, 'HR musí potvrdit ověřený e-mail příjemce v osobní kartě.')
     previous = db.query(HRInvitation).filter_by(request_key=body.request_key).first()
     if previous:
-        if (previous.case_id, previous.created_by, previous.recipient) != (case.id, cu.id, address):
+        if (previous.case_id, previous.created_by, previous.recipient, previous.recipient_source) != (case.id, cu.id, address, body.recipient_source):
             raise HTTPException(409, 'Klíč požadavku již patří jiné pozvánce.')
         return dict(invitation=invitation_info(previous), url=None, case_version=case.version,
                     notice='Odkaz se zobrazuje jen při vytvoření. Pokud jste jej neuložili, vytvořte novou pozvánku.')
@@ -201,7 +210,7 @@ def revoke(case_id: str, invitation_id: str, body: Revoke, request: Request,
 @router.get('/hr/entry')
 def entry(request: Request):
     check_portal_origin(request)
-    return FileResponse(Path(__file__).resolve().parents[3] / 'frontend/static/hr/entry.html')
+    return page('entry.html')
 
 
 def find_ticket(db, token):
@@ -211,7 +220,31 @@ def find_ticket(db, token):
 
 
 def code_hash(invitation_id, nonce, code):
-    return hmac.new(get_settings().secret_key.encode(), f'hr-code:{invitation_id}:{nonce}:{code}'.encode(), hashlib.sha256).hexdigest()
+    return hmac.new(signing_key(), f'hr-code:{invitation_id}:{nonce}:{code}'.encode(), hashlib.sha256).hexdigest()
+
+
+def establish_session(db, invitation, response, event):
+    from .routes import commit
+    token = secrets.token_urlsafe(32)
+    invitation.session_hash = digest(token)
+    invitation.session_expires_at = min(invitation.expires_at, now() + timedelta(hours=2))
+    invitation.code_digest = None
+    actor = PortalActor(invitation.id, '', invitation.case_id, '')
+    record(db, invitation.case_id, event, actor)
+    commit(db)  # SQL versioning arbitrates simultaneous opens/verifications.
+    response.set_cookie('hr_entry', token, max_age=7200, httponly=True, secure=True, samesite='strict', path='/hr')
+
+
+@router.post('/hr/api/open')
+def open_entry(body: Ticket, request: Request, response: Response, db: Session = Depends(get_db)):
+    check_portal_origin(request, mutation=True)
+    invitation = find_ticket(db, body.token)
+    if invitation.recipient_source != 'link':
+        # Existing invitations retain their original email requirement. A client
+        # cannot downgrade them by choosing this endpoint or supplying a flag.
+        return dict(requires_code=True)
+    establish_session(db, invitation, response, 'entry_opened_by_link')
+    return dict(opened=True, requires_code=False, authentication='invitation_link')
 
 
 @router.post('/hr/api/code')
@@ -219,6 +252,8 @@ def request_code(body: Ticket, request: Request, db: Session = Depends(get_db)):
     from .routes import commit
     check_portal_origin(request, mutation=True)
     invitation = find_ticket(db, body.token)
+    if invitation.recipient_source == 'link':
+        raise HTTPException(409, 'Tato pozvánka se otevírá přímo soukromým odkazem, bez kódu.')
     if invitation.sends >= 10 or (invitation.last_send_at and now() - invitation.last_send_at < timedelta(seconds=60)):
         raise HTTPException(429, 'Další kód lze vyžádat nejdříve za minutu. Při opakovaných potížích kontaktujte HR.')
     if not runtime.invitations_ready():
@@ -235,14 +270,18 @@ def request_code(body: Ticket, request: Request, db: Session = Depends(get_db)):
     record(db, invitation.case_id, 'entry_code_requested', actor)
     commit(db)  # Reserve the rate limit before invoking the delivery adapter.
     try:
-        runtime.send_code(invitation.recipient, code)
-    except Exception:
+        reference = runtime.send_code(invitation.recipient, code)
+    except Exception as exc:
         db.refresh(invitation)
         if invitation.code_nonce == nonce:
-            invitation.code_digest = None
-            record(db, invitation.case_id, 'entry_delivery_failed', actor)
+            invitation.code_digest = None  # an undelivered or uncertain code never stays valid
+            record(db, invitation.case_id, 'entry_delivery_failed', actor,
+                   **({'uncertain': exc.reference} if isinstance(exc, runtime.UncertainDelivery) else {}))
             commit(db)
         raise HTTPException(503, 'Kód se nepodařilo doručit. Za minutu to zkuste znovu nebo kontaktujte HR.')
+    if reference:
+        record(db, invitation.case_id, 'entry_code_handed_over', actor, delivery=reference)
+        commit(db)
     return dict(recipient=masked(invitation.recipient), expires_in=600)
 
 
@@ -251,6 +290,8 @@ def verify(body: Verify, request: Request, response: Response, db: Session = Dep
     from .routes import commit
     check_portal_origin(request, mutation=True)
     invitation = find_ticket(db, body.token)
+    if invitation.recipient_source == 'link':
+        raise HTTPException(409, 'Tato pozvánka se otevírá přímo soukromým odkazem, bez kódu.')
     if (not invitation.code_digest or not invitation.code_expires_at or invitation.code_expires_at <= now()
             or invitation.code_attempts >= 5):
         raise HTTPException(401, 'Kód již neplatí. Vyžádejte nový kód.')
@@ -261,13 +302,7 @@ def verify(body: Verify, request: Request, response: Response, db: Session = Dep
         record(db, invitation.case_id, 'entry_code_failed', actor)
         commit(db)
         raise HTTPException(401, 'Kód nesouhlasí. Zkontrolujte poslední doručený kód.')
-    token = secrets.token_urlsafe(32)
-    invitation.session_hash = digest(token)
-    invitation.session_expires_at = min(invitation.expires_at, now() + timedelta(hours=2))
-    invitation.code_digest = None  # Single use; concurrent verification loses the SQL version race.
-    record(db, invitation.case_id, 'entry_verified', actor)
-    commit(db)
-    response.set_cookie('hr_entry', token, max_age=7200, httponly=True, secure=True, samesite='strict', path='/hr')
+    establish_session(db, invitation, response, 'entry_verified')
     return dict(verified=True)
 
 
