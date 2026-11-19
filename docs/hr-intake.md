@@ -355,11 +355,14 @@ answer from new processes and the employee page names the script that is on disk
 
 | Situation | What happens |
 |---|---|
-| CI still running, or no CI run for the commit | waits; reported after one hour (CI runs only for commits of an open pull request) |
+| CI still running, or no CI run for the commit | waits; reported after one hour. CI runs for pull requests and pushes to `blok-nexus-hr-20261117`, including the exact commit created by a merge. |
 | CI failed | not deployed, reported; a later commit is tried again |
 | readiness check fails (for example a missing schema change) | checkout returns to the previous commit; services are never restarted |
 | a service does not come back healthy | checkout returns to the previous commit, both services restart again, reported |
 | `requirements.txt` changed, history rewritten, tracked changes in the release | left to a person, reported |
+
+The workflow has no path filter: shared CSS, JavaScript, templates and backend routes all trigger the same
+`hr-tests` gate. The gate also runs the workspace and Microsoft 365 read-route tests.
 
 It never forces, merges, migrates the database or installs packages, and a commit that failed is not retried.
 Verified on 17. 11. 2026: a pushed commit was deployed by the job itself after green CI, and a requested

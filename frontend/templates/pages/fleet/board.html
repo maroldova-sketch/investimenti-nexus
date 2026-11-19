@@ -1,19 +1,19 @@
 {% extends "layouts/base.html" %}
-{% block title %}Fleet Board{% endblock %}
-{% block breadcrumb %}Fleet Board{% endblock %}
+{% block title %}Vozový park{% endblock %}
+{% block breadcrumb %}Provoz / Vozový park{% endblock %}
 
 {% block page_header %}
 <div class="page-header">
   <div class="container-xl">
     <div class="row g-2 align-items-center">
       <div class="col">
-        <div class="page-pretitle">Operace</div>
-        <h2 class="page-title">Fleet Board</h2>
+        <div class="page-pretitle">Provoz</div>
+        <h2 class="page-title">Vozový park</h2>
       </div>
       <div class="col-auto ms-auto d-print-none">
         <div class="d-flex gap-2">
-          <a href="/fleet/phm" class="btn btn-outline-secondary btn-sm">⛽ PHM přehled</a>
-          <a href="/import" class="btn btn-outline-secondary btn-sm">↑ Import PHM</a>
+          <a href="/fleet/phm" class="btn btn-primary btn-sm">Tankování a náklady</a>
+          <a href="/import" class="btn btn-outline-secondary btn-sm">Import tankování</a>
         </div>
       </div>
     </div>
@@ -36,9 +36,9 @@
   {% endif %}
 
   {# ── STAT CARDS ROW ─────────────────────────────────────── #}
-  <div class="row g-3 mb-4">
+  <div class="nx-stats-grid mb-4">
 
-    <div class="col-6 col-lg-3 col-xl-2">
+    <div class="nx-stat-cell">
       <div class="card h-100">
         <div class="nx-stat">
           <div class="nx-stat-label">Aktivní</div>
@@ -48,7 +48,7 @@
       </div>
     </div>
 
-    <div class="col-6 col-lg-3 col-xl-2">
+    <div class="nx-stat-cell">
       <div class="card h-100 {% if stk_alert_count > 0 %}card-accent-danger{% endif %}">
         <div class="nx-stat {% if stk_alert_count > 0 %}nx-stat-danger{% endif %}">
           <div class="nx-stat-label">STK prošlá</div>
@@ -58,28 +58,28 @@
       </div>
     </div>
 
-    <div class="col-6 col-lg-3 col-xl-2">
+    <div class="nx-stat-cell">
       <div class="card h-100 {% if phm_canonical.total_kc > 0 %}card-accent-info{% endif %}">
         <div class="nx-stat">
           <div class="nx-stat-label">PHM tento měsíc</div>
-          <div class="nx-stat-value">{{ "{:,.0f}".format(phm_canonical.total_kc).replace(",", "\u00a0") }} Kč</div>
+          <div class="nx-stat-value nx-stat-money">{{ "{:,.0f}".format(phm_canonical.total_kc).replace(",", "\u00a0") }} <span class="nx-stat-unit">Kč</span></div>
           <div class="nx-stat-sub">{{ "{:.1f}".format(phm_canonical.total_litres) }} L · {{ phm_canonical.count }} txn</div>
         </div>
       </div>
     </div>
 
-    <div class="col-6 col-lg-3 col-xl-2">
+    <div class="nx-stat-cell">
       <div class="card h-100">
         <div class="nx-stat">
           <div class="nx-stat-label">PHM min. měsíc</div>
-          <div class="nx-stat-value">{{ "{:,.0f}".format(phm_canonical_prev.total_kc).replace(",", "\u00a0") }} Kč</div>
+          <div class="nx-stat-value nx-stat-money">{{ "{:,.0f}".format(phm_canonical_prev.total_kc).replace(",", "\u00a0") }} <span class="nx-stat-unit">Kč</span></div>
           <div class="nx-stat-sub">{{ "{:.1f}".format(phm_canonical_prev.total_litres) }} L</div>
         </div>
       </div>
     </div>
 
     {% if phm_unresolved_count > 0 %}
-    <div class="col-6 col-lg-3 col-xl-2">
+    <div class="nx-stat-cell">
       <div class="card h-100 card-accent-warning">
         <div class="nx-stat nx-stat-warning">
           <div class="nx-stat-label">PHM nevyřešeno</div>
@@ -91,7 +91,7 @@
     {% endif %}
 
     {% if deduction_pending_count > 0 %}
-    <div class="col-6 col-lg-3 col-xl-2">
+    <div class="nx-stat-cell">
       <div class="card h-100 card-accent-warning">
         <div class="nx-stat nx-stat-warning">
           <div class="nx-stat-label">Srážky ke schválení</div>
@@ -103,7 +103,7 @@
     {% endif %}
 
     {% if open_fines_count > 0 %}
-    <div class="col-6 col-lg-3 col-xl-2">
+    <div class="nx-stat-cell">
       <div class="card h-100 card-accent-danger">
         <div class="nx-stat nx-stat-danger">
           <div class="nx-stat-label">Otevřené pokuty</div>
@@ -115,7 +115,7 @@
     {% endif %}
 
     {% if open_claims_count > 0 %}
-    <div class="col-6 col-lg-3 col-xl-2">
+    <div class="nx-stat-cell">
       <div class="card h-100 card-accent-warning">
         <div class="nx-stat nx-stat-warning">
           <div class="nx-stat-label">Otevřené škody</div>
@@ -127,7 +127,7 @@
     {% endif %}
 
     {% if missing_odo_count > 0 %}
-    <div class="col-6 col-lg-3 col-xl-2">
+    <div class="nx-stat-cell">
       <div class="card h-100 card-accent-warning">
         <div class="nx-stat nx-stat-warning">
           <div class="nx-stat-label">Chybí tachometr</div>
@@ -142,16 +142,16 @@
 
   {# ── FILTER BAR ─────────────────────────────────────────── #}
   <div class="nx-filter-bar">
-    <input type="text" id="nx-search" class="form-control" style="max-width:220px" placeholder="SPZ, řidič, model…">
-    <select id="f-provoz" class="form-select" style="max-width:150px">
+    <input type="text" id="nx-search" class="form-control" placeholder="SPZ, řidič, model…" aria-label="Hledat vozidlo podle SPZ, řidiče nebo modelu">
+    <select id="f-provoz" class="form-select" aria-label="Filtrovat podle provozovatele">
       <option value="">Provozovatel</option>
       <option>VZC</option><option>LOGPACK</option><option>KERA-DENS</option><option>Vlastní</option>
     </select>
-    <select id="f-status" class="form-select" style="max-width:130px">
+    <select id="f-status" class="form-select" aria-label="Filtrovat podle stavu vozidla">
       <option value="">Stav</option>
       <option>aktivní</option><option>rezervní</option><option>vyřazeno</option>
     </select>
-    <select id="f-stk" class="form-select" style="max-width:130px">
+    <select id="f-stk" class="form-select" aria-label="Filtrovat podle platnosti STK">
       <option value="">STK</option>
       <option value="expired">Prošlá</option>
       <option value="warn">Brzy</option>
@@ -186,8 +186,8 @@
               data-stk="{{ v.stk_status }}"
               onclick="location.href='/fleet/{{ v.id }}'">
             <td>
-              <div class="fw-medium">{{ v.make }} {{ v.model }}</div>
-              {% if v.year %}<div class="text-muted" style="font-size:11px">{{ v.year }}{% if v.fuel_type %} · {{ v.fuel_type }}{% endif %}</div>{% endif %}
+              <a class="fw-medium text-reset" href="/fleet/{{ v.id }}">{{ v.make }} {{ v.model }}</a>
+              {% if v.year %}<div class="text-muted small">{{ v.year }}{% if v.fuel_type %} · {{ v.fuel_type }}{% endif %}</div>{% endif %}
             </td>
             <td>
               {% if v.spz %}<code class="spz">{{ v.spz }}</code>
@@ -224,10 +224,10 @@
             </td>
             <td onclick="event.stopPropagation()">
               <div class="dropdown">
-                <button class="btn btn-ghost btn-sm px-2" data-bs-toggle="dropdown">⋯</button>
+                <button class="btn btn-ghost btn-sm px-2" type="button" data-bs-toggle="dropdown" aria-label="Možnosti vozidla {{ v.make }} {{ v.model }} {{ v.spz or '' }}">⋯</button>
                 <ul class="dropdown-menu dropdown-menu-end">
                   <li><a class="dropdown-item" href="/fleet/{{ v.id }}">Detail</a></li>
-                  <li><a class="dropdown-item" href="/fleet/driver/{{ drv.person_id if drv else '' }}">Řidič</a></li>
+                  {% if drv %}<li><a class="dropdown-item" href="/fleet/driver/{{ drv.person_id }}">Řidič</a></li>{% endif %}
                 </ul>
               </div>
             </td>
@@ -276,10 +276,10 @@
   <div class="card mt-3" style="border-left:3px solid #1c7ed6">
     <div class="card-body py-2 d-flex align-items-center justify-content-between">
       <div>
-        <div class="fw-medium" style="font-size:13px">Axigon PHM účet</div>
-        <div class="text-muted" style="font-size:11px">LOGPACK — Premium registrace · Karieta: Chlumčany 165</div>
+        <div class="fw-medium">Palivové karty AXIGON</div>
+        <div class="text-muted small">Přehled podkladů a přiřazení palivových karet</div>
       </div>
-      <a href="/fleet/axigon" class="btn btn-outline-secondary btn-sm">Detail →</a>
+      <a href="/fleet/axigon" class="btn btn-outline-secondary btn-sm">Otevřít AXIGON</a>
     </div>
   </div>
 
